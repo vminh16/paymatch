@@ -27,13 +27,16 @@ from agent_runtime.domain.models import (
     RecordedToolCall,
 )
 from agent_runtime.domain.safety import (
+    build_finding_submission,
     compute_prompt_hash,
     effective_provenance,
     enforce_error_yellow_floor,
     escape_untrusted_delimiters,
+    extract_monetary_amounts_vnd,
     filter_supervisor_tools,
     format_tool_result_block,
     sanitize_finding_for_supervisor,
+    validate_brief_grounding,
 )
 from agent_runtime.llm import (
     CassetteMissError,
@@ -254,3 +257,126 @@ def test_sanitize_finding_for_supervisor_excludes_reason():
     sanitized = sanitize_finding_for_supervisor(f)
     assert set(sanitized.keys()) == {"finding_id", "bot_id", "severity", "reason_codes", "evidence"}
     assert "reason" not in sanitized
+
+
+def test_b2_drops_unowned_reason_codes_and_requires_evidence_for_red_codes():
+    """B2: unowned reason codes are dropped; red codes without valid backing evidence are rejected."""
+    tcl_inv = make_ulid("tcl", 501)
+    calls = [
+        RecordedToolCall(
+            tool_call_id=tcl_inv,
+            tool_id="invoices",
+            provenance=Provenance.untrusted,
+            data={"invoices": []},
+        )
+    ]
+
+    # Case 1: procurement tries to emit OFFICIAL_FRAUD_LIST (owned by fraud-control, not procurement)
+    unowned_out = BotFindingOutput(
+        severity_reported=Severity.red,
+        reason_codes=[ReasonCode.OFFICIAL_FRAUD_LIST],
+        reason="Fake fraud claim from procurement.",
+        evidence=[],
+        provenance=Provenance.trusted,
+    )
+    sub1 = build_finding_submission(
+        bot_id="procurement",
+        bot_version=1,
+        skill_version=1,
+        prompt_hash="sha256:00",
+        output=unowned_out,
+        tool_calls=calls,
+    )
+    assert sub1.severity_reported.value == "yellow"
+    assert [c.value for c in sub1.reason_codes] == ["BOT_INVALID_OUTPUT"]
+
+    # Case 2: fraud-control emits HIDDEN_INSTRUCTION (red) with NO evidence -> rejected, yellow fail-closed
+    no_ev_red = BotFindingOutput(
+        severity_reported=Severity.red,
+        reason_codes=[ReasonCode.HIDDEN_INSTRUCTION],
+        reason="Claimed red without any evidence.",
+        evidence=[],
+        provenance=Provenance.untrusted,
+    )
+    sub2 = build_finding_submission(
+        bot_id="fraud-control",
+        bot_version=1,
+        skill_version=1,
+        prompt_hash="sha256:00",
+        output=no_ev_red,
+        tool_calls=calls,
+    )
+    assert sub2.severity_reported.value == "yellow"
+    assert [c.value for c in sub2.reason_codes] == ["BOT_INVALID_OUTPUT"]
+
+
+def test_b2_official_fraud_list_positive_forces_red_even_if_llm_says_ok():
+    """B2 deterministic floor: positive official_fraud_list forces OFFICIAL_FRAUD_LIST (red) + evidence."""
+    tcl_simo = make_ulid("tcl", 502)
+    calls = [
+        RecordedToolCall(
+            tool_call_id=tcl_simo,
+            tool_id="official_fraud_list",
+            provenance=Provenance.trusted,
+            data={"listed": True, "matches": [{"kind": "account_hash", "listed": True, "list_ref": "SIMO-1"}]},
+        )
+    ]
+    tricked_ok = BotFindingOutput(
+        severity_reported=Severity.green,
+        reason_codes=[ReasonCode.OK],
+        reason="Mọi thứ ổn.",
+        evidence=[],
+        provenance=Provenance.trusted,
+    )
+    sub = build_finding_submission(
+        bot_id="fraud-control",
+        bot_version=1,
+        skill_version=1,
+        prompt_hash="sha256:00",
+        output=tricked_ok,
+        tool_calls=calls,
+    )
+    assert sub.severity_reported.value == "red"
+    assert [c.value for c in sub.reason_codes] == ["OFFICIAL_FRAUD_LIST"]
+    assert any(ev.tool_call_id == tcl_simo for ev in sub.evidence)
+
+
+def test_i1_extract_monetary_amounts_and_validate_brief_grounding():
+    """I1: monetary VND amounts in brief must match cited trusted supervisor tool calls."""
+    from paymatch_contracts.internal import EvidenceRef, Kind1
+    from agent_runtime.domain.models import SupervisorBriefOutput
+
+    assert extract_monetary_amounts_vnd("Tổng 22.400.000 đ vượt trần 30tr và 8,8 triệu.") == [
+        22400000,
+        30000000,
+        8800000,
+    ]
+    tcl_sup = make_ulid("tcl", 503)
+    sup_calls = [
+        RecordedToolCall(
+            tool_call_id=tcl_sup,
+            tool_id="invoice_explain",
+            provenance=Provenance.trusted,
+            data={"invoice": {"total_vnd": 22400000}},
+        )
+    ]
+
+    valid = SupervisorBriefOutput(
+        lines=["Hóa đơn tổng 22.400.000 đ cần xem xét."],
+        cited_evidence=[EvidenceRef(kind=Kind1.tool_call, ref_id=tcl_sup, tool_call_id=tcl_sup)],
+    )
+    assert validate_brief_grounding(valid, findings=[], supervisor_tool_calls=sup_calls) == valid
+
+    uncited = SupervisorBriefOutput(
+        lines=["Hóa đơn tổng 22.400.000 đ cần xem xét."],
+        cited_evidence=[],
+    )
+    with pytest.raises(ValueError, match="uncited or conflicting"):
+        validate_brief_grounding(uncited, findings=[], supervisor_tool_calls=sup_calls)
+
+    conflicting = SupervisorBriefOutput(
+        lines=["Hóa đơn tổng 1.000 đ cần xem xét."],
+        cited_evidence=[EvidenceRef(kind=Kind1.tool_call, ref_id=tcl_sup, tool_call_id=tcl_sup)],
+    )
+    with pytest.raises(ValueError, match="uncited or conflicting"):
+        validate_brief_grounding(conflicting, findings=[], supervisor_tool_calls=sup_calls)

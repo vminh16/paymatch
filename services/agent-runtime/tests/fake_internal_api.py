@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -72,6 +73,10 @@ REASON_CODE_FLOOR: dict[ReasonCode, Severity] = {
     ReasonCode.CUSTOM: Severity.yellow,
 }
 
+_PREFETCH_EXEMPT_CODES: frozenset[ReasonCode] = frozenset(
+    {ReasonCode.BOT_TIMEOUT, ReasonCode.BOT_INVALID_OUTPUT}
+)
+
 _SEV_RANK = {Severity.green: 0, Severity.yellow: 1, Severity.red: 2}
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
@@ -122,6 +127,16 @@ class TokenRecord:
 
 
 @dataclass
+class RecordedServerToolCall:
+    job_id: str
+    attempt: int
+    holder: str
+    tool_id: str
+    tool_call_id: str
+    serialized_data: str
+
+
+@dataclass
 class JobFixture:
     job_id: str
     tenant_id: str
@@ -139,14 +154,25 @@ class JobFixture:
     tool_provenance: dict[str, Provenance] = field(default_factory=dict)
     tool_errors: dict[str, tuple[str, str]] = field(default_factory=dict)
     bot_token_tools_override: dict[str, list[str]] = field(default_factory=dict)
+    invoke_tool_403_tools: set[str] = field(default_factory=set)
     pre_findings: list[FindingForSupervisor] = field(default_factory=list)
     kill_switched_tools: set[str] = field(default_factory=set)
     transient_500_tools: dict[str, int] = field(default_factory=dict)
+    tool_delay_s: dict[str, float] = field(default_factory=dict)
     subject_override: dict[str, Any] | None = None
 
 
 class FakeInternalApiServer:
-    """In-memory fake core internal-api speaking real HTTP via httpx.MockTransport."""
+    """In-memory fake core internal-api speaking real HTTP via async httpx.MockTransport.
+
+    Enforces contract semantics like core:
+    - Strict separation of ServiceKeyAuth vs CapabilityBearerAuth.
+    - Lease checking -> 409 LEASE_LOST.
+    - Prefetch completion on POST /findings (with exact 1f69ce8 fail-closed exemption:
+      reason_codes <= {BOT_TIMEOUT, BOT_INVALID_OUTPUT} and evidence == []).
+    - Evidence ownership on POST /findings (every evidence[].tool_call_id belongs to
+      (job_id, attempt, bot_id) and ref_id matches tool_call_id or appears in its output).
+    """
 
     def __init__(self, service_key: str = "test-service-key") -> None:
         self.service_key = service_key
@@ -159,6 +185,11 @@ class FakeInternalApiServer:
         self._per_holder_tool_seq: dict[tuple[str, str, str], int] = {}
         self._fnd_seq = 100
 
+        # Server-side tool call audit log & session prefetch table for core-like enforcement
+        self._server_tool_calls: dict[str, RecordedServerToolCall] = {}
+        self._called_tools_by_holder: dict[tuple[str, int, str], set[str]] = {}
+        self._required_prefetch: dict[tuple[str, str], list[str]] = {}
+
         # Recorded audit state for assertions
         self.requests: list[tuple[str, str, dict[str, str]]] = []
         self.progress_events: list[JobProgressEventItem] = []
@@ -168,8 +199,13 @@ class FakeInternalApiServer:
         self.completed_jobs: dict[str, dict[str, Any]] = {}
         self.failed_jobs: dict[str, list[FailJobRequest]] = {}
         self.tool_invocations: list[tuple[str, str, dict[str, Any], str]] = []
+
+        # Fault injection knobs
         self.revoke_lease_after_heartbeats: int | None = None
         self.fail_tool_on_409_lease_lost: bool = False
+        self.fail_claim_503_remaining: int = 0
+        self.fail_open_session_503_remaining: int = 0
+        self.fail_heartbeat_503_remaining: int = 0
 
     def enqueue_job(self, fixture: JobFixture) -> None:
         self._jobs[fixture.job_id] = fixture
@@ -229,7 +265,7 @@ class FakeInternalApiServer:
             return self._problem(409, "LEASE_LOST", f"Lease mismatch for {job_id}")
         return None
 
-    def _handle_request(self, request: httpx.Request) -> httpx.Response:
+    async def _handle_request(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
         method = request.method.upper()
         self.requests.append((method, path, dict(request.headers)))
@@ -244,7 +280,7 @@ class FakeInternalApiServer:
 
         m_invoke = re.fullmatch(r"/internal/tools/([a-z][a-z0-9_]*):invoke", path)
         if method == "POST" and m_invoke:
-            return self._handle_invoke_tool(request, m_invoke.group(1), body)
+            return await self._handle_invoke_tool(request, m_invoke.group(1), body)
 
         m_session = re.fullmatch(r"/internal/jobs/(job_[0-9A-HJKMNP-TV-Z]{26})/session", path)
         if method == "POST" and m_session:
@@ -276,6 +312,9 @@ class FakeInternalApiServer:
         err = self._check_service_auth(request)
         if err is not None:
             return err
+        if self.fail_claim_503_remaining > 0:
+            self.fail_claim_503_remaining -= 1
+            return self._problem(503, "UPSTREAM_UNAVAILABLE", "Temporary 503 on jobs:claim")
         if not self._queue:
             return httpx.Response(204)
         fix = self._queue.popleft()
@@ -332,6 +371,9 @@ class FakeInternalApiServer:
         lease_err = self._check_lease(job_id, req.worker_id, req.attempt)
         if lease_err is not None:
             return lease_err
+        if self.fail_open_session_503_remaining > 0:
+            self.fail_open_session_503_remaining -= 1
+            return self._problem(503, "UPSTREAM_UNAVAILABLE", "Temporary 503 on open_session")
 
         fix = self._jobs[job_id]
         skipped_ids = {s.bot_id for s in fix.skipped}
@@ -364,6 +406,8 @@ class FakeInternalApiServer:
             plug = self._plugins[bid]
             granted_tools = fix.bot_token_tools_override.get(bid, list(plug.manifest.tools))
             btok = self._next_token(bid, job_id, req.attempt, granted_tools)
+            prefetch_list = list(plug.skill.prefetch)
+            self._required_prefetch[(job_id, bid)] = prefetch_list
             bot_grants.append(
                 BotSessionGrant(
                     bot_id=bid,
@@ -377,7 +421,7 @@ class FakeInternalApiServer:
                             content_md=plug.skill.content_md,
                         )
                     ],
-                    prefetch=list(plug.skill.prefetch),
+                    prefetch=prefetch_list,
                     capability_token=btok,
                     token_exp=exp,
                 )
@@ -411,6 +455,9 @@ class FakeInternalApiServer:
         if lease_err is not None:
             return lease_err
         self.heartbeats.append(req)
+        if self.fail_heartbeat_503_remaining > 0:
+            self.fail_heartbeat_503_remaining -= 1
+            return self._problem(503, "UPSTREAM_UNAVAILABLE", "Temporary 503 on heartbeat")
         if (
             self.revoke_lease_after_heartbeats is not None
             and len(self.heartbeats) >= self.revoke_lease_after_heartbeats
@@ -419,7 +466,6 @@ class FakeInternalApiServer:
             return self._problem(409, "LEASE_LOST", "Lease revoked on heartbeat")
 
         exp = datetime(2026, 11, 26, 8, 35, 0, tzinfo=timezone.utc)
-        # Renew tokens for every holder associated with this job
         holders: dict[str, list[str]] = {}
         for rec in list(self._tokens.values()):
             if rec.job_id == job_id and rec.attempt == req.attempt:
@@ -471,7 +517,7 @@ class FakeInternalApiServer:
         ]
         return httpx.Response(200, json=defs)
 
-    def _handle_invoke_tool(
+    async def _handle_invoke_tool(
         self, request: httpx.Request, tool_id: str, body: dict[str, Any]
     ) -> httpx.Response:
         rec = self._check_capability_auth(request)
@@ -482,10 +528,14 @@ class FakeInternalApiServer:
             return self._problem(409, "LEASE_LOST", "Lease lost during tool invoke")
 
         fix = self._jobs[rec.job_id]
+        delay = fix.tool_delay_s.get(tool_id, 0.0)
+        if delay > 0:
+            await asyncio.sleep(delay)
+
         raw_tok = request.headers["authorization"][len("Bearer ") :]
         self.tool_invocations.append((rec.holder, tool_id, body.get("input", {}), raw_tok))
 
-        if tool_id not in rec.tools:
+        if tool_id not in rec.tools or tool_id in fix.invoke_tool_403_tools:
             return self._problem(
                 403,
                 "TOOL_NOT_GRANTED",
@@ -505,8 +555,20 @@ class FakeInternalApiServer:
             tool_id,
             Provenance.untrusted if tool_id in {"invoices", "inbox", "chat_messages"} else Provenance.trusted,
         )
+
+        # Record tool call for prefetch & evidence ownership enforcement
+        self._called_tools_by_holder.setdefault((rec.job_id, rec.attempt, rec.holder), set()).add(tool_id)
+
         if tool_id in fix.tool_errors:
             code, detail = fix.tool_errors[tool_id]
+            self._server_tool_calls[tcl_id] = RecordedServerToolCall(
+                job_id=rec.job_id,
+                attempt=rec.attempt,
+                holder=rec.holder,
+                tool_id=tool_id,
+                tool_call_id=tcl_id,
+                serialized_data="{}",
+            )
             return httpx.Response(
                 200,
                 json={
@@ -517,6 +579,14 @@ class FakeInternalApiServer:
                 },
             )
         data = fix.tool_outputs.get(tool_id, {})
+        self._server_tool_calls[tcl_id] = RecordedServerToolCall(
+            job_id=rec.job_id,
+            attempt=rec.attempt,
+            holder=rec.holder,
+            tool_id=tool_id,
+            tool_call_id=tcl_id,
+            serialized_data=json.dumps(data, ensure_ascii=False),
+        )
         return httpx.Response(
             200,
             json={
@@ -533,13 +603,67 @@ class FakeInternalApiServer:
         rec = self._check_capability_auth(request)
         if isinstance(rec, httpx.Response):
             return rec
+        if rec.job_id != job_id:
+            return self._problem(403, "FORBIDDEN", "Token job_id mismatch")
         sub = FindingSubmission.model_validate(body)
         if sub.bot_id != rec.holder:
             return self._problem(403, "FORBIDDEN", "bot_id does not match capability token sub")
 
+        rc_list = [ReasonCode(c.value) for c in sub.reason_codes]
+
+        # Enforce evidence ownership like core (core-internal.yaml §submitFinding):
+        # every evidence[].tool_call_id must belong to (job_id, attempt, bot_id), and
+        # ref_id must equal tool_call_id (for kind=tool_call) or appear in that tool_call's output.
+        for ev in sub.evidence:
+            call_rec = self._server_tool_calls.get(ev.tool_call_id)
+            if call_rec is None:
+                return self._problem(
+                    400,
+                    "VALIDATION_FAILED",
+                    f"Unknown evidence tool_call_id={ev.tool_call_id}",
+                )
+            if (call_rec.job_id, call_rec.attempt, call_rec.holder) != (
+                job_id,
+                rec.attempt,
+                rec.holder,
+            ):
+                return self._problem(
+                    400,
+                    "VALIDATION_FAILED",
+                    f"Evidence tool_call_id={ev.tool_call_id} not owned by ({job_id}, {rec.attempt}, {rec.holder})",
+                )
+            if ev.kind.value == "tool_call":
+                if ev.ref_id != ev.tool_call_id:
+                    return self._problem(
+                        400,
+                        "VALIDATION_FAILED",
+                        f"tool_call evidence ref_id={ev.ref_id} must match tool_call_id={ev.tool_call_id}",
+                    )
+            elif ev.ref_id not in call_rec.serialized_data:
+                return self._problem(
+                    400,
+                    "VALIDATION_FAILED",
+                    f"Evidence ref_id={ev.ref_id} not found in output of {ev.tool_call_id}",
+                )
+
+        # Enforce prefetch completion per contract 1f69ce8:
+        # Exempt ONLY when reason_codes <= {BOT_TIMEOUT, BOT_INVALID_OUTPUT} AND evidence == [].
+        is_fail_closed_exempt = (
+            set(rc_list) <= _PREFETCH_EXEMPT_CODES and len(sub.evidence) == 0
+        )
+        if not is_fail_closed_exempt:
+            required = set(self._required_prefetch.get((job_id, rec.holder), []))
+            called = self._called_tools_by_holder.get((job_id, rec.attempt, rec.holder), set())
+            missing = sorted(required - called)
+            if missing:
+                return self._problem(
+                    400,
+                    "VALIDATION_FAILED",
+                    f"Missing required prefetch tool(s) for {rec.holder}: {missing}",
+                )
+
         self.submitted_findings.setdefault(job_id, []).append(sub)
         fnd_id = make_deterministic_ulid("fnd", f"{job_id}:{sub.bot_id}")
-        rc_list = [ReasonCode(c.value) for c in sub.reason_codes]
         sev = apply_finding_floor(Severity(sub.severity_reported.value), rc_list)
         ev_list = [
             EvidenceRef(
@@ -557,7 +681,6 @@ class FakeInternalApiServer:
             reason_codes=rc_list,
             evidence=ev_list,
         )
-        # Replace previous finding by same bot if any
         stored = self.stored_findings_for_sup.setdefault(job_id, [])
         stored[:] = [f for f in stored if f.bot_id != sub.bot_id]
         stored.append(sup_finding)
@@ -577,6 +700,7 @@ class FakeInternalApiServer:
         fix = self._jobs[job_id]
         if fix.task_type in (TaskType.question, TaskType.report):
             self.completed_jobs[job_id] = {
+                "raw_body": body,
                 "request": req,
                 "status": "completed",
             }
@@ -633,6 +757,7 @@ class FakeInternalApiServer:
             all_reason_codes = [ReasonCode.OK]
 
         self.completed_jobs[job_id] = {
+            "raw_body": body,
             "request": req,
             "findings": stored,
             "final_severity": final_sev,

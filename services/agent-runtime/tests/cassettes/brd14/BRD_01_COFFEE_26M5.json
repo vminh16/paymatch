@@ -1,11 +1,54 @@
 {
   "entries": {
-    "017f918bf266c3ce202470e04dae3705edfacaf7034a9e1ef098d365b90f396f": {
+    "0ae153f5767d8d60dcff2a68873832859efbecde0a7ebefe85f6c68993e53a8d": {
       "response": {
-        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"TK trùng danh bạ verified, không có cảnh báo chéo hay SIMO.\", \"evidence\": [{\"kind\": \"vendor_account\", \"ref_id\": \"vac_00000000000000000000000035\", \"tool_call_id\": \"tcl_3RNCR3KZBTFXP28QDHD8ZKNEBS\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "content": null,
         "model": "demo-replay-v1",
         "parsed": null,
-        "tool_calls": []
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_2",
+            "name": "ask_accounts-payable"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_3",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_4",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_5",
+            "name": "ask_treasury"
+          }
+        ]
       }
     },
     "0e693549cb6c54c72062b1d86238abdd2134e3e45eb12476d8dcb410fbc4a693": {
@@ -19,14 +62,6 @@
     "157f9a2aa77e98ea03c18291bb8079b8caea8fc400e52d3e1b65d712c45f5e1d": {
       "response": {
         "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Khớp đối chiếu 3 chiều PO, GRN và hóa đơn; không trùng công nợ.\", \"evidence\": [{\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
-      }
-    },
-    "1cd7b134cff129746f9177065675c015c3fc2160dbaee83445ff8bc09837a0e8": {
-      "response": {
-        "content": "{\"lines\": [\"Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.\", \"Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi 30 triệu.\"], \"cited_evidence\": [{\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}, {\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []
@@ -71,48 +106,20 @@
         "tool_calls": []
       }
     },
-    "e5a9f54c816e6abbe3c58204080486e45d446dc38d5e5323cc990270d60bf620": {
+    "8159e9abec28bf21e176c31361a92af2f6ffafbccc16162e8699435e87b7eac3": {
       "response": {
-        "content": null,
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"TK trùng danh bạ verified, không có cảnh báo chéo hay SIMO.\", \"evidence\": [{\"kind\": \"vendor_account\", \"ref_id\": \"vac_00000000000000000000000035\", \"tool_call_id\": \"tcl_3RNCR3KZBTFXP28QDHD8ZKNEBS\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
         "model": "demo-replay-v1",
         "parsed": null,
-        "tool_calls": [
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000035"
-            },
-            "id": "sup_1",
-            "name": "ask_procurement"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000035"
-            },
-            "id": "sup_2",
-            "name": "ask_accounts-payable"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000035"
-            },
-            "id": "sup_3",
-            "name": "ask_fraud-control"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000035"
-            },
-            "id": "sup_4",
-            "name": "ask_tax"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000035"
-            },
-            "id": "sup_5",
-            "name": "ask_treasury"
-          }
-        ]
+        "tool_calls": []
+      }
+    },
+    "a3ca4770fa0543f065e1cd8e84dc443d1fccab49ce6d167037d7e122a8c718f6": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.\", \"Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi 30 triệu.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\", \"tool_call_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\"}, {\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}, {\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}]}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
       }
     },
     "ebc39667a342f36a18e0bf698237fe645df5b6152e6f7448e5b25cd5eb85e6bf": {

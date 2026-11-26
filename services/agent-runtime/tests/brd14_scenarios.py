@@ -14,9 +14,10 @@ from paymatch_contracts.internal import (
     Provenance,
     ReasonCode,
     Severity,
+    ToolDefinition,
 )
 
-from agent_runtime.domain.models import LLMMessage, LLMResponse, LLMToolCall, LLMToolSchema
+from agent_runtime.domain.models import LLMResponse, LLMToolCall
 from agent_runtime.llm import FakeLLM
 
 from fake_internal_api import JobFixture, make_deterministic_ulid, make_ulid
@@ -33,6 +34,19 @@ BRD_14_TEMPLATE_IDS = [
     "BRD_05_POS_SOFTWARE_12M",
     "BRD_06_WATER_STORE3_4M2",
 ]
+
+_INVOICE_EXPLAIN_DEF = ToolDefinition(
+    tool_id="invoice_explain",
+    description="Tra cứu số liệu hóa đơn tin cậy và trạng thái (trusted).",
+    input_schema={
+        "type": "object",
+        "properties": {"invoice_id": {"type": "string"}},
+        "required": ["invoice_id"],
+    },
+    output_schema={"type": "object"},
+    default_provenance=Provenance.trusted,
+    scope="tenant",
+)
 
 
 def load_brd14_expectations() -> dict[str, dict[str, Any]]:
@@ -94,7 +108,16 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.goods,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {
+                        "invoice_id": inv_id,
+                        "total_vnd": 26500000,
+                        "per_invoice_limit_vnd": 30000000,
+                    },
+                    "findings": [],
+                },
                 "invoices": {
                     "invoices": [
                         {
@@ -160,6 +183,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 },
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_proc = [{"kind": "invoice_line", "ref_id": lin_id, "tool_call_id": _tcl(job_id, "procurement", "price_check")}]
         ev_ap = [{"kind": "goods_receipt", "ref_id": grn_id, "tool_call_id": _tcl(job_id, "accounts-payable", "three_way_match")}]
         ev_fc = [{"kind": "vendor_account", "ref_id": vac_id, "tool_call_id": _tcl(job_id, "fraud-control", "vendor_registry")}]
@@ -172,6 +196,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_procurement", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_accounts-payable", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_3", name="ask_fraud-control", arguments={"invoice_id": inv_id}),
@@ -186,7 +211,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.",
                                 "Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi 30 triệu.",
                             ],
-                            ev_proc + ev_ap,
+                            ev_sup + ev_proc + ev_ap,
                         ),
                         model="demo-replay-v1",
                     ),
@@ -279,7 +304,16 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.goods,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {
+                        "invoice_id": inv_id,
+                        "total_vnd": 31000000,
+                        "per_invoice_limit_vnd": 30000000,
+                    },
+                    "findings": [],
+                },
                 "invoices": {
                     "invoices": [
                         {
@@ -336,6 +370,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 },
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_fc = [{"kind": "message", "ref_id": msg_id, "tool_call_id": _tcl(job_id, "fraud-control", "chat_messages")}]
         ev_tr = [{"kind": "tool_call", "ref_id": _tcl(job_id, "treasury", "payment_policy_preview"), "tool_call_id": _tcl(job_id, "treasury", "payment_policy_preview")}]
 
@@ -345,6 +380,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_procurement", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_accounts-payable", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_3", name="ask_fraud-control", arguments={"invoice_id": inv_id}),
@@ -360,7 +396,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Phát hiện URGENCY_PRESSURE qua Zalo và OVER_LIMIT vượt trần 30tr/HĐ.",
                                 "Đề xuất gọi lại số trong danh bạ NCC để xác minh (F12) trước khi xử lý.",
                             ],
-                            ev_fc + ev_tr,
+                            ev_sup + ev_fc + ev_tr,
                         ),
                         model="demo-replay-v1",
                     ),
@@ -421,7 +457,12 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.goods,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {"invoice_id": inv_id, "total_vnd": 22400000},
+                    "findings": [],
+                },
                 "invoices": {
                     "invoices": [
                         {
@@ -460,6 +501,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "payment_policy_preview": {"decision": "REQUIRE_APPROVAL", "amount_vnd": 22400000, "channel": "bank_transfer", "reasons": []},
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_proc = [
             {"kind": "invoice_line", "ref_id": lin_id, "tool_call_id": _tcl(job_id, "procurement", "price_check")},
             {"kind": "contract_item", "ref_id": itm_id, "tool_call_id": _tcl(job_id, "procurement", "price_check")},
@@ -470,6 +512,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_procurement", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_accounts-payable", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_3", name="ask_fraud-control", arguments={"invoice_id": inv_id}),
@@ -484,7 +527,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Hóa đơn ly nhựa PP 500ml 22.400.000 đ có cảnh báo vàng từ Thu mua.",
                                 "Phát hiện PACK_SIZE_CHANGED (800 vs 1.000 cái/thùng) và PRICE_ABOVE_CONTRACT (+21,74%).",
                             ],
-                            ev_proc,
+                            ev_sup + ev_proc,
                         ),
                         model="demo-replay-v1",
                     ),
@@ -543,7 +586,6 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
         doc_id = make_ulid("doc", 104)
         msg_id = "msg_01M88DJVTSCF9ES122WJQT15ZM"
 
-        # Ingest system finding UNKNOWN_VENDOR is pre-recorded by core during XML ingest
         ingest_finding = FindingForSupervisor(
             finding_id=make_deterministic_ulid("fnd", f"{job_id}:ingest"),
             bot_id="ingest",
@@ -563,8 +605,13 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.goods,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             pre_findings=[ingest_finding],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {"invoice_id": inv_id, "total_vnd": 8800000},
+                    "findings": [],
+                },
                 "invoices": {
                     "invoices": [
                         {
@@ -619,6 +666,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "payment_policy_preview": {"decision": "DENY", "amount_vnd": 8800000, "channel": "escrow", "reasons": []},
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_fc = [
             {"kind": "invoice_document", "ref_id": doc_id, "tool_call_id": _tcl(job_id, "fraud-control", "invoices")},
             {"kind": "message", "ref_id": msg_id, "tool_call_id": _tcl(job_id, "fraud-control", "chat_messages")},
@@ -633,6 +681,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_procurement", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_accounts-payable", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_3", name="ask_fraud-control", arguments={"invoice_id": inv_id}),
@@ -648,7 +697,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Phát hiện HIDDEN_INSTRUCTION, PERSONAL_ACCOUNT, TAX_RISK_LIST và VAT_DEDUCTION_RISK.",
                                 "Đề xuất Từ chối hoặc chỉ mở cọc tạm giữ escrow vào TK công ty đã xác minh.",
                             ],
-                            ev_fc + ev_tax,
+                            ev_sup + ev_fc + ev_tax,
                         ),
                         model="demo-replay-v1",
                     ),
@@ -712,7 +761,12 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.software,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {"invoice_id": inv_id, "total_vnd": 12000000},
+                    "findings": [],
+                },
                 "invoices": {
                     "invoices": [
                         {
@@ -736,6 +790,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "payment_policy_preview": {"decision": "ALLOW", "amount_vnd": 12000000, "channel": "virtual_card", "reasons": []},
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_tr = [{"kind": "tool_call", "ref_id": _tcl(job_id, "treasury", "payment_policy_preview"), "tool_call_id": _tcl(job_id, "treasury", "payment_policy_preview")}]
         llm = FakeLLM(
             model="demo-replay-v1",
@@ -743,6 +798,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_procurement", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_fraud-control", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_3", name="ask_tax", arguments={"invoice_id": inv_id}),
@@ -756,7 +812,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Hóa đơn phần mềm POS 12.000.000 đ (16 điểm, KCT) hợp lệ toàn bộ.",
                                 "Thủ quỹ đề xuất cấp thẻ ảo virtual_card khóa theo merchant POS.",
                             ],
-                            ev_tr,
+                            ev_sup + ev_tr,
                         ),
                         model="demo-replay-v1",
                     ),
@@ -803,9 +859,14 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             tenant_id=ten_id,
             invoice_id=inv_id,
             invoice_type=InvoiceType.utility,
+            supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             active_bot_ids=["branch-operations", "treasury"],
             required_bot_ids=["branch-operations", "treasury"],
             tool_outputs={
+                "invoice_explain": {
+                    "invoice": {"invoice_id": inv_id, "total_vnd": 4214333},
+                    "findings": [],
+                },
                 "utility_bills": {
                     "readings": [
                         {
@@ -841,6 +902,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "payment_policy_preview": {"decision": "REQUIRE_APPROVAL", "amount_vnd": 4214333, "channel": "bank_transfer", "reasons": []},
             },
         )
+        ev_sup = [{"kind": "tool_call", "ref_id": _tcl(job_id, "supervisor", "invoice_explain"), "tool_call_id": _tcl(job_id, "supervisor", "invoice_explain")}]
         ev_bo = [
             {"kind": "utility_reading", "ref_id": urd_id, "tool_call_id": _tcl(job_id, "branch-operations", "utility_baseline")},
             {"kind": "tool_call", "ref_id": _tcl(job_id, "branch-operations", "momo_revenue"), "tool_call_id": _tcl(job_id, "branch-operations", "momo_revenue")},
@@ -851,6 +913,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                 "chief-accountant": [
                     LLMResponse(
                         tool_calls=[
+                            LLMToolCall(id="sup_0", name="invoice_explain", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_1", name="ask_branch-operations", arguments={"invoice_id": inv_id}),
                             LLMToolCall(id="sup_2", name="ask_treasury", arguments={"invoice_id": inv_id}),
                         ],
@@ -862,7 +925,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                                 "Hóa đơn nước Quán 3 kỳ 2026-11 tổng 4.214.333 đ (144 m³) có cảnh báo vàng UTILITY_OUT_OF_RANGE.",
                                 "Tiêu thụ gấp 6 lần trung vị 12 tháng trong khi doanh thu MoMo không tăng; đề xuất kiểm tra rò nước.",
                             ],
-                            ev_bo,
+                            ev_sup + ev_bo,
                         ),
                         model="demo-replay-v1",
                     ),

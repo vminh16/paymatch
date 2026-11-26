@@ -1,19 +1,41 @@
 {
   "entries": {
-    "2c93b8a4fc83364fad169f74bc5c40be934d3d82584fabb71f20cc7d3d6b2afe": {
-      "response": {
-        "content": "{\"lines\": [\"Hóa đơn nước Quán 3 kỳ 2026-11 tổng 4.214.333 đ (144 m³) có cảnh báo vàng UTILITY_OUT_OF_RANGE.\", \"Tiêu thụ gấp 6 lần trung vị 12 tháng trong khi doanh thu MoMo không tăng; đề xuất kiểm tra rò nước.\"], \"cited_evidence\": [{\"kind\": \"utility_reading\", \"ref_id\": \"urd_0000000000000000000000003A\", \"tool_call_id\": \"tcl_1V2SNW7AAWHQK2NGPTJXNT39PG\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\", \"tool_call_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\"}]}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
-      }
-    },
     "4295fd1e3e9ac3825dd3aa66014d1340ad151173124ea643a8179b0fdef345b7": {
       "response": {
         "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư thanh toán 4.214.333 đ; chờ quản lý quán xác minh chỉ số nước.\", \"evidence\": [], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-11-27\"}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []
+      }
+    },
+    "61830ffde5e52b1cddfdbda2ea62ea41156bdbea67e81db7b5a87f31ae41040b": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_0000000000000000000000003A"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_0000000000000000000000003A"
+            },
+            "id": "sup_1",
+            "name": "ask_branch-operations"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_0000000000000000000000003A"
+            },
+            "id": "sup_2",
+            "name": "ask_treasury"
+          }
+        ]
       }
     },
     "658b9e383c219da036b6ba4d416b2595f9d4fe8d6882a90d90574c048f619c27": {
@@ -41,27 +63,12 @@
         ]
       }
     },
-    "96c17bfe58ae0faf9259f42e5f0ffd14c146e238abde45405687514e00bee596": {
+    "f8bcf6359bd4a3c0e8f184b06eebc6298c29b951ce57d73b95d3822bda9fd39b": {
       "response": {
-        "content": null,
+        "content": "{\"lines\": [\"Hóa đơn nước Quán 3 kỳ 2026-11 tổng 4.214.333 đ (144 m³) có cảnh báo vàng UTILITY_OUT_OF_RANGE.\", \"Tiêu thụ gấp 6 lần trung vị 12 tháng trong khi doanh thu MoMo không tăng; đề xuất kiểm tra rò nước.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_21S5Q5K4T63C6G025TRBVC54NS\", \"tool_call_id\": \"tcl_21S5Q5K4T63C6G025TRBVC54NS\"}, {\"kind\": \"utility_reading\", \"ref_id\": \"urd_0000000000000000000000003A\", \"tool_call_id\": \"tcl_1V2SNW7AAWHQK2NGPTJXNT39PG\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\", \"tool_call_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
-        "tool_calls": [
-          {
-            "arguments": {
-              "invoice_id": "inv_0000000000000000000000003A"
-            },
-            "id": "sup_1",
-            "name": "ask_branch-operations"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_0000000000000000000000003A"
-            },
-            "id": "sup_2",
-            "name": "ask_treasury"
-          }
-        ]
+        "tool_calls": []
       }
     }
   },

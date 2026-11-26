@@ -1,6 +1,6 @@
 {
   "entries": {
-    "0df22064fc51f3c373a0a65d0de067e1f15fa55f7485b86cfcc4d57dda4365da": {
+    "0390392979a5437f0bc231fac0cae184e7c2c1c8e044a04cbfb54aa11eb38056": {
       "response": {
         "content": null,
         "model": "demo-replay-v1",
@@ -14,17 +14,9 @@
         ]
       }
     },
-    "35e59cfc860eacc9db7120872de96f4969fb94d64eb431c31bf40434d62e86f8": {
+    "316da605d87c93328732292cc86a97d0d67b59a2f595f1ae874b50896f0af30d": {
       "response": {
-        "content": "{\"lines\": [\"Hóa đơn si-rô 8.800.000 đ từ NCC mới 0999090001 bị khóa đỏ.\", \"Phát hiện HIDDEN_INSTRUCTION, PERSONAL_ACCOUNT, TAX_RISK_LIST và VAT_DEDUCTION_RISK.\", \"Đề xuất Từ chối hoặc chỉ mở cọc tạm giữ escrow vào TK công ty đã xác minh.\"], \"cited_evidence\": [{\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}]}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
-      }
-    },
-    "616ac5b03cc01d6455d11f1ce337c5a0da68c83ca0c4f2cbd0fa76426776d7d7": {
-      "response": {
-        "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"PERSONAL_ACCOUNT\", \"HIDDEN_INSTRUCTION\"], \"reason\": \"Phát hiện câu lệnh giấu trong TTKhac và yêu cầu chuyển cọc vào TK cá nhân 998800011100.\", \"evidence\": [{\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "content": "{\"lines\": [\"Hóa đơn si-rô 8.800.000 đ từ NCC mới 0999090001 bị khóa đỏ.\", \"Phát hiện HIDDEN_INSTRUCTION, PERSONAL_ACCOUNT, TAX_RISK_LIST và VAT_DEDUCTION_RISK.\", \"Đề xuất Từ chối hoặc chỉ mở cọc tạm giữ escrow vào TK công ty đã xác minh.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\", \"tool_call_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\"}, {\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []
@@ -46,12 +38,35 @@
         "tool_calls": []
       }
     },
-    "7fd3760a98794e70a09315f106586d8e217387fd63f9508df02ced30ba83065c": {
+    "adc071f08757f2a79b81cc691c00bf4314b893228523cf295941724e182999c3": {
+      "response": {
+        "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"PERSONAL_ACCOUNT\", \"HIDDEN_INSTRUCTION\"], \"reason\": \"Phát hiện câu lệnh giấu trong TTKhac và yêu cầu chuyển cọc vào TK cá nhân 998800011100.\", \"evidence\": [{\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "b032586e4c4bbd8e18f413df9e8ed0bb08465b4a566f89594fc0319515badde4": {
+      "response": {
+        "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"TAX_RISK_LIST\", \"VAT_DEDUCTION_RISK\"], \"reason\": \"MST 0999090001 nằm trong DS DN rủi ro thuế và HĐ 8,8tr (>=5tr) trả TK cá nhân mất khấu trừ VAT.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "c2bca093f6cb39f36cb219a0fce92fefad9e2b33c0a74ba322f1164a0b71c51b": {
       "response": {
         "content": null,
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000038"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
           {
             "arguments": {
               "invoice_id": "inv_00000000000000000000000038"
@@ -88,14 +103,6 @@
             "name": "ask_treasury"
           }
         ]
-      }
-    },
-    "b032586e4c4bbd8e18f413df9e8ed0bb08465b4a566f89594fc0319515badde4": {
-      "response": {
-        "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"TAX_RISK_LIST\", \"VAT_DEDUCTION_RISK\"], \"reason\": \"MST 0999090001 nằm trong DS DN rủi ro thuế và HĐ 8,8tr (>=5tr) trả TK cá nhân mất khấu trừ VAT.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
       }
     },
     "dfc214eabf8882b0f2fd210dd547b3df9998807d3a8bf2be47c8ace7058a3cd3": {

@@ -16,9 +16,60 @@
         "tool_calls": []
       }
     },
-    "3a54d48179ceb1aac0c7a72a45af2684e4d3656c19d82662e2709ea161b804df": {
+    "40cd78f632694cb5edfd61340da4b728bd551d46b3ae88a6c307f08fe23b40a0": {
       "response": {
-        "content": "{\"lines\": [\"Hóa đơn ly nhựa PP 500ml 22.400.000 đ có cảnh báo vàng từ Thu mua.\", \"Phát hiện PACK_SIZE_CHANGED (800 vs 1.000 cái/thùng) và PRICE_ABOVE_CONTRACT (+21,74%).\"], \"cited_evidence\": [{\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}, {\"kind\": \"contract_item\", \"ref_id\": \"itm_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}]}",
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_2",
+            "name": "ask_accounts-payable"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_3",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_4",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_5",
+            "name": "ask_treasury"
+          }
+        ]
+      }
+    },
+    "41d73be53ce6afe43ffe44842e845218d238a6081dabb16e7052950a2f94cc92": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn ly nhựa PP 500ml 22.400.000 đ có cảnh báo vàng từ Thu mua.\", \"Phát hiện PACK_SIZE_CHANGED (800 vs 1.000 cái/thùng) và PRICE_ABOVE_CONTRACT (+21,74%).\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_5RPQ9KWCQ5QCA29VTD48WJVBCS\", \"tool_call_id\": \"tcl_5RPQ9KWCQ5QCA29VTD48WJVBCS\"}, {\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}, {\"kind\": \"contract_item\", \"ref_id\": \"itm_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []
@@ -76,14 +127,6 @@
         ]
       }
     },
-    "a0e2ddee52bfea368eb4041c4d17eaf3b34f1d3eafe7940d85fbed9ae79d03cf": {
-      "response": {
-        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Không có dấu hiệu gian lận.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
-      }
-    },
     "a532d9f86790b5bcdfadb221f598a2bd5aa76ae280ac677251a192a619248e24": {
       "response": {
         "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Thuế hợp lệ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
@@ -92,48 +135,12 @@
         "tool_calls": []
       }
     },
-    "eb18e8f92584422a42abd50be53d196971e4c7e4a8121e1a37aeb55dd9a172ed": {
+    "d47c8999d166943270ba01ec2f74e7c2002d01ccb3fa1cf25138814665235b73": {
       "response": {
-        "content": null,
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Không có dấu hiệu gian lận.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
         "model": "demo-replay-v1",
         "parsed": null,
-        "tool_calls": [
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000037"
-            },
-            "id": "sup_1",
-            "name": "ask_procurement"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000037"
-            },
-            "id": "sup_2",
-            "name": "ask_accounts-payable"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000037"
-            },
-            "id": "sup_3",
-            "name": "ask_fraud-control"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000037"
-            },
-            "id": "sup_4",
-            "name": "ask_tax"
-          },
-          {
-            "arguments": {
-              "invoice_id": "inv_00000000000000000000000037"
-            },
-            "id": "sup_5",
-            "name": "ask_treasury"
-          }
-        ]
+        "tool_calls": []
       }
     }
   },
