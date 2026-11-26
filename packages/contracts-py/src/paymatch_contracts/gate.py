@@ -63,8 +63,9 @@ class EvaluateInvoiceRequest(BaseModel):
 type MoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND không âm (integer, đơn vị đồng).',
+        description='Số tiền VND không âm (integer trong khoảng safe integer [0, 9007199254740991], đơn vị đồng).',
         ge=0,
+        le=9007199254740991,
         title='MoneyVnd',
     ),
 ]
@@ -98,6 +99,7 @@ class Code(StrEnum):
     VENDOR_SUSPENDED = 'VENDOR_SUSPENDED'
     APPROVAL_MISSING = 'APPROVAL_MISSING'
     APPROVAL_STALE = 'APPROVAL_STALE'
+    ESCROW_MISMATCH = 'ESCROW_MISMATCH'
 
 
 class Layer(StrEnum):
@@ -265,6 +267,34 @@ class GateDeniedProblem(BaseModel):
     payment_intent: PaymentIntent | None = None
 
 
+class PaymentIntent1(PaymentIntent):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    status: Annotated[
+        Literal['denied'],
+        Field(
+            description='Trạng thái PaymentIntent trong Payment Gate.',
+            title='PaymentIntentStatus',
+        ),
+    ]
+
+
+class IntentGateDeniedProblem(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    type: AnyUrl
+    title: str
+    status: Literal[422]
+    code: Literal['GATE_DENIED']
+    detail: str | None = None
+    instance: str | None = None
+    gate_reasons: Annotated[list[GateReason], Field(min_length=1)]
+    payment_intent: PaymentIntent1
+
+
 type PaymentIntentStateMachineStatus = PaymentIntentStatus
 
 
@@ -310,7 +340,7 @@ class EvaluateResponse(BaseModel):
     reasons: Annotated[
         list[GateReason],
         Field(
-            description='Danh sách mã lý do của Payment Gate (`BLOCKED_INVOICE`, `PAYEE_NOT_VERIFIED`, `ABOVE_PER_INVOICE_LIMIT`, `ABOVE_DAILY_LIMIT`, `CROSS_ALERT_UNVERIFIED`, `OFFICIAL_FRAUD_LIST`, `KILL_SWITCH`, `POLICY_UNAVAILABLE`, `CHANNEL_NOT_ALLOWED`, `ALREADY_PAID`, `OUTSIDE_TIME_WINDOW`, `MANDATE_NOT_AUTO_PAY`, `VENDOR_NOT_IN_AUTO_PAY`, `VENDOR_SUSPENDED`, `APPROVAL_MISSING`, `APPROVAL_STALE`).\n'
+            description='Danh sách mã lý do của Payment Gate (`BLOCKED_INVOICE`, `PAYEE_NOT_VERIFIED`, `ABOVE_PER_INVOICE_LIMIT`, `ABOVE_DAILY_LIMIT`, `CROSS_ALERT_UNVERIFIED`, `OFFICIAL_FRAUD_LIST`, `KILL_SWITCH`, `POLICY_UNAVAILABLE`, `CHANNEL_NOT_ALLOWED`, `ALREADY_PAID`, `OUTSIDE_TIME_WINDOW`, `MANDATE_NOT_AUTO_PAY`, `VENDOR_NOT_IN_AUTO_PAY`, `VENDOR_SUSPENDED`, `APPROVAL_MISSING`, `APPROVAL_STALE`, `ESCROW_MISMATCH`).\n'
         ),
     ]
     evaluated_at: Timestamp

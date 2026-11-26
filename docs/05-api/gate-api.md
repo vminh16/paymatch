@@ -2,7 +2,7 @@
 
 Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. File OpenAPI: `contracts/openapi/gate.yaml`. Luật và state machine ở [payment-gate.md](../02-architecture/payment-gate.md).
 
-Mọi endpoint nghiệp vụ cần `X-Service-Key`, khóa riêng cho từng bên gọi; endpoint nghiệp vụ ngoài cột của bên gọi trong bảng dưới → `403`. Riêng probe sống/sẵn sàng `GET /gate/healthz` và `GET /gate/readyz` không cần khóa (theo [README.md §1](README.md#1-tiến-trình-và-cổng)). `agent-worker` không có khóa Gate.
+Mọi endpoint nghiệp vụ cần `X-Service-Key`, khóa riêng cho từng bên gọi; endpoint nghiệp vụ ngoài cột của bên gọi trong bảng dưới (được khai báo máy đọc được qua `x-allowed-callers` trên từng operation trong `contracts/openapi/gate.yaml`) → `403`. Riêng probe sống/sẵn sàng `GET /gate/healthz` và `GET /gate/readyz` không cần khóa (theo [README.md §1](README.md#1-tiến-trình-và-cổng)). `agent-worker` không có khóa Gate.
 
 | Endpoint | merchant-api | core-worker | internal-api (tool) | console-api |
 |---|---|---|---|---|
@@ -32,7 +32,7 @@ Mọi endpoint nghiệp vụ cần `X-Service-Key`, khóa riêng cho từng bên
 | GET | `/gate/intents/{payment_intent_id}` | `PaymentIntent` |
 | GET | `/gate/intents` | `?tenant_id=` (bắt buộc), lọc `invoice_id`, `status` → trang `PaymentIntent` (khóa service xác định bên gọi `merchant-api`/`core-worker`; bên gọi bắt buộc truyền `tenant_id`, Gate chỉ trả intent của tenant đó) |
 
-Ràng buộc DB: **duy nhất một intent ở `authorized/executing/settled` cho mỗi hóa đơn** (partial unique index); **duy nhất một `ledger_entries` loại `settled` cho mỗi hóa đơn**. Intent `failed/denied/expired` không chặn lần chi sau, nhưng lần sau cần approval mới (core đã đặt approval cũ `superseded`).
+Ràng buộc DB: **duy nhất một intent ở `authorized/executing/settled` cho mỗi hóa đơn** (partial unique index); **duy nhất một `ledger_entries` loại `settled` cho mỗi hóa đơn**. Intent `failed/denied` không chặn lần chi sau, nhưng lần sau cần approval mới (core đã đặt approval cũ `superseded`). Riêng intent `expired` do `AUTHORIZATION_TIMEOUT`: nếu `approval` của hóa đơn vẫn còn `active` và chưa hết hạn thì core-worker đưa hóa đơn về `scheduled` để ủy quyền lại bằng chính approval đó; ngược lại đặt approval `superseded` (nếu còn `active`) và CAS hóa đơn về `pending_approval` để chủ chuỗi duyệt lại (khớp [events.md §2](events.md#2-danh-mục)).
 
 Core-worker không tạo intent mới cho hóa đơn mà intent gần nhất `denied` cho tới khi trạng thái hóa đơn đổi (handler `payment.denied` đã đưa nó ra khỏi `scheduled`).
 
@@ -40,12 +40,12 @@ Core-worker không tạo intent mới cho hóa đơn mà intent gần nhất `de
 
 | Method | Path | Body → Kết quả |
 |---|---|---|
-| POST | `/gate/escrows` | `{approval_id, expires_on}` → `201 Escrow` (`held`, hoặc `pending` nếu rail chưa trả lời sau 5 s). Gate đọc PO, TK nhận, số tiền, `source_invoice_id` **từ approval**; kiểm `amount_vnd ≤ PurchaseOrder.total_vnd`, TK `verified`/`escrow_only` thuộc NCC của PO, mỗi PO tối đa một escrow mở |
-| POST | `/gate/escrows/{escrow_id}:release` | `{approval_id, goods_receipt_id}` → `Escrow (released)`. `approval_id` là approval của **hóa đơn giải ngân** (chủ chuỗi duyệt hóa đơn đó với `channel = escrow`, F7). Gate kiểm: phiếu nhập thuộc PO; hóa đơn cùng NCC, gắn PO, tổng ≤ cọc; approval `active`. Thiếu → `422 GATE_DENIED` |
-| POST | `/gate/escrows/{escrow_id}:refund` | `{reason: EXPIRED \| ORDER_CANCELLED}` → `Escrow (refunded)` |
+| POST | `/gate/escrows` | `{approval_id, expires_on}` → `201 Escrow` (`held`, hoặc `pending` nếu rail chưa trả lời sau 5 s), hoặc `200 Escrow` nếu `approval_id` đã từng tạo cọc trước đó (trả nguyên bản ghi `Escrow` gốc ở **mọi trạng thái**). Gate đọc PO, TK nhận, số tiền, `source_invoice_id` **từ approval**; kiểm `amount_vnd ≤ PurchaseOrder.total_vnd`, TK `verified`/`escrow_only` thuộc NCC của PO, mỗi PO tối đa một escrow đang mở (`pending`/`held`). **Một `approval_id` chỉ cấp vốn cho tối đa một escrow vĩnh viễn** (`UNIQUE approval_id → escrow_id`); sau khi cọc hết hạn/hoàn (`refunded`) hoặc thất bại (`failed`), tạo cọc mới bắt buộc phải có `approval_id` mới |
+| POST | `/gate/escrows/{escrow_id}:release` | `{approval_id, goods_receipt_id}` → `200 Escrow (released)`. `approval_id` là approval `active` của job hoàn tất mới nhất cho **hóa đơn giải ngân** (chủ chuỗi duyệt hóa đơn đó với `channel = escrow`, F7). Gate kiểm lại toàn bộ từ DB: `goods_receipt_id` thuộc đúng PO của cọc; hóa đơn giải ngân cùng NCC, gắn PO, không `blocked`; `intent_hash` của approval khớp bản hiện tại; **số tiền đã duyệt (`approval.amount_vnd`) PHẢI BẰNG số tiền cọc đang giữ (`escrow.amount_vnd`) VÀ tài khoản nhận đã duyệt (`approval.payee_account_id`) PHẢI BẰNG tài khoản của cọc (`escrow.vendor_account_id`)**; đồng thời đánh giá lại đầy đủ policy (kill switch → `423`, `risk.hard_blocks`, `risk.cross_alerts` chưa xác minh gọi lại, SIMO). Sai lệch số tiền / tài khoản / PO / phiếu nhập / hóa đơn so với cọc → `422 GATE_DENIED` với mã `ESCROW_MISMATCH`; trượt approval/policy → `422 GATE_DENIED` (hoặc `423 KILL_SWITCH_ACTIVE`) |
+| POST | `/gate/escrows/{escrow_id}:refund` | `{reason: EXPIRED \| ORDER_CANCELLED}` → `200 Escrow (refunded)` |
 | GET | `/gate/escrows/{escrow_id}` | `Escrow` |
 
-Luật cứng thêm: hóa đơn của NCC gắn PO đang có escrow `held` **chỉ được chi bằng `:release`**, không qua `/gate/intents`.
+Ràng buộc DB: **duy nhất một escrow cho mỗi `approval_id`** (`UNIQUE (approval_id)` ánh xạ `approval_id → escrow_id` vĩnh viễn) và **tối đa một escrow đang mở (`pending`/`held`) cho mỗi PO** (partial unique index). Luật cứng thêm: hóa đơn của NCC gắn PO đang có escrow `held` **chỉ được chi bằng `:release`**, không qua `/gate/intents`.
 
 ## 4. Ngân sách ngày
 
@@ -56,15 +56,15 @@ Luật cứng thêm: hóa đơn của NCC gắn PO đang có escrow `held` **ch�
 ## 5. Vòng nền của Gate
 
 Tiến trình `gate` chạy một vòng nền mỗi 10 s:
-- intent `executing`: hỏi `GET /sim/rails/transfers/{key}` (hoặc thẻ/escrow); có kết quả → ghi ledger + outbox. Quá 24 giờ chưa có kết quả → giữ `executing`, phát `payment.stuck` để vận hành xử lý tay. **Không bao giờ tự đánh dấu `failed`** khi chưa biết kết quả, vì tiền có thể đã đi.
-- intent `authorized` quá 15 phút chưa execute → `expired` (`reason = AUTHORIZATION_TIMEOUT`).
-- escrow `pending` → hỏi rail như trên.
+- intent `executing`: với `bank_transfer` hỏi `GET /sim/rails/transfers/{payment_intent_id}`; với `virtual_card` gọi lại `POST /sim/rails/cards` với **cùng `idempotency_key` (`payment_intent_id`) và cùng body** (idempotent status lookup); có kết quả → ghi ledger + outbox. Quá 24 giờ chưa có kết quả → giữ `executing`, phát `payment.stuck` để vận hành xử lý tay. **Không bao giờ tự đánh dấu `failed`** khi chưa biết kết quả, vì tiền có thể đã đi.
+- intent `authorized` quá 15 phút chưa execute → `expired` (`reason = AUTHORIZATION_TIMEOUT`), phát `payment.expired`. Core-worker chỉ ủy quyền lại nếu approval của hóa đơn vẫn còn `active` và chưa hết hạn; ngược lại CAS hóa đơn về `pending_approval` để duyệt lại.
+- escrow `pending` → gọi lại `POST /sim/rails/escrows` với **cùng `idempotency_key` (`escrow_id`) và cùng body** (idempotent status lookup) để nhận trạng thái gốc từ rail.
 
 ## 6. Gate gọi ra ngoài
 
 | Đích | Khi nào |
 |---|---|
-| `/sim/rails/*` qua port `PaymentRail`, `idempotency_key = payment_intent_id` hoặc `escrow_id` | execute, escrow, vòng nền |
+| `/sim/rails/*` qua port `PaymentRail`, với `idempotency_key`: `payment_intent_id` (`pi_…`) cho chuyển khoản/thẻ ảo; `escrow_id` (`esc_…`) cho giữ cọc; `rel_<escrow_id>` cho `:release`; `ref_<escrow_id>` cho `:refund`. Gọi lại `POST` cùng `idempotency_key` và cùng body là cơ chế tra trạng thái cho thẻ ảo và cọc (khớp [sim-world-api.md §2](sim-world-api.md#2-hạ-tầng-thanh-toán-simrails-chỉ-gate-gọi-trừ-wallets)) | execute, escrow, vòng nền |
 | `GET /sim/scenario/clock` | chỉ khi `DEMO_MODE=true` (port `Clock`) |
 
 Kết quả ghi `ledger_entries` và `ledger.outbox`. Gate **không gọi API của core**; core-worker đọc `ledger.outbox`.

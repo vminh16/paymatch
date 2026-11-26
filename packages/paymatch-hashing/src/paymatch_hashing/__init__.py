@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+MAX_SAFE_INT = 9007199254740991
+MIN_SAFE_INT = -9007199254740991
+
+_RFC3339_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$"
+)
+
 __all__ = [
+    "MAX_SAFE_INT",
+    "MIN_SAFE_INT",
     "action_hash",
     "intent_hash_escrow",
     "intent_hash_invoice",
     "jcs_canonicalize",
+    "normalize_timestamp_utc",
     "payload_hash_approval",
     "payload_hash_batch",
     "sha256_jcs",
@@ -68,6 +80,11 @@ def jcs_canonicalize(value: Any) -> str:
     if isinstance(value, float):
         raise TypeError("Floats are forbidden in PayMatch canonical JSON; use integer VND or string Decimal")
     if isinstance(value, int):
+        if value < MIN_SAFE_INT or value > MAX_SAFE_INT:
+            raise ValueError(
+                f"Integer {value} is outside IEEE-754 safe integer range "
+                f"[{MIN_SAFE_INT}, {MAX_SAFE_INT}]"
+            )
         return str(value)
     if isinstance(value, str):
         return _escape_jcs_string(value)
@@ -108,7 +125,36 @@ def _require_non_empty_str(value: Any, name: str) -> str:
 def _require_int_not_bool(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{name} must be an integer, got {type(value).__name__}")
+    if value < MIN_SAFE_INT or value > MAX_SAFE_INT:
+        raise ValueError(
+            f"{name} ({value}) is outside IEEE-754 safe integer range "
+            f"[{MIN_SAFE_INT}, {MAX_SAFE_INT}]"
+        )
     return value
+
+
+def normalize_timestamp_utc(value: str | datetime) -> str:
+    """Normalize an RFC 3339 timestamp with timezone offset to UTC 'YYYY-MM-DDTHH:MM:SSZ'.
+
+    Drops fractional seconds (truncation toward zero) and rejects naive timestamps.
+    """
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is None or dt.utcoffset() is None:
+            raise ValueError("Timestamp must include a timezone offset (RFC 3339)")
+    elif isinstance(value, str):
+        if not _RFC3339_RE.match(value):
+            raise ValueError(
+                f"Timestamp must be RFC 3339 with explicit timezone offset, got {value!r}"
+            )
+        dt = datetime.fromisoformat(value)
+    else:
+        raise TypeError(f"Timestamp must be str or datetime, got {type(value).__name__}")
+    utc_dt = dt.astimezone(timezone.utc)
+    return (
+        f"{utc_dt.year:04d}-{utc_dt.month:02d}-{utc_dt.day:02d}"
+        f"T{utc_dt.hour:02d}:{utc_dt.minute:02d}:{utc_dt.second:02d}Z"
+    )
 
 
 def intent_hash_invoice(
@@ -195,7 +241,7 @@ def payload_hash_approval(
         if not isinstance(ver_obj["called_phone_on_file"], bool):
             raise TypeError("verification.called_phone_on_file must be a boolean")
         ver_obj["result"] = _require_non_empty_str(ver_obj["result"], "verification.result")
-        ver_obj["at"] = _require_non_empty_str(ver_obj["at"], "verification.at")
+        ver_obj["at"] = normalize_timestamp_utc(ver_obj["at"])
         if ver_obj["note"] is not None and not isinstance(ver_obj["note"], str):
             raise TypeError("verification.note must be a string or None")
     return sha256_jcs({"intent_hash": ih, "verification": ver_obj})

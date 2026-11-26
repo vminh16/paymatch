@@ -19,12 +19,14 @@ from .schemas.decimal_schema import Decimal
 from .schemas.escrow_status_schema import EscrowStatus
 from .schemas.escrow_schema import Escrow
 from .schemas.evidence_ref_schema import EvidenceRef
+from .schemas.fact_key_schema import FactKey
 from .schemas.finding_for_supervisor_schema import FindingForSupervisor
 from .schemas.finding_submission_schema import FindingSubmission
 from .schemas.finding_schema import Finding
 from .schemas.gate_reason_schema import GateReason
 from .schemas.goods_receipt_schema import GoodsReceipt
 from .schemas.indicator_kind_schema import IndicatorKind
+from .schemas.indicator_ref_schema import IndicatorRef
 from .schemas.invoice_line_schema import InvoiceLine
 from .schemas.invoice_source_schema import InvoiceSource
 from .schemas.invoice_status_schema import InvoiceStatus
@@ -81,12 +83,14 @@ __all__ = [
     "Escrow",
     "EscrowStatus",
     "EvidenceRef",
+    "FactKey",
     "Finding",
     "FindingForSupervisor",
     "FindingSubmission",
     "GateReason",
     "GoodsReceipt",
     "IndicatorKind",
+    "IndicatorRef",
     "Invoice",
     "InvoiceLine",
     "InvoiceSource",

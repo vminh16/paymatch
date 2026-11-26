@@ -324,7 +324,13 @@ def test_every_event_schema_matches_events_doc_and_validates_examples():
     # Coordinator decision #3 & #8 checks on event schemas
     progressed = json.loads((EVENTS_DIR / "job.progressed.schema.json").read_text(encoding="utf-8"))
     progressed_props = set(progressed["properties"]["data"]["properties"].keys())
-    assert {"step", "severity", "reason_code"} <= progressed_props
+    assert {"step", "severity", "reason_code", "text_delta"} <= progressed_props
+
+    indicator_ref_schema = json.loads(
+        (SCHEMAS_DIR / "indicator-ref.schema.json").read_text(encoding="utf-8")
+    )
+    assert set(indicator_ref_schema["required"]) == {"kind", "value_hash"}
+    assert indicator_ref_schema["properties"]["value_hash"]["pattern"] == "^[0-9a-f]{64}$"
 
     for indicator_ev in (
         "indicator.flagged.schema.json",
@@ -333,8 +339,7 @@ def test_every_event_schema_matches_events_doc_and_validates_examples():
     ):
         ev_schema = json.loads((EVENTS_DIR / indicator_ev).read_text(encoding="utf-8"))
         item_schema = ev_schema["properties"]["data"]["properties"]["indicators"]["items"]
-        assert set(item_schema["required"]) == {"kind", "value_hash"}
-        assert set(item_schema["properties"].keys()) == {"kind", "value_hash"}
+        assert item_schema == {"$ref": "../schemas/indicator-ref.schema.json"}
 
 
 def test_every_openapi_example_validates_against_its_schema():
@@ -486,7 +491,7 @@ def test_every_gate_reason_code_in_schemas_doc_appears_in_gate_spec():
     from paymatch_contracts import GateReason, gate
 
     doc_codes = _extract_gate_reason_codes_from_schemas_doc()
-    assert len(doc_codes) == 16
+    assert len(doc_codes) == 17
 
     gate_reason_schema = json.loads(
         (SCHEMAS_DIR / "gate-reason.schema.json").read_text(encoding="utf-8")
@@ -630,7 +635,15 @@ def test_generated_models_import_and_roundtrip_examples():
         "EscrowStatus": (pc.EscrowStatus, "held"),
         "NotificationKind": (pc.NotificationKind, "verification_needed"),
         "BotStatus": (pc.BotStatus, "active"),
+        "FactKey": (pc.FactKey, "wallet_balance_vnd"),
         "IndicatorKind": (pc.IndicatorKind, "account_hash"),
+        "IndicatorRef": (
+            pc.IndicatorRef,
+            {
+                "kind": "account_hash",
+                "value_hash": "c7dfe487bab58ead104ced293dedb9d0c93415fb6d57829084a2f0caba57212a",
+            },
+        ),
         "KillSwitchScope": (pc.KillSwitchScope, "auto_pay_global"),
         "MandateMode": (pc.MandateMode, "auto_pay"),
         "VendorAccountStatus": (pc.VendorAccountStatus, "verified"),
@@ -817,8 +830,9 @@ def test_generated_models_import_and_roundtrip_examples():
             dumped = adapter.dump_python(inst, mode="json", by_alias=True)
             assert adapter.validate_python(dumped) == inst, f"Round-trip failed for {name}"
 
-    # Verify CapabilityTokenClaims also accepts bot subject + store_ids and Job accepts {report_id}
-    bot_claims = pc.CapabilityTokenClaims.model_validate(
+    # Verify CapabilityTokenClaims also accepts bot subject + store_ids and iat
+    cap_adapter = TypeAdapter(pc.CapabilityTokenClaims)
+    bot_claims = cap_adapter.validate_python(
         {
             "iss": "core",
             "aud": "internal-api",
@@ -831,11 +845,12 @@ def test_generated_models_import_and_roundtrip_examples():
             "bot_version": 1,
             "tools": ["invoices", "price_check"],
             "store_ids": ["sto_01M8890N9Y7RRHWTHDZPHWM785"],
+            "iat": 1795655880,
             "exp": 1795656000,
             "jti": "jti_proc_001",
         }
     )
-    assert pc.CapabilityTokenClaims.model_validate(bot_claims.model_dump(mode="json")) == bot_claims
+    assert cap_adapter.validate_python(cap_adapter.dump_python(bot_claims, mode="json")) == bot_claims
 
     for inv_sample in (green_inv, red_inv):
         inst = pc.Invoice.model_validate(inv_sample)
@@ -859,6 +874,12 @@ def test_generated_models_import_and_roundtrip_examples():
         ),
         (internal.JobSessionResponse, session_ex),
         (
+            internal.JobSessionResponse,
+            internal_spec["paths"]["/internal/jobs/{job_id}/session"]["post"]["responses"]["200"][
+                "content"
+            ]["application/json"]["examples"]["question_session"]["value"],
+        ),
+        (
             internal.JobProgressRequest,
             internal_spec["paths"]["/internal/jobs/{job_id}/progress"]["post"]["requestBody"][
                 "content"
@@ -870,6 +891,12 @@ def test_generated_models_import_and_roundtrip_examples():
             internal_spec["paths"]["/internal/webhooks/rails"]["post"]["requestBody"]["content"][
                 "application/json"
             ]["examples"]["card_declined_wrong_merchant"]["value"],
+        ),
+        (
+            internal.RailsWebhookRequest,
+            internal_spec["paths"]["/internal/webhooks/rails"]["post"]["requestBody"]["content"][
+                "application/json"
+            ]["examples"]["transfer_settled_coffee"]["value"],
         ),
         (
             gate.EvaluateResponse,
@@ -887,6 +914,12 @@ def test_generated_models_import_and_roundtrip_examples():
             gate.GateDeniedProblem,
             gate_spec["components"]["responses"]["GateDenied"]["content"][
                 "application/problem+json"
+            ]["examples"]["escrow_mismatch"]["value"],
+        ),
+        (
+            gate.IntentGateDeniedProblem,
+            gate_spec["components"]["responses"]["IntentGateDenied"]["content"][
+                "application/problem+json"
             ]["examples"]["cross_alert_unverified"]["value"],
         ),
         (
@@ -897,5 +930,410 @@ def test_generated_models_import_and_roundtrip_examples():
         ),
     ]
     for model_cls, sample in api_model_samples:
-        inst = model_cls.model_validate(sample)
-        assert model_cls.model_validate(inst.model_dump(mode="json", by_alias=True)) == inst
+        if isinstance(model_cls, type) and issubclass(model_cls, BaseModel):
+            inst = model_cls.model_validate(sample)
+            assert model_cls.model_validate(inst.model_dump(mode="json", by_alias=True)) == inst
+        else:
+            adapter = TypeAdapter(model_cls)
+            inst = adapter.validate_python(sample)
+            dumped = adapter.dump_python(inst, mode="json", by_alias=True)
+            assert adapter.validate_python(dumped) == inst
+
+
+def _openapi_schema_validator(
+    spec_path: pathlib.Path, schema_name: str, registry: Registry
+) -> jsonschema.Draft202012Validator:
+    spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    validator_id = f"{spec_path.parent.resolve().as_uri()}/__{spec_path.stem}_neg_{schema_name}__.json"
+    wrapped = {
+        "$id": validator_id,
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "components": spec.get("components", {}),
+        "$ref": f"#/components/schemas/{schema_name}",
+    }
+    return jsonschema.Draft202012Validator(
+        wrapped,
+        registry=registry,
+        format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
+    )
+
+
+def test_negative_constraints_b3_supervisor_boundary():
+    registry = _build_registry()
+
+    # BotAnswer rejects free-text / unregistered facts[].key
+    bot_answer_schema = json.loads((SCHEMAS_DIR / "bot-answer.schema.json").read_text(encoding="utf-8"))
+    bot_answer_validator = jsonschema.Draft202012Validator(
+        bot_answer_schema, registry=registry, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+    )
+    bad_bot_answer = {
+        "bot_id": "treasury",
+        "facts": [
+            {
+                "key": "free_text_ignore_instructions",
+                "value": 350000000,
+                "tool_call_id": "tcl_01M883GD8FVTFT81SQ04RGVE4Q",
+                "verified": True,
+            }
+        ],
+        "reason_codes": ["OK"],
+    }
+    assert list(bot_answer_validator.iter_errors(bad_bot_answer)), (
+        "BotAnswer must reject unregistered facts[].key"
+    )
+
+    sub_validator = _openapi_schema_validator(INTERNAL_SPEC_PATH, "BotAnswerSubmission", registry)
+    bad_submission = {
+        "bot_id": "treasury",
+        "facts": [
+            {
+                "key": "arbitrary_prompt_injection_key",
+                "value": "OK",
+                "tool_call_id": "tcl_01M883GD8FVTFT81SQ04RGVE4Q",
+            }
+        ],
+        "reason_codes": ["OK"],
+    }
+    assert list(sub_validator.iter_errors(bad_submission)), (
+        "BotAnswerSubmission must reject unregistered facts[].key"
+    )
+
+    # QuestionHistoryMessage: role=assistant must carry {message_id, citations} only, never free text
+    msg_validator = _openapi_schema_validator(INTERNAL_SPEC_PATH, "QuestionHistoryMessage", registry)
+    assert not list(
+        msg_validator.iter_errors({"role": "user", "text_trusted": "Có bao nhiêu hóa đơn đỏ?"})
+    )
+    assert not list(
+        msg_validator.iter_errors(
+            {
+                "role": "assistant",
+                "message_id": "cmg_01M885AXP309SER6BAC46N5FJV",
+                "citations": [
+                    {"tool_call_id": "tcl_01M881AX9X3J7CJVWYPQ6T4168", "values": ["2"]}
+                ],
+            }
+        )
+    )
+    assert list(
+        msg_validator.iter_errors(
+            {"role": "assistant", "text_trusted": "Free text from previous answer"}
+        )
+    ), "role=assistant must never carry free text"
+    assert list(
+        msg_validator.iter_errors(
+            {
+                "role": "assistant",
+                "message_id": "cmg_01M885AXP309SER6BAC46N5FJV",
+                "citations": [],
+                "text_trusted": "extra free text",
+            }
+        )
+    ), "role=assistant must reject extra free text field"
+    assert list(
+        msg_validator.iter_errors(
+            {
+                "role": "user",
+                "message_id": "cmg_01M885AXP309SER6BAC46N5FJV",
+                "citations": [],
+            }
+        )
+    ), "role=user must require text_trusted and reject assistant fields"
+
+
+def test_negative_constraints_i1_safe_money_bounds():
+    registry = _build_registry()
+    money_schema = json.loads((SCHEMAS_DIR / "money-vnd.schema.json").read_text(encoding="utf-8"))
+    signed_schema = json.loads(
+        (SCHEMAS_DIR / "signed-money-vnd.schema.json").read_text(encoding="utf-8")
+    )
+    money_v = jsonschema.Draft202012Validator(money_schema, registry=registry)
+    signed_v = jsonschema.Draft202012Validator(signed_schema, registry=registry)
+
+    assert not list(money_v.iter_errors(9007199254740991))
+    assert list(money_v.iter_errors(9007199254740992))
+    assert list(money_v.iter_errors(-1))
+
+    assert not list(signed_v.iter_errors(9007199254740991))
+    assert not list(signed_v.iter_errors(-9007199254740991))
+    assert list(signed_v.iter_errors(9007199254740992))
+    assert list(signed_v.iter_errors(-9007199254740992))
+
+
+def test_negative_constraints_i3_capability_tokens_and_gate_caller_matrix():
+    registry = _build_registry()
+    cap_schema = json.loads(
+        (SCHEMAS_DIR / "capability-token-claims.schema.json").read_text(encoding="utf-8")
+    )
+    cap_v = jsonschema.Draft202012Validator(cap_schema, registry=registry)
+
+    base = {
+        "iss": "core",
+        "aud": "internal-api",
+        "sub": "supervisor",
+        "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+        "job_id": "job_01M882G20CAMSQWE8SVGP02RHD",
+        "invoice_id": None,
+        "attempt": 1,
+        "worker_id": "agent-worker-01",
+        "bot_version": None,
+        "tools": ["queue_status"],
+        "iat": 1795655880,
+        "exp": 1795656000,
+        "jti": "jti_sup_001",
+    }
+    assert not list(cap_v.iter_errors(base))
+
+    # Supervisor with non-null bot_version -> rejected
+    assert list(cap_v.iter_errors({**base, "bot_version": 1}))
+    # Supervisor with untrusted tools -> rejected
+    for forbidden_tool in ("inbox", "chat_messages", "invoices"):
+        assert list(cap_v.iter_errors({**base, "tools": ["queue_status", forbidden_tool]})), (
+            f"Supervisor token must reject untrusted tool {forbidden_tool}"
+        )
+
+    # Bot token requires non-null bot_version >= 1
+    bot_valid = {**base, "sub": "fraud-control", "bot_version": 1, "tools": ["inbox", "chat_messages"]}
+    assert not list(cap_v.iter_errors(bot_valid))
+    assert list(cap_v.iter_errors({**bot_valid, "bot_version": None}))
+
+    # Gate machine-readable caller matrix (x-allowed-callers)
+    gate_spec = yaml.safe_load(GATE_SPEC_PATH.read_text(encoding="utf-8"))
+    expected_callers = {
+        ("post", "/gate/evaluate"): {"merchant-api", "core-worker", "internal-api"},
+        ("get", "/gate/budgets/{tenant_id}/{date}"): {"core-worker", "internal-api"},
+        ("post", "/gate/intents"): {"core-worker"},
+        ("get", "/gate/intents"): {"merchant-api", "core-worker"},
+        ("get", "/gate/intents/{payment_intent_id}"): {"merchant-api", "core-worker", "console-api"},
+        ("post", "/gate/intents/{payment_intent_id}:execute"): {"core-worker"},
+        ("post", "/gate/intents/{payment_intent_id}:cancel"): {"core-worker"},
+        ("post", "/gate/escrows"): {"merchant-api"},
+        ("get", "/gate/escrows/{escrow_id}"): {"merchant-api", "core-worker"},
+        ("post", "/gate/escrows/{escrow_id}:release"): {"core-worker"},
+        ("post", "/gate/escrows/{escrow_id}:refund"): {"core-worker"},
+    }
+    seen: dict[tuple[str, str], set[str]] = {}
+    for path, path_item in gate_spec["paths"].items():
+        for method, op in path_item.items():
+            if method not in {"get", "post", "patch", "put", "delete"}:
+                continue
+            if op.get("security") == []:
+                continue
+            callers = op.get("x-allowed-callers")
+            assert isinstance(callers, list) and callers, (
+                f"{method.upper()} {path} must declare non-empty x-allowed-callers"
+            )
+            assert "agent-worker" not in callers
+            seen[(method, path)] = set(callers)
+    assert seen == expected_callers
+
+
+def test_negative_constraints_i4_gate_response_conditions():
+    registry = _build_registry()
+    gate_spec = yaml.safe_load(GATE_SPEC_PATH.read_text(encoding="utf-8"))
+
+    # EvaluateResponse: ALLOW (and REQUIRE_APPROVAL) require non-null payee_account_id
+    eval_v = _openapi_schema_validator(GATE_SPEC_PATH, "EvaluateResponse", registry)
+    allow_sample = dict(
+        gate_spec["paths"]["/gate/evaluate"]["post"]["responses"]["200"]["content"][
+            "application/json"
+        ]["examples"]["allow_coffee_autopay"]["value"]
+    )
+    assert not list(eval_v.iter_errors(allow_sample))
+    assert list(eval_v.iter_errors({**allow_sample, "payee_account_id": None})), (
+        "ALLOW must reject null payee_account_id"
+    )
+    assert list(
+        eval_v.iter_errors({**allow_sample, "decision": "REQUIRE_APPROVAL", "payee_account_id": None})
+    ), "REQUIRE_APPROVAL must reject null payee_account_id"
+
+    # Intent 422 GATE_DENIED must include a non-null denied PaymentIntent
+    intent_422_v = _openapi_schema_validator(GATE_SPEC_PATH, "IntentGateDeniedProblem", registry)
+    valid_422 = dict(
+        gate_spec["components"]["responses"]["IntentGateDenied"]["content"][
+            "application/problem+json"
+        ]["examples"]["cross_alert_unverified"]["value"]
+    )
+    assert not list(intent_422_v.iter_errors(valid_422))
+
+    missing_pi = {k: v for k, v in valid_422.items() if k != "payment_intent"}
+    assert list(intent_422_v.iter_errors(missing_pi)), "Intent 422 must require payment_intent"
+    assert list(intent_422_v.iter_errors({**valid_422, "payment_intent": None})), (
+        "Intent 422 must reject null payment_intent"
+    )
+    wrong_status_pi = {**valid_422["payment_intent"], "status": "authorized"}
+    assert list(intent_422_v.iter_errors({**valid_422, "payment_intent": wrong_status_pi})), (
+        "Intent 422 payment_intent must have status=denied"
+    )
+
+    # Verify both intent endpoints reference IntentGateDenied for 422
+    assert (
+        gate_spec["paths"]["/gate/intents"]["post"]["responses"]["422"]["$ref"]
+        == "#/components/responses/IntentGateDenied"
+    )
+    assert (
+        gate_spec["paths"]["/gate/intents/{payment_intent_id}:execute"]["post"]["responses"]["422"][
+            "$ref"
+        ]
+        == "#/components/responses/IntentGateDenied"
+    )
+
+    # INVALID_STATE example in gate.yaml includes current_status
+    conflict_ex = gate_spec["components"]["responses"]["Conflict"]["content"][
+        "application/problem+json"
+    ]["examples"]["cannot_cancel_executing"]["value"]
+    assert conflict_ex["code"] == "INVALID_STATE"
+    assert conflict_ex.get("current_status") == "executing"
+
+
+def test_negative_constraints_i7_webhooks_and_job_progressed():
+    registry = _build_registry()
+
+    # Webhooks: discriminated by type; transfer.* must reject card fields
+    wh_v = _openapi_schema_validator(INTERNAL_SPEC_PATH, "RailsWebhookRequest", registry)
+    transfer_with_card_data = {
+        "event_id": "evt_01M88H11Y0WR367CGNZZH603T5",
+        "type": "transfer.settled",
+        "occurred_at": "2026-11-26T08:06:12+07:00",
+        "data": {
+            "card_id": "crd_01M8867BQMQG52GZYDE75JHF2V",
+            "merchant_id": "mrc_unknown_99",
+            "reason": "wrong_merchant",
+        },
+    }
+    assert list(wh_v.iter_errors(transfer_with_card_data)), (
+        "transfer.settled must reject card webhook payload"
+    )
+
+    transfer_with_extra_card_field = {
+        "event_id": "evt_01M88H11Y0WR367CGNZZH603T5",
+        "type": "transfer.failed",
+        "occurred_at": "2026-11-26T08:06:12+07:00",
+        "data": {
+            "rail_txn_id": "rtx_01M88H11Y0WR367CGNZZH603T5",
+            "idempotency_key": "pi_01M88557BXGABQA8KPG2382VH5",
+            "status": "failed",
+            "failure_code": "INSUFFICIENT_FUNDS",
+            "card_id": "crd_01M8867BQMQG52GZYDE75JHF2V",
+        },
+    }
+    assert list(wh_v.iter_errors(transfer_with_extra_card_field)), (
+        "transfer.failed must reject card fields"
+    )
+
+    transfer_settled_wrong_status = {
+        "event_id": "evt_01M88H11Y0WR367CGNZZH603T5",
+        "type": "transfer.settled",
+        "occurred_at": "2026-11-26T08:06:12+07:00",
+        "data": {
+            "rail_txn_id": "rtx_01M88H11Y0WR367CGNZZH603T5",
+            "idempotency_key": "pi_01M88557BXGABQA8KPG2382VH5",
+            "status": "failed",
+            "failure_code": "RAIL_DOWN",
+        },
+    }
+    assert list(wh_v.iter_errors(transfer_settled_wrong_status))
+
+    card_with_transfer_data = {
+        "event_id": "evt_01M8867BQMQG52GZYDE75JHF2V",
+        "type": "card.authorization_declined",
+        "occurred_at": "2026-11-26T09:10:00+07:00",
+        "data": {
+            "rail_txn_id": "rtx_01M88H11Y0WR367CGNZZH603T5",
+            "idempotency_key": "pi_01M88557BXGABQA8KPG2382VH5",
+            "status": "settled",
+            "failure_code": None,
+        },
+    }
+    assert list(wh_v.iter_errors(card_with_transfer_data))
+
+    # job.progressed event schema AND JobProgressEventItem: text_delta only when type=answer.delta
+    prog_ev_schema = json.loads(
+        (EVENTS_DIR / "job.progressed.schema.json").read_text(encoding="utf-8")
+    )
+    prog_ev_v = jsonschema.Draft202012Validator(
+        prog_ev_schema, registry=registry, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+    )
+    base_ev = json.loads((EVENTS_DIR / "job.progressed.schema.json").read_text(encoding="utf-8"))[
+        "examples"
+    ][0]
+    assert not list(prog_ev_v.iter_errors(base_ev))
+
+    # Valid answer.delta with text_delta
+    valid_delta_ev = {
+        **base_ev,
+        "data": {
+            "job_id": "job_01M882G20CAMSQWE8SVGP02RHD",
+            "task_type": "question",
+            "attempt": 1,
+            "type": "answer.delta",
+            "text_delta": "Hiện có 4 hóa đơn...",
+            "at": "2026-11-26T08:25:18+07:00",
+        },
+    }
+    assert not list(prog_ev_v.iter_errors(valid_delta_ev))
+
+    # Non-answer.delta carrying text_delta -> rejected
+    bad_non_delta_ev = {
+        **base_ev,
+        "data": {**base_ev["data"], "text_delta": "untrusted leak"},
+    }
+    assert list(prog_ev_v.iter_errors(bad_non_delta_ev)), (
+        "job.progressed must reject text_delta when type != answer.delta"
+    )
+
+    # answer.delta missing text_delta -> rejected
+    bad_missing_delta_ev = {
+        **valid_delta_ev,
+        "data": {k: v for k, v in valid_delta_ev["data"].items() if k != "text_delta"},
+    }
+    assert list(prog_ev_v.iter_errors(bad_missing_delta_ev))
+
+    # Same constraint on internal-api JobProgressEventItem
+    prog_item_v = _openapi_schema_validator(INTERNAL_SPEC_PATH, "JobProgressEventItem", registry)
+    assert not list(
+        prog_item_v.iter_errors(
+            {"type": "answer.delta", "text_delta": "chunk", "at": "2026-11-26T08:25:18+07:00"}
+        )
+    )
+    assert list(
+        prog_item_v.iter_errors(
+            {"type": "bot.finished", "bot_id": "procurement", "text_delta": "leak", "at": "2026-11-26T08:25:18+07:00"}
+        )
+    )
+    assert list(
+        prog_item_v.iter_errors(
+            {"type": "answer.delta", "text_delta": None, "at": "2026-11-26T08:25:18+07:00"}
+        )
+    )
+
+
+def test_negative_constraints_i8_shared_indicator_ref():
+    registry = _build_registry()
+    ind_schema = json.loads((SCHEMAS_DIR / "indicator-ref.schema.json").read_text(encoding="utf-8"))
+    ind_v = jsonschema.Draft202012Validator(ind_schema, registry=registry)
+
+    assert not list(
+        ind_v.iter_errors(
+            {
+                "kind": "tax_id",
+                "value_hash": "1590a1785c0844992aac6d9929133922ecd896e3e7c60a86d1f6f4c45abf0646",
+            }
+        )
+    )
+    for bad_hash in ("0999090001", "C7DFE487" * 8, "abc", "g" * 64):
+        assert list(ind_v.iter_errors({"kind": "tax_id", "value_hash": bad_hash})), (
+            f"IndicatorRef must reject non-64-lowercase-hex value_hash {bad_hash!r}"
+        )
+
+    for ev_file in (
+        "indicator.flagged.schema.json",
+        "cross_alert.published.schema.json",
+        "hard_block.applied.schema.json",
+    ):
+        ev_schema = json.loads((EVENTS_DIR / ev_file).read_text(encoding="utf-8"))
+        ev_v = jsonschema.Draft202012Validator(
+            ev_schema, registry=registry, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+        )
+        bad_ev = json.loads(json.dumps(ev_schema["examples"][0]))
+        bad_ev["data"]["indicators"][0]["value_hash"] = "0999090001"
+        assert list(ev_v.iter_errors(bad_ev)), f"{ev_file} must reject raw non-hash value_hash"

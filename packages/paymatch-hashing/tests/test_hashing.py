@@ -11,10 +11,13 @@ import yaml
 
 import paymatch_contracts as pc
 from paymatch_hashing import (
+    MAX_SAFE_INT,
+    MIN_SAFE_INT,
     action_hash,
     intent_hash_escrow,
     intent_hash_invoice,
     jcs_canonicalize,
+    normalize_timestamp_utc,
     payload_hash_approval,
     payload_hash_batch,
     sha256_jcs,
@@ -35,6 +38,11 @@ def test_hashing_test_vectors_file():
         actual_json = jcs_canonicalize(vec["input"])
         assert actual_json == vec["canonical_json"], f"JCS mismatch on {vec['name']}"
         assert sha256_jcs(vec["input"]) == vec["sha256"], f"SHA-256 mismatch on {vec['name']}"
+
+    assert doc.get("jcs_reject_vectors"), "hashing.json must include jcs_reject_vectors"
+    for vec in doc["jcs_reject_vectors"]:
+        with pytest.raises((TypeError, ValueError)):
+            jcs_canonicalize(vec["input"])
 
     fn_map = {
         "intent_hash_invoice": lambda a: intent_hash_invoice(**a),
@@ -106,6 +114,63 @@ def test_rejects_floats_non_string_keys_duplicate_enum_keys_and_surrogates():
         intent_hash_escrow("po_1", "vac_1", 1000, "bank_transfer")
     with pytest.raises(ValueError, match="verification keys mismatch"):
         payload_hash_approval("a" * 64, {"called_phone_on_file": True})
+
+
+def test_safe_integer_bounds_and_timestamp_normalization():
+    # Safe integer boundaries succeed
+    assert jcs_canonicalize({"max": MAX_SAFE_INT, "min": MIN_SAFE_INT}) == (
+        '{"max":9007199254740991,"min":-9007199254740991}'
+    )
+    # Outside IEEE-754 safe integer range must be rejected
+    with pytest.raises(ValueError, match="safe integer"):
+        jcs_canonicalize({"amount_vnd": MAX_SAFE_INT + 1})
+    with pytest.raises(ValueError, match="safe integer"):
+        jcs_canonicalize({"amount_vnd": MIN_SAFE_INT - 1})
+    with pytest.raises(ValueError, match="safe integer"):
+        intent_hash_invoice("inv_1", "sha", "vac_1", MAX_SAFE_INT + 1, "bank_transfer")
+    with pytest.raises(ValueError, match="safe integer"):
+        intent_hash_escrow("po_1", "vac_1", MAX_SAFE_INT + 1)
+
+    # Timestamp normalization to UTC YYYY-MM-DDTHH:MM:SSZ (drop fractional seconds)
+    variants = [
+        "2026-11-26T08:30:00+07:00",
+        "2026-11-26T01:30:00+00:00",
+        "2026-11-26T01:30:00Z",
+        "2026-11-26T01:30:00.000Z",
+        "2026-11-26T01:30:00.987654Z",
+        "2026-11-26T08:30:00.500+07:00",
+    ]
+    for ts in variants:
+        assert normalize_timestamp_utc(ts) == "2026-11-26T01:30:00Z"
+
+    ih = "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb"
+    hashes = {
+        payload_hash_approval(
+            ih,
+            {
+                "called_phone_on_file": True,
+                "result": "confirmed",
+                "note": "OK",
+                "at": ts,
+            },
+        )
+        for ts in variants
+    }
+    assert len(hashes) == 1
+
+    # Reject naive timestamps without offset
+    with pytest.raises(ValueError, match="timezone"):
+        normalize_timestamp_utc("2026-11-26T01:30:00")
+    with pytest.raises(ValueError, match="timezone"):
+        payload_hash_approval(
+            ih,
+            {
+                "called_phone_on_file": True,
+                "result": "confirmed",
+                "note": None,
+                "at": "2026-11-26T01:30:00",
+            },
+        )
 
 
 def test_batch_sorting_and_verification_pydantic_normalization():

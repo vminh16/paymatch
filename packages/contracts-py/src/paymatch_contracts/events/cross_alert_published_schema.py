@@ -48,13 +48,13 @@ class ReasonCode(StrEnum):
     CUSTOM = 'CUSTOM'
 
 
-class CrossAlertIndicatorItem(BaseModel):
+class IndicatorRef(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
     kind: IndicatorKind
-    value_hash: Annotated[str, Field(min_length=1)]
+    value_hash: Annotated[str, Field(pattern='^[0-9a-f]{64}$')]
 
 
 class CrossAlertPublishedData(BaseModel):
@@ -63,7 +63,7 @@ class CrossAlertPublishedData(BaseModel):
         populate_by_name=True,
     )
     cross_alert_id: Annotated[str, Field(pattern='^cxa_[0-9A-HJKMNP-TV-Z]{26}$')]
-    indicators: Annotated[list[CrossAlertIndicatorItem], Field(min_length=1)]
+    indicators: Annotated[list[IndicatorRef], Field(min_length=1)]
     reason_codes: Annotated[list[ReasonCode], Field(min_length=1)]
 
 

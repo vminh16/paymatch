@@ -38,6 +38,12 @@ class JobProgressedData(BaseModel):
     tool_id: str | None = None
     severity: invoice_status_changed_schema.Severity | None = None
     reason_code: cross_alert_published_schema.ReasonCode | None = None
+    text_delta: Annotated[
+        str | None,
+        Field(
+            description="Chỉ được phép (và bắt buộc dạng chuỗi) khi type = 'answer.delta'."
+        ),
+    ] = None
     at: approval_created_schema.Timestamp
 
 

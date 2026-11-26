@@ -9,22 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import approval_created_schema, cross_alert_published_schema
 
 
-class HardBlockIndicatorItem(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-    kind: cross_alert_published_schema.IndicatorKind
-    value_hash: Annotated[str, Field(min_length=1)]
-
-
 class HardBlockAppliedData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
     hard_block_id: Annotated[str, Field(pattern='^hbk_[0-9A-HJKMNP-TV-Z]{26}$')]
-    indicators: Annotated[list[HardBlockIndicatorItem], Field(min_length=1)]
+    indicators: Annotated[
+        list[cross_alert_published_schema.IndicatorRef], Field(min_length=1)
+    ]
 
 
 class HardBlockAppliedEvent(BaseModel):

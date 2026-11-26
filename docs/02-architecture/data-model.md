@@ -47,7 +47,7 @@ Trạng thái: **Đã chốt mức thiết kế (26/11/2026)**. Cột chi tiết
 
 ### `ledger` (ghi: chỉ payment-gate)
 
-`payment_intents` (state machine, `intent_hash`; unique `invoice_id` **chỉ trên** `authorized | executing | settled`, và một `ledger_entries` settled cho mỗi hóa đơn; escrow gắn `purchase_order_id`) · `payment_tokens` (dùng một lần) · `ledger_entries` (chỉ ghi thêm) · `escrows` · `daily_budgets` (khóa dòng theo tenant + ngày) · `rail_transactions` (tham chiếu phía rail) · `outbox` (sự kiện `payment.*`, `escrow.*`; core-worker đọc) · `reconciliations` *(lộ trình)*.
+`payment_intents` (state machine, `intent_hash`; unique `invoice_id` **chỉ trên** `authorized | executing | settled`, và một `ledger_entries` settled cho mỗi hóa đơn; escrow gắn `purchase_order_id`) · `payment_tokens` (dùng một lần) · `ledger_entries` (chỉ ghi thêm) · `escrows` (`UNIQUE (approval_id)` ánh xạ 1-1 vĩnh viễn `approval_id → escrow_id`, và partial unique `purchase_order_id` trên `pending | held`) · `daily_budgets` (khóa dòng theo tenant + ngày) · `rail_transactions` (tham chiếu phía rail) · `outbox` (sự kiện `payment.*`, `escrow.*`; core-worker đọc) · `reconciliations` *(lộ trình)*.
 
 ## 3. Không lưu trong Postgres
 

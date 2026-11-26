@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://paymatch.dev/schemas/bot-answer.schema.json",
   "title": "BotAnswer",
-  "description": "Kết quả có cấu trúc của bot chuyên môn cho job hỏi đáp hoặc báo cáo, đã được core đối chiếu với output của tool_call_id.",
+  "description": "Kết quả có cấu trúc của bot chuyên môn cho job hỏi đáp hoặc báo cáo, đã được core đối chiếu với output của tool_call_id (facts[].key thuộc enum FactKey do registry sở hữu; giá trị chuỗi chỉ chấp nhận từ trường output có provenance = trusted).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -29,8 +29,7 @@
         ],
         "properties": {
           "key": {
-            "type": "string",
-            "minLength": 1
+            "$ref": "./fact-key.schema.json"
           },
           "value": {
             "type": [

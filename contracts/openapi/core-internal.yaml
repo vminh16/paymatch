@@ -246,6 +246,43 @@ paths:
                     context:
                       invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
                       invoice_type: goods
+                question_session:
+                  summary: Phiên hỏi đáp với lịch sử có cấu trúc cho tin assistant (không có chữ tự do)
+                  value:
+                    budget:
+                      seconds: 25
+                      max_steps: 8
+                    supervisor:
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.supervisor_q.sig
+                      token_exp: '2026-11-26T09:02:00+07:00'
+                      tools:
+                      - tool_id: queue_status
+                        description: Tổng hợp hàng chờ duyệt hiện tại của tenant.
+                        input_schema:
+                          type: object
+                        output_schema:
+                          type: object
+                        default_provenance: trusted
+                        scope: tenant
+                    bots: []
+                    required_bot_ids: []
+                    skipped: []
+                    context:
+                      messages:
+                      - role: user
+                        text_trusted: Hiện có bao nhiêu hóa đơn đang chờ duyệt?
+                      - role: assistant
+                        message_id: cmg_01M885AXP309SER6BAC46N5FJV
+                        citations:
+                        - tool_call_id: tcl_01M881AX9X3J7CJVWYPQ6T4168
+                          values:
+                          - '4'
+                          - '66414333'
+                      - role: user
+                        text_trusted: Trong đó có hóa đơn nào đỏ không?
+                      user:
+                        role: owner
+                        store_ids: []
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -457,8 +494,11 @@ paths:
       operationId: submitBotAnswer
       summary: Bot chuyên môn nộp dữ kiện có cấu trúc cho job `question` hoặc `report` (dùng capability
         token của bot)
-      description: Core kiểm tra từng `facts[].value` xuất hiện trong output của `tool_call_id` cùng `(job_id,
-        attempt, bot_id)`, gỡ/đánh dấu các fact không khớp và trả `201 BotAnswer`.
+      description: 'Core kiểm tra `facts[].key` thuộc enum `FactKey` do registry sở hữu và đối chiếu từng
+        `facts[].value` với output của `tool_call_id` cùng `(job_id, attempt, bot_id)`. Với `value` kiểu
+        số (`number`) kiểm xuất hiện trong output như hiện hành; với `value` kiểu chuỗi (`string`) chỉ chấp
+        nhận khi trường nguồn trong output của `tool_call_id` có `provenance = trusted` (gỡ mọi chuỗi từ
+        trường/tool `untrusted`), rồi trả `201 BotAnswer`.'
       tags:
       - Jobs
       security:
@@ -1086,6 +1126,7 @@ components:
                 status: 409
                 code: INVALID_STATE
                 detail: Job đã hoàn tất nên không nhận thêm Finding hoặc hoàn tất lại.
+                current_status: completed
     Locked:
       description: Tenant, bot hoặc tool đang bị khóa bởi kill switch (`423 KILL_SWITCH_ACTIVE`)
       headers:
@@ -1408,8 +1449,8 @@ components:
           pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
         invoice_type:
           $ref: ../schemas/invoice-type.schema.json
-    QuestionHistoryMessage:
-      title: QuestionHistoryMessage
+    QuestionHistoryUserMessage:
+      title: QuestionHistoryUserMessage
       type: object
       additionalProperties: false
       required:
@@ -1418,11 +1459,39 @@ components:
       properties:
         role:
           type: string
-          enum:
-          - user
-          - assistant
+          const: user
         text_trusted:
           type: string
+    QuestionHistoryAssistantMessage:
+      title: QuestionHistoryAssistantMessage
+      description: Tin nhắn assistant trong lịch sử hội thoại gửi cho điều phối chỉ mang `{message_id, citations}` có cấu trúc, không bao giờ mang chữ tự do.
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - message_id
+      - citations
+      properties:
+        role:
+          type: string
+          const: assistant
+        message_id:
+          type: string
+          pattern: ^cmg_[0-9A-HJKMNP-TV-Z]{26}$
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitationInput'
+    QuestionHistoryMessage:
+      title: QuestionHistoryMessage
+      oneOf:
+      - $ref: '#/components/schemas/QuestionHistoryUserMessage'
+      - $ref: '#/components/schemas/QuestionHistoryAssistantMessage'
+      discriminator:
+        propertyName: role
+        mapping:
+          user: '#/components/schemas/QuestionHistoryUserMessage'
+          assistant: '#/components/schemas/QuestionHistoryAssistantMessage'
     QuestionSessionContext:
       title: QuestionSessionContext
       type: object
@@ -1585,8 +1654,25 @@ components:
           type:
           - string
           - 'null'
+          description: Chỉ được phép (và bắt buộc dạng chuỗi) khi `type = answer.delta`.
         at:
           $ref: ../schemas/timestamp.schema.json
+      if:
+        properties:
+          type:
+            const: answer.delta
+        required:
+        - type
+      then:
+        required:
+        - text_delta
+        properties:
+          text_delta:
+            type: string
+      else:
+        properties:
+          text_delta:
+            type: 'null'
     JobProgressRequest:
       title: JobProgressRequest
       type: object
@@ -1617,8 +1703,7 @@ components:
       - tool_call_id
       properties:
         key:
-          type: string
-          minLength: 1
+          $ref: ../schemas/fact-key.schema.json
         value:
           type:
           - string
@@ -1879,8 +1964,8 @@ components:
           - wrong_merchant
           - already_used
           - over_amount
-    TransferWebhookData:
-      title: TransferWebhookData
+    TransferSettledWebhookData:
+      title: TransferSettledWebhookData
       type: object
       additionalProperties: false
       required:
@@ -1897,15 +1982,34 @@ components:
           minLength: 1
         status:
           type: string
-          enum:
-          - settled
-          - failed
+          const: settled
+        failure_code:
+          type: 'null'
+    TransferFailedWebhookData:
+      title: TransferFailedWebhookData
+      type: object
+      additionalProperties: false
+      required:
+      - rail_txn_id
+      - idempotency_key
+      - status
+      - failure_code
+      properties:
+        rail_txn_id:
+          type: string
+          minLength: 1
+        idempotency_key:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          const: failed
         failure_code:
           type:
           - string
           - 'null'
-    RailsWebhookRequest:
-      title: RailsWebhookRequest
+    CardAuthorizationDeclinedWebhookRequest:
+      title: CardAuthorizationDeclinedWebhookRequest
       type: object
       additionalProperties: false
       required:
@@ -1919,16 +2023,63 @@ components:
           pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
         type:
           type: string
-          enum:
-          - card.authorization_declined
-          - transfer.settled
-          - transfer.failed
+          const: card.authorization_declined
         occurred_at:
           $ref: ../schemas/timestamp.schema.json
         data:
-          oneOf:
-          - $ref: '#/components/schemas/CardAuthorizationDeclinedWebhookData'
-          - $ref: '#/components/schemas/TransferWebhookData'
+          $ref: '#/components/schemas/CardAuthorizationDeclinedWebhookData'
+    TransferSettledWebhookRequest:
+      title: TransferSettledWebhookRequest
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - type
+      - occurred_at
+      - data
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+        type:
+          type: string
+          const: transfer.settled
+        occurred_at:
+          $ref: ../schemas/timestamp.schema.json
+        data:
+          $ref: '#/components/schemas/TransferSettledWebhookData'
+    TransferFailedWebhookRequest:
+      title: TransferFailedWebhookRequest
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - type
+      - occurred_at
+      - data
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+        type:
+          type: string
+          const: transfer.failed
+        occurred_at:
+          $ref: ../schemas/timestamp.schema.json
+        data:
+          $ref: '#/components/schemas/TransferFailedWebhookData'
+    RailsWebhookRequest:
+      title: RailsWebhookRequest
+      oneOf:
+      - $ref: '#/components/schemas/CardAuthorizationDeclinedWebhookRequest'
+      - $ref: '#/components/schemas/TransferSettledWebhookRequest'
+      - $ref: '#/components/schemas/TransferFailedWebhookRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          card.authorization_declined: '#/components/schemas/CardAuthorizationDeclinedWebhookRequest'
+          transfer.settled: '#/components/schemas/TransferSettledWebhookRequest'
+          transfer.failed: '#/components/schemas/TransferFailedWebhookRequest'
     InvoicesInput:
       title: InvoicesInput
       description: 'Đầu vào tool `invoices`: rỗng để lấy hóa đơn của job hiện tại, hoặc truyền `invoice_ids`
@@ -3014,6 +3165,19 @@ components:
             $ref: ../schemas/gate-reason.schema.json
         evaluated_at:
           $ref: ../schemas/timestamp.schema.json
+      if:
+        properties:
+          decision:
+            enum:
+            - ALLOW
+            - REQUIRE_APPROVAL
+        required:
+        - decision
+      then:
+        properties:
+          payee_account_id:
+            type: string
+            pattern: ^vac_[0-9A-HJKMNP-TV-Z]{26}$
     InvoiceSearchInput:
       title: InvoiceSearchInput
       type: object

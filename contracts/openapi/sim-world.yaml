@@ -299,6 +299,11 @@ paths:
       tags: [rails]
       operationId: createCard
       summary: Issue a single-use merchant-locked virtual card (gate only; v1 captures immediately)
+      description: >
+        Idempotent by `idempotency_key` (`payment_intent_id`). Re-POSTing with the same
+        `idempotency_key` and identical body returns the original card result without charging
+        again, and serves as the timeout status lookup for cards. Same key with a different body
+        returns `409 IDEMPOTENCY_KEY_REUSED`.
       requestBody:
         required: true
         content:
@@ -363,6 +368,11 @@ paths:
       tags: [rails]
       operationId: createEscrow
       summary: Hold funds in escrow (gate only)
+      description: >
+        Idempotent by `idempotency_key` (`<escrow_id>`). Re-POSTing with the same
+        `idempotency_key` and identical body returns the original escrow result without holding
+        funds twice, and serves as the timeout status lookup for escrows. Same key with a different
+        body returns `409 IDEMPOTENCY_KEY_REUSED`.
       requestBody:
         required: true
         content:
@@ -404,6 +414,12 @@ paths:
       tags: [rails]
       operationId: releaseEscrow
       summary: Release a held escrow to the destination account (gate only)
+      description: >
+        Releases the full held escrow amount to the destination account locked at hold creation
+        (no partial release or destination override; Payment Gate must verify exact amount and
+        payee account match and re-check policy before calling). Idempotent by operation-scoped
+        `idempotency_key` (`rel_<escrow_id>`); re-POSTing with the same key and body returns the
+        original result.
       parameters:
         - name: rail_escrow_id
           in: path
@@ -417,7 +433,7 @@ paths:
             schema:
               $ref: "#/components/schemas/EscrowActionRequest"
             example:
-              idempotency_key: rel_01M88A6SAP3R27VDQ55VAKCF0P
+              idempotency_key: rel_esc_01M88A6SAP3R27VDQ55VAKCF0P
       responses:
         "200":
           description: Escrow released
@@ -443,6 +459,9 @@ paths:
       tags: [rails]
       operationId: refundEscrow
       summary: Refund a held escrow back to the source wallet (gate only)
+      description: >
+        Idempotent by operation-scoped `idempotency_key` (`ref_<escrow_id>`); re-POSTing with the
+        same key and body returns the original result.
       parameters:
         - name: rail_escrow_id
           in: path
@@ -456,7 +475,7 @@ paths:
             schema:
               $ref: "#/components/schemas/EscrowActionRequest"
             example:
-              idempotency_key: ref_01M88A6SAP3R27VDQ55VAKCF0P
+              idempotency_key: ref_esc_01M88A6SAP3R27VDQ55VAKCF0P
       responses:
         "200":
           description: Escrow refunded
@@ -1351,6 +1370,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
         memo:
           type: string
 
@@ -1383,6 +1403,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
         single_use:
           type: boolean
           default: true
@@ -1409,6 +1430,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
         captured_at:
           type: string
           format: date-time
@@ -1422,6 +1444,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
         reason:
           type: string
           enum: [wrong_merchant, already_used, over_amount]
@@ -1460,6 +1483,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
         expires_on:
           type: string
           format: date
@@ -1498,6 +1522,7 @@ components:
         balance_vnd:
           type: integer
           minimum: 0
+          maximum: 9007199254740991
         as_of:
           type: string
           format: date-time
@@ -1569,12 +1594,18 @@ components:
           type: string
         unit_price_vnd:
           type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         amount_vnd:
           type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         vat_rate_pct:
           type: integer
         vat_amount_vnd:
           type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
 
     UtilityReadings:
       type: object
@@ -1622,11 +1653,16 @@ components:
           type: ["string", "null"]
         subtotal_vnd:
           type: ["integer", "null"]
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         vat_total_vnd:
           type: ["integer", "null"]
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         amount_vnd:
           type: integer
           minimum: 0
+          maximum: 9007199254740991
         readings:
           $ref: "#/components/schemas/UtilityReadings"
         xml_attachment_id:
@@ -1712,6 +1748,8 @@ components:
           type: ["string", "null"]
         total_vnd:
           type: ["integer", "null"]
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         related_invoice:
           anyOf:
             - $ref: "#/components/schemas/RelatedInvoiceRef"
@@ -1763,6 +1801,7 @@ components:
         revenue_vnd:
           type: integer
           minimum: 0
+          maximum: 9007199254740991
         transaction_count:
           type: integer
           minimum: 0
@@ -1820,6 +1859,8 @@ components:
           type: string
         balance_vnd:
           type: integer
+          minimum: 0
+          maximum: 9007199254740991
         as_of:
           type: string
           format: date-time
@@ -1834,6 +1875,8 @@ components:
           type: string
         amount_vnd:
           type: integer
+          minimum: 0
+          maximum: 9007199254740991
         last4:
           type: string
         status:
@@ -1963,6 +2006,7 @@ components:
         amount_vnd:
           type: integer
           minimum: 1
+          maximum: 9007199254740991
 
     CardSwipeResponse:
       type: object

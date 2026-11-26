@@ -58,22 +58,7 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "title": "FlaggedIndicatorItem",
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "kind",
-              "value_hash"
-            ],
-            "properties": {
-              "kind": {
-                "$ref": "../schemas/indicator-kind.schema.json"
-              },
-              "value_hash": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
+            "$ref": "../schemas/indicator-ref.schema.json"
           }
         },
         "reason_codes": {
@@ -113,7 +98,7 @@
           },
           {
             "kind": "tax_id",
-            "value_hash": "0999090001"
+            "value_hash": "1590a1785c0844992aac6d9929133922ecd896e3e7c60a86d1f6f4c45abf0646"
           }
         ],
         "reason_codes": [

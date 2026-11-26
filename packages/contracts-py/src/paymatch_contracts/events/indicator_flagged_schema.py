@@ -10,15 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import approval_created_schema, cross_alert_published_schema
 
 
-class FlaggedIndicatorItem(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-    kind: cross_alert_published_schema.IndicatorKind
-    value_hash: Annotated[str, Field(min_length=1)]
-
-
 class Source(StrEnum):
     finding = 'finding'
     rail = 'rail'
@@ -29,7 +20,9 @@ class IndicatorFlaggedData(BaseModel):
         extra='forbid',
         populate_by_name=True,
     )
-    indicators: Annotated[list[FlaggedIndicatorItem], Field(min_length=1)]
+    indicators: Annotated[
+        list[cross_alert_published_schema.IndicatorRef], Field(min_length=1)
+    ]
     reason_codes: list[cross_alert_published_schema.ReasonCode]
     source: Source
     source_ref: Annotated[

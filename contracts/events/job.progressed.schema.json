@@ -116,8 +116,42 @@
             }
           ]
         },
+        "text_delta": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Chỉ được phép (và bắt buộc dạng chuỗi) khi type = 'answer.delta'."
+        },
         "at": {
           "$ref": "../schemas/timestamp.schema.json"
+        }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "const": "answer.delta"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "required": [
+          "text_delta"
+        ],
+        "properties": {
+          "text_delta": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "text_delta": {
+            "type": "null"
+          }
         }
       }
     }

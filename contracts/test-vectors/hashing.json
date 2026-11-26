@@ -40,6 +40,31 @@
       },
       "canonical_json": "{\"\\r\":\"cr\",\"1\":\"digit\",\"ö\":\"o_umlaut\",\"😀\":\"supplementary_emoji\",\"\":\"bmp_pua\"}",
       "sha256": "444e7fff86eaeaf74be1f03afb572c30cb106738121c91cd8d06ed594cde3353"
+    },
+    {
+      "name": "safe_integer_boundaries",
+      "input": {
+        "min_safe": -9007199254740991,
+        "max_safe": 9007199254740991
+      },
+      "canonical_json": "{\"max_safe\":9007199254740991,\"min_safe\":-9007199254740991}",
+      "sha256": "a89049ae419a1d5be4e19bf82d230cbd8b668759c1602a32899faddba91e2d9a"
+    }
+  ],
+  "jcs_reject_vectors": [
+    {
+      "name": "above_max_safe_integer",
+      "input": {
+        "amount_vnd": 9007199254740992
+      },
+      "reason": "Integer exceeds IEEE-754 MAX_SAFE_INTEGER (9007199254740991)"
+    },
+    {
+      "name": "below_min_safe_integer",
+      "input": {
+        "amount_vnd": -9007199254740992
+      },
+      "reason": "Integer is below IEEE-754 MIN_SAFE_INTEGER (-9007199254740991)"
     }
   ],
   "domain_vectors": [
@@ -139,11 +164,83 @@
           "called_phone_on_file": true,
           "result": "confirmed",
           "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
-          "at": "2026-11-26T08:30:00+07:00"
+          "at": "2026-11-26T01:30:00Z"
         }
       },
-      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T08:30:00+07:00\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
-      "expected_hash": "ba589606f143512875f4ed17505c5ec45b9cc59c8347db7d84772183e997cfb2"
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_plus_00_00",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00+00:00"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_z",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_fractional_000z",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00.000Z"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
     },
     {
       "name": "batch_payload_sorted_by_invoice_id",

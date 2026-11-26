@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import reason_code_schema
+from . import fact_key_schema, reason_code_schema
 
 
 class BotAnswerFact(BaseModel):
@@ -14,7 +14,7 @@ class BotAnswerFact(BaseModel):
         extra='forbid',
         populate_by_name=True,
     )
-    key: Annotated[str, Field(min_length=1)]
+    key: fact_key_schema.FactKey
     value: str | float
     tool_call_id: Annotated[str, Field(pattern='^tcl_[0-9A-HJKMNP-TV-Z]{26}$')]
     verified: bool

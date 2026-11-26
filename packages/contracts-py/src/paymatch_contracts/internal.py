@@ -188,27 +188,13 @@ class InvestigateSessionContext(BaseModel):
     invoice_type: InvoiceType
 
 
-class Role1(StrEnum):
-    user = 'user'
-    assistant = 'assistant'
-
-
-class QuestionHistoryMessage(BaseModel):
+class QuestionHistoryUserMessage(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
-    role: Role1
+    role: Literal['user']
     text_trusted: str
-
-
-class QuestionSessionContext(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-    messages: list[QuestionHistoryMessage]
-    user: SessionUserContext
 
 
 class Kind(StrEnum):
@@ -301,24 +287,37 @@ class ReasonCode(StrEnum):
     CUSTOM = 'CUSTOM'
 
 
-class BotAnswerFactInput(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-    key: Annotated[str, Field(min_length=1)]
-    value: str | float
-    tool_call_id: Annotated[str, Field(pattern='^tcl_[0-9A-HJKMNP-TV-Z]{26}$')]
-
-
-class BotAnswerSubmission(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-    bot_id: Annotated[str, Field(min_length=1)]
-    facts: list[BotAnswerFactInput]
-    reason_codes: list[ReasonCode]
+class FactKey(StrEnum):
+    unit_price_invoice = 'unit_price_invoice'
+    unit_price_contract = 'unit_price_contract'
+    price_delta_pct = 'price_delta_pct'
+    pack_qty_contract = 'pack_qty_contract'
+    pack_qty_parsed = 'pack_qty_parsed'
+    invoice_total_vnd = 'invoice_total_vnd'
+    po_total_vnd = 'po_total_vnd'
+    quantity_delta = 'quantity_delta'
+    payables_open_vnd = 'payables_open_vnd'
+    invoice_count = 'invoice_count'
+    invoice_due_on = 'invoice_due_on'
+    verified_account_id = 'verified_account_id'
+    cross_alert_count = 'cross_alert_count'
+    fraud_list_match_count = 'fraud_list_match_count'
+    tax_status_code = 'tax_status_code'
+    portal_invoice_status_code = 'portal_invoice_status_code'
+    portal_processing_status_code = 'portal_processing_status_code'
+    tax_risk_listed_on = 'tax_risk_listed_on'
+    utility_amount_vnd = 'utility_amount_vnd'
+    utility_median_vnd = 'utility_median_vnd'
+    utility_ratio_to_median = 'utility_ratio_to_median'
+    store_revenue_vnd = 'store_revenue_vnd'
+    wallet_balance_vnd = 'wallet_balance_vnd'
+    auto_pay_used_vnd = 'auto_pay_used_vnd'
+    auto_pay_limit_vnd = 'auto_pay_limit_vnd'
+    spending_total_vnd = 'spending_total_vnd'
+    pending_approval_total_vnd = 'pending_approval_total_vnd'
+    pending_approval_count = 'pending_approval_count'
+    gate_decision = 'gate_decision'
+    gate_channel = 'gate_channel'
 
 
 type Line = Annotated[str, Field(max_length=200)]
@@ -459,37 +458,67 @@ class CardAuthorizationDeclinedWebhookData(BaseModel):
     reason: Reason1
 
 
-class Status(StrEnum):
-    settled = 'settled'
-    failed = 'failed'
-
-
-class TransferWebhookData(BaseModel):
+class TransferSettledWebhookData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
     rail_txn_id: Annotated[str, Field(min_length=1)]
     idempotency_key: Annotated[str, Field(min_length=1)]
-    status: Status
+    status: Literal['settled']
+    failure_code: None
+
+
+class TransferFailedWebhookData(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    rail_txn_id: Annotated[str, Field(min_length=1)]
+    idempotency_key: Annotated[str, Field(min_length=1)]
+    status: Literal['failed']
     failure_code: str | None
 
 
-class Type1(StrEnum):
-    card_authorization_declined = 'card.authorization_declined'
-    transfer_settled = 'transfer.settled'
-    transfer_failed = 'transfer.failed'
-
-
-class RailsWebhookRequest(BaseModel):
+class CardAuthorizationDeclinedWebhookRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
     event_id: Annotated[str, Field(pattern='^evt_[0-9A-HJKMNP-TV-Z]{26}$')]
-    type: Type1
+    type: Literal['card.authorization_declined']
     occurred_at: Timestamp
-    data: CardAuthorizationDeclinedWebhookData | TransferWebhookData
+    data: CardAuthorizationDeclinedWebhookData
+
+
+class TransferSettledWebhookRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    event_id: Annotated[str, Field(pattern='^evt_[0-9A-HJKMNP-TV-Z]{26}$')]
+    type: Literal['transfer.settled']
+    occurred_at: Timestamp
+    data: TransferSettledWebhookData
+
+
+class TransferFailedWebhookRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    event_id: Annotated[str, Field(pattern='^evt_[0-9A-HJKMNP-TV-Z]{26}$')]
+    type: Literal['transfer.failed']
+    occurred_at: Timestamp
+    data: TransferFailedWebhookData
+
+
+type RailsWebhookRequest = Annotated[
+    CardAuthorizationDeclinedWebhookRequest
+    | TransferSettledWebhookRequest
+    | TransferFailedWebhookRequest,
+    Field(discriminator='type', title='RailsWebhookRequest'),
+]
 
 
 type InvoiceId = Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -587,7 +616,9 @@ class AllowedAction(StrEnum):
 type SignedMoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND có dấu (integer, đơn vị đồng; có thể âm trên hóa đơn điều chỉnh TCHDon 2/4).',
+        description='Số tiền VND có dấu (integer trong khoảng safe integer [-9007199254740991, 9007199254740991], đơn vị đồng; có thể âm trên hóa đơn điều chỉnh TCHDon 2/4).',
+        ge=-9007199254740991,
+        le=9007199254740991,
         title='SignedMoneyVnd',
     ),
 ]
@@ -649,7 +680,7 @@ class Brief(BaseModel):
     prompt_hash: str
 
 
-class Status1(StrEnum):
+class Status(StrEnum):
     active = 'active'
     superseded = 'superseded'
     consumed = 'consumed'
@@ -804,7 +835,7 @@ class PurchaseOrderLine(BaseModel):
     unit_price: Decimal
 
 
-class Status2(StrEnum):
+class Status1(StrEnum):
     open = 'open'
     received = 'received'
     closed = 'closed'
@@ -814,8 +845,9 @@ class Status2(StrEnum):
 type MoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND không âm (integer, đơn vị đồng).',
+        description='Số tiền VND không âm (integer trong khoảng safe integer [0, 9007199254740991], đơn vị đồng).',
         ge=0,
+        le=9007199254740991,
         title='MoneyVnd',
     ),
 ]
@@ -1026,7 +1058,7 @@ class ApprovedVendorVerificationSummary(BaseModel):
     decided_at: Timestamp
 
 
-class Status3(StrEnum):
+class Status2(StrEnum):
     active = 'active'
     inactive = 'inactive'
 
@@ -1040,7 +1072,7 @@ class Vendor(BaseModel):
     name: Annotated[str, Field(min_length=1)]
     tax_id: Annotated[str, Field(min_length=1)]
     phone_on_file_masked: Annotated[str, Field(min_length=1)]
-    status: Status3
+    status: Status2
     created_at: Timestamp
 
 
@@ -1426,6 +1458,7 @@ class Code(StrEnum):
     VENDOR_SUSPENDED = 'VENDOR_SUSPENDED'
     APPROVAL_MISSING = 'APPROVAL_MISSING'
     APPROVAL_STALE = 'APPROVAL_STALE'
+    ESCROW_MISMATCH = 'ESCROW_MISMATCH'
 
 
 class Layer(StrEnum):
@@ -1769,6 +1802,31 @@ class BotManifest(BaseModel):
     required_for: list[InvoiceType] | None = None
 
 
+class QuestionHistoryAssistantMessage(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    role: Literal['assistant']
+    message_id: Annotated[str, Field(pattern='^cmg_[0-9A-HJKMNP-TV-Z]{26}$')]
+    citations: list[AnswerCitationInput]
+
+
+type QuestionHistoryMessage = Annotated[
+    QuestionHistoryUserMessage | QuestionHistoryAssistantMessage,
+    Field(discriminator='role', title='QuestionHistoryMessage'),
+]
+
+
+class QuestionSessionContext(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    messages: list[QuestionHistoryMessage]
+    user: SessionUserContext
+
+
 class ReportSessionContext(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1792,7 +1850,12 @@ class JobProgressEventItem(BaseModel):
     tool_id: str | None = None
     severity: Severity | None = None
     reason_code: ReasonCode | None = None
-    text_delta: str | None = None
+    text_delta: Annotated[
+        str | None,
+        Field(
+            description='Chỉ được phép (và bắt buộc dạng chuỗi) khi `type = answer.delta`.'
+        ),
+    ] = None
     at: Timestamp
 
 
@@ -1804,6 +1867,26 @@ class JobProgressRequest(BaseModel):
     worker_id: Annotated[str, Field(min_length=1)]
     attempt: Annotated[int, Field(ge=1)]
     events: Annotated[list[JobProgressEventItem], Field(min_length=1)]
+
+
+class BotAnswerFactInput(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    key: FactKey
+    value: str | float
+    tool_call_id: Annotated[str, Field(pattern='^tcl_[0-9A-HJKMNP-TV-Z]{26}$')]
+
+
+class BotAnswerSubmission(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    bot_id: Annotated[str, Field(min_length=1)]
+    facts: list[BotAnswerFactInput]
+    reason_codes: list[ReasonCode]
 
 
 class BriefSubmission(BaseModel):
@@ -1959,7 +2042,7 @@ class ApprovalSummary(BaseModel):
     )
     approval_id: Annotated[str, Field(pattern='^apv_[0-9A-HJKMNP-TV-Z]{26}$')]
     method: ApprovalMethod
-    status: Status1
+    status: Status
     approver_user_id: Annotated[
         str | None, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')
     ]
@@ -1996,7 +2079,7 @@ class PurchaseOrder(BaseModel):
     store_id: Annotated[str, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]
     lines: Annotated[list[PurchaseOrderLine], Field(min_length=1)]
     total_vnd: MoneyVnd
-    status: Status2
+    status: Status1
     created_by: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     created_at: Timestamp
 

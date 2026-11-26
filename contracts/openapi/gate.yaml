@@ -80,6 +80,10 @@ paths:
   /gate/evaluate:
     post:
       operationId: evaluatePaymentPolicy
+      x-allowed-callers:
+        - merchant-api
+        - core-worker
+        - internal-api
       summary: Đánh giá thử 3 lớp luật và chọn kênh thanh toán (không tác dụng phụ)
       description: |
         Bên gọi được phép: `merchant-api` (approval-preview, escrow-preview), `core-worker` (kiểm tự chi F2),
@@ -186,6 +190,9 @@ paths:
   /gate/budgets/{tenant_id}/{date}:
     get:
       operationId: getDailyBudget
+      x-allowed-callers:
+        - core-worker
+        - internal-api
       summary: Đọc ngân sách tự chi và tổng chi trong ngày của tenant
       description: |
         Bên gọi được phép: `core-worker`, `internal-api` (tool `spending_limits`).
@@ -237,6 +244,8 @@ paths:
   /gate/intents:
     post:
       operationId: createPaymentIntent
+      x-allowed-callers:
+        - core-worker
       summary: Tạo PaymentIntent pha 1 (authorized, giữ chỗ ngân sách ngày)
       description: |
         Bên gọi được phép: **chỉ `core-worker`**.
@@ -338,12 +347,15 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
-          $ref: '#/components/responses/GateDenied'
+          $ref: '#/components/responses/IntentGateDenied'
         '423':
           $ref: '#/components/responses/Locked'
 
     get:
       operationId: listPaymentIntents
+      x-allowed-callers:
+        - merchant-api
+        - core-worker
       summary: Danh sách PaymentIntent phân trang theo tenant
       description: |
         Bên gọi được phép: `merchant-api`, `core-worker`.
@@ -421,6 +433,10 @@ paths:
   /gate/intents/{payment_intent_id}:
     get:
       operationId: getPaymentIntent
+      x-allowed-callers:
+        - merchant-api
+        - core-worker
+        - console-api
       summary: Chi tiết một PaymentIntent
       description: |
         Bên gọi được phép: `merchant-api`, `core-worker`, và `console-api` (bắt buộc kèm `X-Ticket-Id` từ handler tra bằng chứng F6).
@@ -479,6 +495,8 @@ paths:
   /gate/intents/{payment_intent_id}:execute:
     post:
       operationId: executePaymentIntent
+      x-allowed-callers:
+        - core-worker
       summary: Thực thi PaymentIntent pha 2 (đánh giá lại toàn bộ rồi gọi rail)
       description: |
         Bên gọi được phép: **chỉ `core-worker`**.
@@ -569,13 +587,15 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
-          $ref: '#/components/responses/GateDenied'
+          $ref: '#/components/responses/IntentGateDenied'
         '423':
           $ref: '#/components/responses/Locked'
 
   /gate/intents/{payment_intent_id}:cancel:
     post:
       operationId: cancelPaymentIntent
+      x-allowed-callers:
+        - core-worker
       summary: Hủy PaymentIntent đang ở trạng thái authorized và hoàn chỗ ngân sách ngày
       description: |
         Bên gọi được phép: **chỉ `core-worker`**.
@@ -644,11 +664,17 @@ paths:
   /gate/escrows:
     post:
       operationId: createEscrow
+      x-allowed-callers:
+        - merchant-api
       summary: Tạo khoản cọc tạm giữ từ Approval của Chủ chuỗi (F7)
       description: |
         Bên gọi được phép: **chỉ `merchant-api`**.
-        Gate tự đọc PO, TK nhận (`verified` hoặc `escrow_only` thuộc NCC của PO), số tiền (`<= PO.total_vnd`)
-        và `source_invoice_id` từ bản ghi `Approval`. Mỗi PO tối đa một escrow đang mở.
+        - Gate tự đọc PO, TK nhận (`verified` hoặc `escrow_only` thuộc NCC của PO), số tiền (`<= PO.total_vnd`)
+          và `source_invoice_id` từ bản ghi `Approval`. Mỗi PO tối đa một escrow đang mở (`pending`/`held`).
+        - **Một `approval_id` chỉ cấp vốn cho tối đa một escrow vĩnh viễn** (`UNIQUE (approval_id)` ánh xạ
+          `approval_id → escrow_id`). Gọi lại `POST /gate/escrows` với cùng `approval_id` trả `200` kèm bản ghi
+          `Escrow` gốc ở **mọi trạng thái** (`pending`/`held`/`released`/`refunded`/`failed`), không tạo cọc mới.
+        - Sau khi cọc hết hạn/hoàn (`refunded`) hoặc thất bại (`failed`), tạo cọc mới bắt buộc phải có `approval_id` mới.
       tags: [Escrows]
       parameters:
         - $ref: '#/components/parameters/Traceparent'
@@ -666,7 +692,7 @@ paths:
                   expires_on: '2026-12-10'
       responses:
         '201':
-          description: Đã tạo `Escrow` ở trạng thái `held` (hoặc `pending` nếu rail chưa phản hồi sau 5 s)
+          description: Đã tạo `Escrow` mới ở trạng thái `held` (hoặc `pending` nếu rail chưa phản hồi sau 5 s)
           headers:
             X-Request-Id:
               $ref: '#/components/headers/X-Request-Id'
@@ -690,6 +716,31 @@ paths:
                     created_at: '2026-11-26T09:15:00+07:00'
                     released_at: null
                     refunded_at: null
+        '200':
+          description: Đã có `Escrow` gắn với `approval_id` này — trả nguyên bản ghi gốc ở mọi trạng thái (idempotent, 1 approval tối đa 1 escrow vĩnh viễn)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/escrow.schema.json'
+              examples:
+                existing_escrow_for_approval:
+                  summary: Gọi lại với cùng approval_id trả lại cọc gốc (kể cả đã refunded)
+                  value:
+                    escrow_id: esc_01M88A6SAP3R27VDQ55VAKCF0P
+                    purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                    vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 8800000
+                    status: refunded
+                    source_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    release_invoice_id: null
+                    goods_receipt_id: null
+                    expires_on: '2026-12-10'
+                    created_at: '2026-11-26T09:15:00+07:00'
+                    released_at: null
+                    refunded_at: '2026-12-11T08:00:00+07:00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -708,6 +759,9 @@ paths:
   /gate/escrows/{escrow_id}:
     get:
       operationId: getEscrow
+      x-allowed-callers:
+        - merchant-api
+        - core-worker
       summary: Chi tiết một khoản cọc tạm giữ
       description: Bên gọi được phép — `merchant-api`, `core-worker`.
       tags: [Escrows]
@@ -750,11 +804,18 @@ paths:
   /gate/escrows/{escrow_id}:release:
     post:
       operationId: releaseEscrow
+      x-allowed-callers:
+        - core-worker
       summary: Giải ngân cọc tạm giữ khi đủ phiếu nhập hàng và hóa đơn giải ngân đã duyệt (F7)
       description: |
         Bên gọi được phép: **chỉ `core-worker`**.
-        Gate kiểm tra: `goods_receipt_id` thuộc đúng PO của cọc; `approval_id` là bản ghi `active` với `channel = escrow`
-        của hóa đơn giải ngân cùng NCC gắn PO và tổng tiền `<= amount_vnd` của cọc.
+        Gate tự đọc lại toàn bộ từ DB và kiểm tra:
+        - `goods_receipt_id` thuộc đúng PO của cọc;
+        - `approval_id` là bản ghi `active` của job điều tra hoàn tất mới nhất với `channel = escrow` và `intent_hash` khớp bản hiện tại của hóa đơn giải ngân;
+        - hóa đơn giải ngân cùng NCC, gắn PO, không `blocked`;
+        - **số tiền đã duyệt (`approval.amount_vnd`) PHẢI BẰNG đúng số tiền cọc đang giữ (`escrow.amount_vnd`) VÀ tài khoản nhận đã duyệt (`approval.payee_account_id`) PHẢI BẰNG đúng tài khoản của cọc (`escrow.vendor_account_id`)**;
+        - đánh giá lại toàn bộ policy trước khi giải ngân (kill switch → `423 KILL_SWITCH_ACTIVE`, `risk.hard_blocks`, `risk.cross_alerts` chưa xác minh gọi lại, SIMO).
+        - Sai lệch số tiền / tài khoản / PO / phiếu nhập / hóa đơn so với cọc → `422 GATE_DENIED` với `GateReason.code = ESCROW_MISMATCH`.
       tags: [Escrows]
       parameters:
         - $ref: '#/components/parameters/EscrowId'
@@ -815,6 +876,8 @@ paths:
   /gate/escrows/{escrow_id}:refund:
     post:
       operationId: refundEscrow
+      x-allowed-callers:
+        - core-worker
       summary: Hoàn cọc tạm giữ về ví tenant do quá hạn hoặc hủy PO (F7)
       description: Bên gọi được phép — **chỉ `core-worker`**.
       tags: [Escrows]
@@ -1024,8 +1087,9 @@ components:
                 status: 409
                 code: INVALID_STATE
                 detail: Không thể hủy PaymentIntent khi đang ở trạng thái executing.
+                current_status: executing
     GateDenied:
-      description: Payment Gate từ chối (`422 GATE_DENIED`, kèm `gate_reasons[]` và `payment_intent` trạng thái `denied` khi có)
+      description: Payment Gate từ chối (`422 GATE_DENIED`, kèm `gate_reasons[]`; dùng cho thao tác escrow)
       headers:
         X-Request-Id:
           $ref: '#/components/headers/X-Request-Id'
@@ -1033,6 +1097,67 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/GateDeniedProblem'
+          examples:
+            escrow_mismatch:
+              summary: Giải ngân cọc bị từ chối vì số tiền hoặc tài khoản hóa đơn giải ngân khác cọc đang giữ
+              value:
+                type: https://paymatch.dev/problems/gate-denied
+                title: Payment Gate denied escrow release
+                status: 422
+                code: GATE_DENIED
+                detail: Hóa đơn giải ngân không khớp số tiền hoặc tài khoản nhận của khoản cọc đang giữ.
+                instance: /gate/escrows/esc_01M88A6SAP3R27VDQ55VAKCF0P:release
+                gate_reasons:
+                  - code: ESCROW_MISMATCH
+                    layer: hard_rule
+                    detail: Số tiền đã duyệt (8.500.000 đ) khác số tiền cọc đang giữ (8.800.000 đ).
+                payment_intent: null
+            cross_alert_unverified:
+              summary: Từ chối vì cảnh báo chéo chưa xác minh gọi lại
+              value:
+                type: https://paymatch.dev/problems/gate-denied
+                title: Payment Gate denied execution
+                status: 422
+                code: GATE_DENIED
+                detail: Hóa đơn khớp cảnh báo chéo nhưng bản ghi duyệt chưa ghi nhận xác minh gọi lại.
+                instance: /gate/intents/pi_01M8867BQMQG52GZYDE75JHF2V:execute
+                gate_reasons:
+                  - code: CROSS_ALERT_UNVERIFIED
+                    layer: hard_rule
+                    detail: Hóa đơn khớp cảnh báo chéo nhưng approval chưa có xác minh gọi lại SĐT lưu sẵn.
+                payment_intent:
+                  payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                  tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                  invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                  purchase_order_id: null
+                  intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                  approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                  payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                  channel: bank_transfer
+                  amount_vnd: 22400000
+                  status: denied
+                  gate_reasons:
+                    - code: CROSS_ALERT_UNVERIFIED
+                      layer: hard_rule
+                      detail: Hóa đơn khớp cảnh báo chéo nhưng approval chưa có xác minh gọi lại SĐT lưu sẵn.
+                  rail:
+                    rail_txn_id: null
+                    failure_code: null
+                  transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                  authorized_at: '2026-11-26T08:32:00+07:00'
+                  executed_at: null
+                  settled_at: null
+                  expires_at: '2026-11-26T08:47:00+07:00'
+                  created_at: '2026-11-26T08:32:00+07:00'
+    IntentGateDenied:
+      description: Payment Gate từ chối thao tác PaymentIntent (`422 GATE_DENIED`, bắt buộc kèm `gate_reasons[]` và `payment_intent` ở trạng thái `denied`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/IntentGateDeniedProblem'
           examples:
             cross_alert_unverified:
               summary: Từ chối lúc execute vì cảnh báo chéo chưa xác minh gọi lại
@@ -1224,11 +1349,22 @@ components:
             `ABOVE_PER_INVOICE_LIMIT`, `ABOVE_DAILY_LIMIT`, `CROSS_ALERT_UNVERIFIED`,
             `OFFICIAL_FRAUD_LIST`, `KILL_SWITCH`, `POLICY_UNAVAILABLE`, `CHANNEL_NOT_ALLOWED`,
             `ALREADY_PAID`, `OUTSIDE_TIME_WINDOW`, `MANDATE_NOT_AUTO_PAY`,
-            `VENDOR_NOT_IN_AUTO_PAY`, `VENDOR_SUSPENDED`, `APPROVAL_MISSING`, `APPROVAL_STALE`).
+            `VENDOR_NOT_IN_AUTO_PAY`, `VENDOR_SUSPENDED`, `APPROVAL_MISSING`, `APPROVAL_STALE`,
+            `ESCROW_MISMATCH`).
           items:
             $ref: '../schemas/gate-reason.schema.json'
         evaluated_at:
           $ref: '../schemas/timestamp.schema.json'
+      if:
+        properties:
+          decision:
+            enum: [ALLOW, REQUIRE_APPROVAL]
+        required: [decision]
+      then:
+        properties:
+          payee_account_id:
+            type: string
+            pattern: '^vac_[0-9A-HJKMNP-TV-Z]{26}$'
 
     DailyBudgetResponse:
       title: DailyBudgetResponse
@@ -1391,3 +1527,39 @@ components:
           anyOf:
             - $ref: '../schemas/payment-intent.schema.json'
             - type: 'null'
+
+    IntentGateDeniedProblem:
+      title: IntentGateDeniedProblem
+      description: RFC 9457 Problem Details cho lỗi `422 GATE_DENIED` trên thao tác PaymentIntent, bắt buộc kèm `gate_reasons[]` và `payment_intent` ở trạng thái `denied`.
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, gate_reasons, payment_intent]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          const: 422
+        code:
+          type: string
+          const: GATE_DENIED
+        detail:
+          type: string
+        instance:
+          type: string
+        gate_reasons:
+          type: array
+          minItems: 1
+          items:
+            $ref: '../schemas/gate-reason.schema.json'
+        payment_intent:
+          allOf:
+            - $ref: '../schemas/payment-intent.schema.json'
+            - type: object
+              properties:
+                status:
+                  type: string
+                  const: denied
