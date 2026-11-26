@@ -408,7 +408,21 @@ def create_merchant_app(
         traceparent: str | None = Header(default=None),
         principal: SessionPrincipal = Depends(require_roles("owner", "accountant")),
     ) -> JSONResponse:
-        raw_bytes = await file.read()
+        # I10: stream upload in chunks and abort as soon as configured byte limit is exceeded
+        buf = bytearray()
+        while True:
+            chunk = await file.read(65536)
+            if not chunk:
+                break
+            buf.extend(chunk)
+            if len(buf) > cfg.max_invoice_bytes:
+                raise ProblemError(
+                    413,
+                    "PAYLOAD_TOO_LARGE",
+                    "Uploaded file exceeds maximum size",
+                    f"Kích thước tệp tải lên vượt quá giới hạn cho phép ({cfg.max_invoice_bytes} bytes).",
+                )
+        raw_bytes = bytes(buf)
         req_hash = _hash_request(raw_bytes + (message_text or "").encode("utf-8"))
         now = clk.now()
 
@@ -437,6 +451,9 @@ def create_merchant_app(
                     trace_id=_extract_trace_id(traceparent),
                 ),
                 clock=clk,
+                max_invoice_bytes=cfg.max_invoice_bytes,
+                max_xml_elements=cfg.max_xml_elements,
+                default_due_days=cfg.default_due_days,
             )
             status_code = 200 if res.already_existed else 202
             resp_body = {

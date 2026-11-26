@@ -1295,7 +1295,11 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     cfg = CoreSettings.from_env()
     db = Database(cfg.database_url)
-    source_port = SimWorldInvoiceSourceAdapter(cfg.sim_url, cfg.sim_core_service_key)
+    source_port = SimWorldInvoiceSourceAdapter(
+        cfg.sim_url,
+        cfg.sim_core_service_key,
+        max_invoice_bytes=cfg.max_invoice_bytes,
+    )
     gate_client = HttpGateAdapter(cfg.gate_url, cfg.gate_core_service_key)
     clk: Clock = (
         SimWorldClock(cfg.sim_url, cfg.sim_core_service_key) if cfg.demo_mode else SystemClock()

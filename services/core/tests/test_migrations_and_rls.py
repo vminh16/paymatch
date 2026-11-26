@@ -123,6 +123,11 @@ def test_gate_role_readonly_cross_schema_shape(seeded_db: Database) -> None:
         assert len(tenants) == 2
         assert all(t["wallet_id"].startswith("wal_") for t in tenants)
 
+        owners = conn.execute(
+            "SELECT user_id, tenant_id, role FROM core.users WHERE role = 'owner'"
+        ).fetchall()
+        assert len(owners) >= 2
+
         conn.execute(
             """
             SELECT invoice_id, tenant_id, store_id, vendor_id, purchase_order_id, status, total_vnd, document_sha256

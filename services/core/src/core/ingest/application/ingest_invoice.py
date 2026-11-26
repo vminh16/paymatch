@@ -225,57 +225,88 @@ def _empty_untrusted(filename: str) -> dict[str, Any]:
     }
 
 
+def _lookup_existing_by_sha(
+    conn: psycopg.Connection, tenant_id: str, sha: str
+) -> IngestResult | None:
+    existing_doc = conn.execute(
+        """
+        SELECT d.document_id, i.invoice_id, i.status, i.duplicate_of
+        FROM core.invoice_documents d
+        JOIN core.invoices i ON i.tenant_id = d.tenant_id AND i.document_id = d.document_id
+        WHERE d.tenant_id = %s AND d.sha256 = %s
+        LIMIT 1
+        """,
+        (tenant_id, sha),
+    ).fetchone()
+    if existing_doc is None:
+        return None
+    latest_job = conn.execute(
+        """
+        SELECT job_id FROM core.jobs
+        WHERE tenant_id = %s AND invoice_id = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (tenant_id, existing_doc["invoice_id"]),
+    ).fetchone()
+    return IngestResult(
+        invoice_id=existing_doc["invoice_id"],
+        document_id=existing_doc["document_id"],
+        job_id=latest_job["job_id"] if latest_job else None,
+        status=existing_doc["status"],
+        already_existed=True,
+        duplicate_of=existing_doc["duplicate_of"],
+    )
+
+
 def ingest_invoice(
     conn: psycopg.Connection,
     cmd: IngestCommand,
     *,
     clock: Clock | None = None,
+    max_invoice_bytes: int = 5 * 1024 * 1024,
+    max_xml_elements: int = 10_000,
+    default_due_days: int = 7,
 ) -> IngestResult:
-    """Ingest raw invoice bytes atomically per einvoice-xml.md §4 and architecture.md §2."""
+    """Ingest raw invoice bytes atomically per einvoice-xml.md §4 and architecture.md §2.
+
+    B5: serializes concurrent ingests per (tenant_id, normalized business key) with
+    pg_advisory_xact_lock and arbitrates identical-byte races via INSERT ... ON CONFLICT
+    (tenant_id, sha256) DO NOTHING returning the winning invoice.
+    """
+    if len(cmd.raw_bytes) > max_invoice_bytes:
+        raise ProblemError(
+            status=413,
+            code="PAYLOAD_TOO_LARGE",
+            title="Invoice file exceeds maximum size",
+            detail=f"Kích thước tệp vượt quá giới hạn cho phép ({max_invoice_bytes} bytes).",
+        )
+
     clk = clock or SystemClock()
     now = clk.now()
     received_at = cmd.received_at or now
     sha = document_sha256(cmd.raw_bytes)
 
-    # 1. Idempotency by (tenant_id, sha256) FIRST — before any duplicate check!
-    existing_doc = conn.execute(
-        """
-        SELECT d.document_id, i.invoice_id, i.status, i.duplicate_of
-        FROM core.invoice_documents d
-        JOIN core.invoices i ON i.document_id = d.document_id
-        WHERE d.tenant_id = %s AND d.sha256 = %s
-        LIMIT 1
-        """,
-        (cmd.tenant_id, sha),
-    ).fetchone()
-    if existing_doc is not None:
-        latest_job = conn.execute(
-            """
-            SELECT job_id FROM core.jobs
-            WHERE tenant_id = %s AND invoice_id = %s
-            ORDER BY created_at DESC
-            LIMIT 1
-            """,
-            (cmd.tenant_id, existing_doc["invoice_id"]),
-        ).fetchone()
-        return IngestResult(
-            invoice_id=existing_doc["invoice_id"],
-            document_id=existing_doc["document_id"],
-            job_id=latest_job["job_id"] if latest_job else None,
-            status=existing_doc["status"],
-            already_existed=True,
-            duplicate_of=existing_doc["duplicate_of"],
-        )
+    # 1. Fast-path idempotency check by (tenant_id, sha256) before parsing
+    fast_existing = _lookup_existing_by_sha(conn, cmd.tenant_id, sha)
+    if fast_existing is not None:
+        return fast_existing
 
-    # 2. Detect format & parse XML if applicable
+    # 2. Detect format & parse XML outside DB locks (bounded by max_invoice_bytes & max_xml_elements)
     doc_format = detect_document_format(cmd.filename, cmd.content_type, cmd.raw_bytes)
     parsed: ParsedInvoice | None = None
-    ingest_findings: list[tuple[str, str, str]] = []  # (reason_code, severity, reason_text)
-    duplicate_of: str | None = None
+    base_findings: list[tuple[str, str, str]] = []  # (reason_code, severity, reason_text)
+    seller_tax_norm = ""
+    symbol_norm = ""
+    number_norm = ""
 
     if doc_format == "xml":
         try:
-            parsed = parse_einvoice(cmd.raw_bytes)
+            parsed = parse_einvoice(
+                cmd.raw_bytes,
+                max_bytes=max_invoice_bytes,
+                max_elements=max_xml_elements,
+            )
         except InvoiceUnparseable as exc:
             raise ProblemError(
                 status=422,
@@ -284,47 +315,13 @@ def ingest_invoice(
                 detail=f"Không đọc được cấu trúc HĐĐT: {exc.reason}",
             ) from exc
 
-        # 3. Duplicate key check (different sha256)
         seller_tax_norm, symbol_norm, number_norm = duplicate_key(parsed)
-        dup_row = conn.execute(
-            """
-            SELECT invoice_id FROM core.invoices
-            WHERE tenant_id = %s
-              AND seller_tax_id = %s
-              AND symbol = %s
-              AND number_norm = %s
-            ORDER BY created_at ASC
-            LIMIT 1
-            """,
-            (cmd.tenant_id, seller_tax_norm, symbol_norm, number_norm),
-        ).fetchone()
-
-        if dup_row is not None:
-            if cmd.source == "upload":
-                raise ProblemError(
-                    status=409,
-                    code="DUPLICATE_INVOICE",
-                    title="Duplicate invoice detected",
-                    detail=(
-                        f"Hóa đơn (MST {seller_tax_norm}, ký hiệu {symbol_norm}, số {number_norm}) "
-                        "đã tồn tại với nội dung file khác."
-                    ),
-                    existing_invoice_id=dup_row["invoice_id"],
-                )
-            duplicate_of = dup_row["invoice_id"]
-            ingest_findings.append(
-                (
-                    "DUPLICATE_INVOICE",
-                    "red",
-                    f"Phát hiện hóa đơn trùng khóa ({seller_tax_norm}, {symbol_norm}, {number_norm}) với {duplicate_of}.",
-                )
-            )
 
         # Arithmetic checks (Tiers 1-3)
         arith_issues = check_arithmetic(parsed)
         if arith_issues:
             details = "; ".join(i.detail for i in arith_issues[:3])
-            ingest_findings.append(
+            base_findings.append(
                 (
                     "AMOUNT_MISMATCH",
                     "yellow",
@@ -332,7 +329,7 @@ def ingest_invoice(
                 )
             )
     else:
-        ingest_findings.append(
+        base_findings.append(
             (
                 "NON_XML_SOURCE",
                 "yellow",
@@ -340,57 +337,15 @@ def ingest_invoice(
             )
         )
 
-    # 4. Vendor lookup
-    vendor_row: dict[str, Any] | None = None
-    if parsed is not None:
-        vendor_row = conn.execute(
-            """
-            SELECT vendor_id, name, tax_id, category, status
-            FROM core.vendors
-            WHERE tenant_id = %s AND tax_id = %s
-            LIMIT 1
-            """,
-            (cmd.tenant_id, parsed.seller_tax_id.strip()),
-        ).fetchone()
-        if vendor_row is None:
-            ingest_findings.append(
-                (
-                    "UNKNOWN_VENDOR",
-                    "yellow",
-                    f"Mã số thuế người bán {parsed.seller_tax_id} chưa có trong danh bạ NCC.",
-                )
-            )
-
-    invoice_type = _classify_invoice_type(
-        conn,
-        tenant_id=cmd.tenant_id,
-        vendor_row=vendor_row,
-        parsed=parsed,
-        source=cmd.source,
-        hint=cmd.invoice_type_hint,
-    )
-    store_id = _infer_store_id(
-        conn,
-        tenant_id=cmd.tenant_id,
-        store_id_hint=cmd.store_id_hint,
-        parsed=parsed,
-    )
-
-    # Compute due_on (default issued_on + 7 days if XML has issued_on and no hint)
+    # Compute due_on (configured default_due_days if XML has issued_on and no hint; Nit 2)
     due_on = cmd.due_on_hint
     if due_on is None and parsed is not None and parsed.issued_on:
         try:
-            due_on = date.fromisoformat(parsed.issued_on) + timedelta(days=7)
+            due_on = date.fromisoformat(parsed.issued_on) + timedelta(days=default_due_days)
         except ValueError:
             due_on = None
 
-    document_id = new_id("doc")
-    invoice_id = new_id("inv")
-    job_id = new_id("job")
-    event_id = new_id("evt")
-
     if parsed is not None:
-        _, symbol_norm, number_norm = duplicate_key(parsed)
         vat_breakdown = [
             {
                 "vat_rate": vb.vat_rate,
@@ -411,20 +366,109 @@ def ingest_invoice(
         )
         untrusted_json = _serialize_untrusted(parsed)
     else:
-        symbol_norm = ""
-        number_norm = ""
         vat_breakdown = []
         related_invoice = None
         untrusted_json = _empty_untrusted(cmd.filename)
 
-    # 5. Persist everything atomically in one transaction (savepoint if already in transaction)
+    document_id = new_id("doc")
+    invoice_id = new_id("inv")
+    job_id = new_id("job")
+    event_id = new_id("evt")
+
+    # 3. Serialize business-key lookup + SHA conflict + atomic persistence inside ONE transaction (B5)
     with conn.transaction():
-        conn.execute(
+        if parsed is not None:
+            lock_key = f"paymatch:ingest:key:{cmd.tenant_id}|{seller_tax_norm}|{symbol_norm}|{number_norm}"
+            conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (lock_key,))
+
+        # Re-check SHA after acquiring lock
+        winner = _lookup_existing_by_sha(conn, cmd.tenant_id, sha)
+        if winner is not None:
+            return winner
+
+        ingest_findings = list(base_findings)
+        duplicate_of: str | None = None
+
+        if parsed is not None:
+            dup_row = conn.execute(
+                """
+                SELECT invoice_id FROM core.invoices
+                WHERE tenant_id = %s
+                  AND seller_tax_id = %s
+                  AND symbol = %s
+                  AND number_norm = %s
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (cmd.tenant_id, seller_tax_norm, symbol_norm, number_norm),
+            ).fetchone()
+
+            if dup_row is not None:
+                if cmd.source == "upload":
+                    raise ProblemError(
+                        status=409,
+                        code="DUPLICATE_INVOICE",
+                        title="Duplicate invoice detected",
+                        detail=(
+                            f"Hóa đơn (MST {seller_tax_norm}, ký hiệu {symbol_norm}, số {number_norm}) "
+                            "đã tồn tại với nội dung file khác."
+                        ),
+                        existing_invoice_id=dup_row["invoice_id"],
+                    )
+                duplicate_of = dup_row["invoice_id"]
+                ingest_findings.append(
+                    (
+                        "DUPLICATE_INVOICE",
+                        "red",
+                        f"Phát hiện hóa đơn trùng khóa ({seller_tax_norm}, {symbol_norm}, {number_norm}) với {duplicate_of}.",
+                    )
+                )
+
+        # Vendor lookup
+        vendor_row: dict[str, Any] | None = None
+        if parsed is not None:
+            vendor_row = conn.execute(
+                """
+                SELECT vendor_id, name, tax_id, category, status
+                FROM core.vendors
+                WHERE tenant_id = %s AND tax_id = %s
+                LIMIT 1
+                """,
+                (cmd.tenant_id, parsed.seller_tax_id.strip()),
+            ).fetchone()
+            if vendor_row is None:
+                ingest_findings.append(
+                    (
+                        "UNKNOWN_VENDOR",
+                        "yellow",
+                        f"Mã số thuế người bán {parsed.seller_tax_id} chưa có trong danh bạ NCC.",
+                    )
+                )
+
+        invoice_type = _classify_invoice_type(
+            conn,
+            tenant_id=cmd.tenant_id,
+            vendor_row=vendor_row,
+            parsed=parsed,
+            source=cmd.source,
+            hint=cmd.invoice_type_hint,
+        )
+        store_id = _infer_store_id(
+            conn,
+            tenant_id=cmd.tenant_id,
+            store_id_hint=cmd.store_id_hint,
+            parsed=parsed,
+        )
+
+        # Arbitrate same-byte SHA race atomically on insert (B5)
+        inserted_doc = conn.execute(
             """
             INSERT INTO core.invoice_documents (
                 document_id, tenant_id, format, sha256, raw_bytes, content_type, filename, received_at
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (tenant_id, sha256) DO NOTHING
+            RETURNING document_id
             """,
             (
                 document_id,
@@ -436,7 +480,17 @@ def ingest_invoice(
                 cmd.filename or "",
                 received_at,
             ),
-        )
+        ).fetchone()
+        if inserted_doc is None:
+            winner_after = _lookup_existing_by_sha(conn, cmd.tenant_id, sha)
+            if winner_after is not None:
+                return winner_after
+            raise ProblemError(
+                409,
+                "CONCURRENT_INGEST",
+                "Concurrent ingest conflict",
+                "Hóa đơn đang được nhập đồng thời; vui lòng thử lại.",
+            )
 
         conn.execute(
             """

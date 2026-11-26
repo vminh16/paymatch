@@ -296,18 +296,36 @@ def check_unknown_vendor(
     return REASON_UNKNOWN_VENDOR if is_unknown_vendor(parsed, known_vendor_tax_ids) else None
 
 
-def parse_einvoice(xml_bytes: bytes) -> ParsedInvoice:
+DEFAULT_MAX_XML_BYTES = 5 * 1024 * 1024
+DEFAULT_MAX_XML_ELEMENTS = 10_000
+DEFAULT_MAX_XML_DEPTH = 64
+
+
+def parse_einvoice(
+    xml_bytes: bytes,
+    *,
+    max_bytes: int = DEFAULT_MAX_XML_BYTES,
+    max_elements: int = DEFAULT_MAX_XML_ELEMENTS,
+    max_depth: int = DEFAULT_MAX_XML_DEPTH,
+) -> ParsedInvoice:
     """Parse Vietnamese e-invoice XML bytes into a ParsedInvoice (einvoice-xml.md §3a, §4).
 
     Raises InvoiceUnparseable for all 422 XML_UNPARSEABLE cases in einvoice-xml.md §4.
     """
     if not xml_bytes:
         raise InvoiceUnparseable("empty XML payload")
+    if len(xml_bytes) > max_bytes:
+        raise InvoiceUnparseable(f"XML payload exceeds max byte limit ({max_bytes})")
 
     raw_sha256 = document_sha256(xml_bytes)
     cleaned_bytes = xml_bytes[len(_UTF8_BOM) :] if xml_bytes.startswith(_UTF8_BOM) else xml_bytes
 
-    root = _parse_xml_strict(cleaned_bytes)
+    root = _parse_xml_strict(
+        cleaned_bytes,
+        max_bytes=max_bytes,
+        max_elements=max_elements,
+        max_depth=max_depth,
+    )
 
     hdon = _find_hdon(root)
     if hdon is None:
@@ -502,17 +520,36 @@ def _fix_expat_name(name: str) -> str:
     return f"{{{name}" if "}" in name else name
 
 
-def _parse_xml_strict(xml_bytes: bytes) -> ET.Element:
-    """Parse XML via expat + TreeBuilder with DTD/entity handlers disabled across all encodings."""
+def _parse_xml_strict(
+    xml_bytes: bytes,
+    *,
+    max_bytes: int = DEFAULT_MAX_XML_BYTES,
+    max_elements: int = DEFAULT_MAX_XML_ELEMENTS,
+    max_depth: int = DEFAULT_MAX_XML_DEPTH,
+) -> ET.Element:
+    """Parse XML via expat + TreeBuilder with DTD/entity handlers disabled and bounded size/elements/depth."""
+    if len(xml_bytes) > max_bytes:
+        raise InvoiceUnparseable(f"XML payload exceeds max byte limit ({max_bytes})")
     builder = ET.TreeBuilder()
     parser = expat_mod.ParserCreate(namespace_separator="}")
     parser.buffer_text = True
+    elem_count = 0
+    depth = 0
 
     def _start(name: str, attrs: dict[str, str]) -> None:
+        nonlocal elem_count, depth
+        elem_count += 1
+        depth += 1
+        if elem_count > max_elements:
+            raise InvoiceUnparseable(f"XML exceeds max element count ({max_elements})")
+        if depth > max_depth:
+            raise InvoiceUnparseable(f"XML exceeds max nesting depth ({max_depth})")
         fixed_attrs = {_fix_expat_name(k): v for k, v in attrs.items()} if attrs else {}
         builder.start(_fix_expat_name(name), fixed_attrs)
 
     def _end(name: str) -> None:
+        nonlocal depth
+        depth -= 1
         builder.end(_fix_expat_name(name))
 
     parser.StartElementHandler = _start
