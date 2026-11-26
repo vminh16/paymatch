@@ -14,9 +14,11 @@ from psycopg.types.json import Jsonb
 from core.ingest.adapters.sim_world_sources import SimWorldInvoiceSourceAdapter
 from core.ingest.application.poller import InvoiceSourcePort, poll_sources_once
 from core.persistence.db import Database
+from core.persistence.outbox import fetch_unacknowledged_events, record_receipt
 from core.risk.domain.aggregation import (
     FRAUD_INDICATOR_REASON_CODES,
     QT03_REASON_CODES,
+    determine_post_investigation_status,
     max_severity,
     normalize_reason_codes,
 )
@@ -31,37 +33,77 @@ from core.tools.ports import GateClientPort, UpstreamToolError
 logger = logging.getLogger("core.worker")
 
 
-def _get_outbox_cursor(conn: psycopg.Connection, outbox_name: str) -> int:
-    row = conn.execute(
-        "SELECT last_seq FROM core.outbox_cursors WHERE outbox_name = %s",
-        (outbox_name,),
-    ).fetchone()
-    return int(row["last_seq"]) if row else 0
-
-
-def _set_outbox_cursor(conn: psycopg.Connection, outbox_name: str, last_seq: int) -> None:
-    conn.execute(
+def _ensure_qt03_suspension(
+    conn: psycopg.Connection,
+    *,
+    tenant_id: str,
+    vendor_id: str | None,
+    reason_codes: list[str],
+    source_invoice_id: str,
+    now: datetime,
+) -> None:
+    """Persist an active QT-03 auto-pay suspension for (tenant, vendor) when any QT-03 code fires (I3)."""
+    qt03_hits = [c for c in reason_codes if c in QT03_REASON_CODES]
+    if not qt03_hits or not vendor_id:
+        return
+    active_susp = conn.execute(
         """
-        INSERT INTO core.outbox_cursors (outbox_name, last_seq, updated_at)
-        VALUES (%s, %s, now())
-        ON CONFLICT (outbox_name) DO UPDATE SET last_seq = EXCLUDED.last_seq, updated_at = now()
+        SELECT suspension_id FROM core.auto_pay_suspensions
+        WHERE tenant_id = %s AND vendor_id = %s AND lifted_at IS NULL
+        LIMIT 1
         """,
-        (outbox_name, last_seq),
-    )
-
-
-def _mark_event_processed(conn: psycopg.Connection, event_id: str, outbox_name: str) -> bool:
-    """Return True if newly marked processed, False if already processed (dedupe by event_id)."""
-    row = conn.execute(
-        """
-        INSERT INTO core.processed_events (event_id, outbox_name, processed_at)
-        VALUES (%s, %s, now())
-        ON CONFLICT (event_id) DO NOTHING
-        RETURNING event_id
-        """,
-        (event_id, outbox_name),
+        (tenant_id, vendor_id),
     ).fetchone()
-    return row is not None
+    if active_susp is None:
+        conn.execute(
+            """
+            INSERT INTO core.auto_pay_suspensions (
+                suspension_id, tenant_id, vendor_id, reason_codes, source_invoice_id, suspended_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (new_id("aps"), tenant_id, vendor_id, qt03_hits, source_invoice_id, now),
+        )
+
+
+def _resolve_intent_approval_id(
+    conn: psycopg.Connection,
+    *,
+    tenant_id: str,
+    invoice_id: str,
+    payment_intent_id: str | None,
+    event_data: dict[str, Any],
+) -> str | None:
+    """Resolve the approval_id bound to a payment_intent generation (I4)."""
+    explicit = event_data.get("approval_id")
+    if explicit:
+        return str(explicit)
+    if not payment_intent_id:
+        return None
+    link = conn.execute(
+        """
+        SELECT approval_id FROM core.payment_intent_links
+        WHERE payment_intent_id = %s AND tenant_id = %s AND invoice_id = %s
+        """,
+        (payment_intent_id, tenant_id, invoice_id),
+    ).fetchone()
+    if link is not None:
+        return str(link["approval_id"])
+    reg = conn.execute("SELECT to_regclass('ledger.payment_intents') AS reg").fetchone()
+    if reg is not None and reg["reg"] is not None:
+        try:
+            row = conn.execute(
+                """
+                SELECT approval_id FROM ledger.payment_intents
+                WHERE payment_intent_id = %s AND tenant_id = %s
+                """,
+                (payment_intent_id, tenant_id),
+            ).fetchone()
+            if row and row.get("approval_id"):
+                return str(row["approval_id"])
+        except psycopg.Error:
+            pass
+    return None
 
 
 def _resolve_channel_and_payee(
@@ -122,8 +164,9 @@ def _handle_job_completed(
         """
         SELECT i.*, d.sha256 AS doc_sha256
         FROM core.invoices i
-        JOIN core.invoice_documents d ON d.document_id = i.document_id
+        JOIN core.invoice_documents d ON d.tenant_id = i.tenant_id AND d.document_id = i.document_id
         WHERE i.tenant_id = %s AND i.invoice_id = %s
+        FOR UPDATE OF i
         """,
         (tid, invoice_id),
     ).fetchone()
@@ -133,34 +176,73 @@ def _handle_job_completed(
     reason_codes = list(data.get("reason_codes") or inv.get("reason_codes") or [])
 
     # 1. QT-03 auto-pay suspension if any QT-03 code appeared
-    qt03_hits = [c for c in reason_codes if c in QT03_REASON_CODES]
-    if qt03_hits and inv.get("vendor_id"):
-        active_susp = conn.execute(
+    _ensure_qt03_suspension(
+        conn,
+        tenant_id=tid,
+        vendor_id=inv.get("vendor_id"),
+        reason_codes=reason_codes,
+        source_invoice_id=invoice_id,
+        now=now,
+    )
+
+    # 2. F2 mandate auto-pay approval when invoice is auto_pay_eligible — revalidate under lock (I3, Nit 2)
+    if inv["status"] == "auto_pay_eligible":
+        latest_job = conn.execute(
             """
-            SELECT suspension_id FROM core.auto_pay_suspensions
-            WHERE tenant_id = %s AND vendor_id = %s AND lifted_at IS NULL
+            SELECT job_id FROM core.jobs
+            WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+            ORDER BY completed_at DESC NULLS LAST, created_at DESC
             LIMIT 1
             """,
-            (tid, inv["vendor_id"]),
+            (tid, invoice_id),
         ).fetchone()
-        if active_susp is None:
-            conn.execute(
-                """
-                INSERT INTO core.auto_pay_suspensions (
-                    suspension_id, tenant_id, vendor_id, reason_codes, source_invoice_id, suspended_at
-                )
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (new_id("aps"), tid, inv["vendor_id"], qt03_hits, invoice_id, now),
-            )
+        job_is_current = latest_job is None or (job_id is not None and latest_job["job_id"] == job_id)
+        if not job_is_current:
+            return
 
-    # 2. F2 mandate auto-pay approval when invoice is auto_pay_eligible
-    if inv["status"] == "auto_pay_eligible":
         mandate = conn.execute(
             "SELECT * FROM core.mandates WHERE tenant_id = %s ORDER BY version DESC LIMIT 1",
             (tid,),
         ).fetchone()
-        if mandate and mandate["mode"] == "auto_pay" and inv.get("total_vnd") is not None:
+        pol = conn.execute(
+            "SELECT value FROM control.policies WHERE kind = 'platform_limits' AND status = 'active' LIMIT 1"
+        ).fetchone()
+        # Nit 2: missing platform_limits policy -> not eligible for auto-pay (0 ceiling)
+        platform_per_inv = (
+            int((pol["value"] or {}).get("auto_pay_per_invoice_vnd", 0)) if pol is not None else 0
+        )
+        is_suspended = False
+        if inv.get("vendor_id"):
+            susp = conn.execute(
+                """
+                SELECT 1 FROM core.auto_pay_suspensions
+                WHERE tenant_id = %s AND vendor_id = %s AND lifted_at IS NULL
+                LIMIT 1
+                """,
+                (tid, inv["vendor_id"]),
+            ).fetchone()
+            is_suspended = susp is not None
+
+        rechecked_status = determine_post_investigation_status(
+            final_severity=inv.get("severity") or "yellow",
+            vendor_id=inv.get("vendor_id"),
+            total_vnd=inv.get("total_vnd"),
+            mandate=mandate,
+            platform_per_invoice_vnd=platform_per_inv,
+            is_vendor_suspended=is_suspended,
+            now_vn=now,
+        )
+        if inv.get("verification_required") or rechecked_status != "auto_pay_eligible":
+            # Eligibility changed since investigation completed (e.g. QT-03 suspension or policy removed): demote
+            conn.execute(
+                """
+                UPDATE core.invoices
+                SET status = 'pending_approval', version = version + 1, updated_at = %s
+                WHERE tenant_id = %s AND invoice_id = %s AND status = 'auto_pay_eligible'
+                """,
+                (now, tid, invoice_id),
+            )
+        elif mandate and mandate["mode"] == "auto_pay" and inv.get("total_vnd") is not None:
             channel, payee_id = _resolve_channel_and_payee(conn, tenant_id=tid, inv=inv, mandate=mandate)
             if payee_id is not None:
                 ih = intent_hash_invoice(
@@ -176,9 +258,10 @@ def _handle_job_completed(
                     UPDATE core.invoices
                     SET status = 'approved', version = version + 1, updated_at = %s
                     WHERE tenant_id = %s AND invoice_id = %s AND status = 'auto_pay_eligible'
+                      AND version = %s
                     RETURNING status
                     """,
-                    (now, tid, invoice_id),
+                    (now, tid, invoice_id, inv["version"]),
                 ).fetchone()
                 if updated is not None:
                     conn.execute(
@@ -458,7 +541,15 @@ def _handle_cross_alert_published(
             except UpstreamToolError:
                 logger.warning("Failed to cancel Gate intent for %s during cross_alert", invoice_id)
 
-        # Add system Finding CROSS_ALERT_HIT (yellow)
+        # Add system Finding CROSS_ALERT_HIT (yellow) and record QT-03 vendor auto-pay suspension (I3)
+        _ensure_qt03_suspension(
+            conn,
+            tenant_id=tid,
+            vendor_id=inv.get("vendor_id"),
+            reason_codes=["CROSS_ALERT_HIT"],
+            source_invoice_id=invoice_id,
+            now=now,
+        )
         conn.execute(
             """
             INSERT INTO core.findings (
@@ -628,26 +719,21 @@ def process_core_outbox_once(
     clock: Clock | None = None,
     batch_size: int = 100,
 ) -> int:
-    """Process pending events in core.outbox in seq order with event_id deduplication."""
+    """Process unacknowledged events in core.outbox using core.outbox_receipts (B2)."""
     clk = clock or SystemClock()
     now = clk.now()
-    last_seq = _get_outbox_cursor(conn, "core.outbox")
 
-    rows = conn.execute(
-        """
-        SELECT seq, event_id, type, schema_version, occurred_at, tenant_id, trace_id, data
-        FROM core.outbox
-        WHERE seq > %s
-        ORDER BY seq ASC
-        LIMIT %s
-        """,
-        (last_seq, batch_size),
-    ).fetchall()
+    rows = fetch_unacknowledged_events(
+        conn,
+        source="core.outbox",
+        table="core.outbox",
+        batch_size=batch_size,
+    )
 
     processed = 0
     for ev in rows:
         with conn.transaction():
-            if _mark_event_processed(conn, ev["event_id"], "core.outbox"):
+            if record_receipt(conn, source="core.outbox", event_id=ev["event_id"]):
                 ev_type = ev["type"]
                 if ev_type == "job.completed":
                     _handle_job_completed(conn, event=ev, now=now)
@@ -658,7 +744,6 @@ def process_core_outbox_once(
                 elif ev_type == "cross_alert.published":
                     _handle_cross_alert_published(conn, event=ev, gate_client=gate_client, now=now)
                 processed += 1
-            _set_outbox_cursor(conn, "core.outbox", int(ev["seq"]))
     return processed
 
 
@@ -767,42 +852,65 @@ def process_ledger_outbox_once(
     clock: Clock | None = None,
     batch_size: int = 100,
 ) -> int:
-    """Read ledger.outbox (read-only!) and apply CAS invoice status + approval transitions per events.md §2."""
+    """Read ledger.outbox (read-only!) using core.outbox_receipts (B2) and apply generation-bound transitions (I4)."""
     if not _ledger_outbox_exists(conn):
         return 0
 
     clk = clock or SystemClock()
     now = clk.now()
-    last_seq = _get_outbox_cursor(conn, "ledger.outbox")
 
-    rows = conn.execute(
-        """
-        SELECT seq, event_id, type, schema_version, occurred_at, tenant_id, trace_id, data
-        FROM ledger.outbox
-        WHERE seq > %s
-        ORDER BY seq ASC
-        LIMIT %s
-        """,
-        (last_seq, batch_size),
-    ).fetchall()
+    rows = fetch_unacknowledged_events(
+        conn,
+        source="ledger.outbox",
+        table="ledger.outbox",
+        batch_size=batch_size,
+    )
 
     processed = 0
     for ev in rows:
         with conn.transaction():
-            if _mark_event_processed(conn, ev["event_id"], "ledger.outbox"):
-                ev_type = ev["type"]
-                data = ev["data"] or {}
-                tid = ev["tenant_id"]
-                inv_id = data.get("invoice_id")
-                pi_id = data.get("payment_intent_id")
+            if not record_receipt(conn, source="ledger.outbox", event_id=ev["event_id"]):
+                continue
+            ev_type = ev["type"]
+            data = ev["data"] or {}
+            tid = ev["tenant_id"]
+            inv_id = data.get("invoice_id")
+            pi_id = data.get("payment_intent_id")
 
-                if tid and inv_id:
-                    inv = conn.execute(
-                        "SELECT invoice_id, store_id, status, severity FROM core.invoices WHERE tenant_id = %s AND invoice_id = %s",
+            if tid and inv_id:
+                inv = conn.execute(
+                    """
+                    SELECT invoice_id, store_id, status, severity
+                    FROM core.invoices
+                    WHERE tenant_id = %s AND invoice_id = %s
+                    FOR UPDATE
+                    """,
+                    (tid, inv_id),
+                ).fetchone()
+                if inv is not None:
+                    bound_apv_id = _resolve_intent_approval_id(
+                        conn,
+                        tenant_id=tid,
+                        invoice_id=inv_id,
+                        payment_intent_id=pi_id,
+                        event_data=data,
+                    )
+                    active_apv = conn.execute(
+                        """
+                        SELECT approval_id, job_id, purchase_order_id, method
+                        FROM core.approvals
+                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
+                        LIMIT 1
+                        """,
                         (tid, inv_id),
                     ).fetchone()
-                    if inv is not None:
-                        if ev_type == "payment.authorized":
+                    generation_matches = (
+                        bound_apv_id is None
+                        or (active_apv is not None and active_apv["approval_id"] == bound_apv_id)
+                    )
+
+                    if ev_type == "payment.authorized":
+                        if generation_matches:
                             upd = conn.execute(
                                 """
                                 UPDATE core.invoices
@@ -823,7 +931,8 @@ def process_ledger_outbox_once(
                                     now=now,
                                 )
 
-                        elif ev_type == "payment.executed":
+                    elif ev_type == "payment.executed":
+                        if generation_matches:
                             upd = conn.execute(
                                 """
                                 UPDATE core.invoices
@@ -834,14 +943,24 @@ def process_ledger_outbox_once(
                                 (now, tid, inv_id),
                             ).fetchone()
                             if upd:
-                                conn.execute(
-                                    """
-                                    UPDATE core.approvals
-                                    SET status = 'consumed'
-                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                    """,
-                                    (tid, inv_id),
-                                )
+                                if bound_apv_id is not None:
+                                    conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'consumed'
+                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                        """,
+                                        (tid, bound_apv_id),
+                                    )
+                                else:
+                                    conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'consumed'
+                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
+                                        """,
+                                        (tid, inv_id),
+                                    )
                                 if pi_id:
                                     _emit_payment_sse(
                                         conn,
@@ -853,8 +972,9 @@ def process_ledger_outbox_once(
                                         now=now,
                                     )
 
-                        elif ev_type == "payment.failed":
-                            # CAS paying -> payment_failed, then payment_failed -> pending_approval (events.md §2)
+                    elif ev_type == "payment.failed":
+                        # I4: Only apply to the matching payment generation; never supersede a newer approval on a missed CAS!
+                        if generation_matches:
                             upd1 = conn.execute(
                                 """
                                 UPDATE core.invoices
@@ -873,57 +993,70 @@ def process_ledger_outbox_once(
                                     """,
                                     (now, tid, inv_id),
                                 )
-                            sup_rows = conn.execute(
-                                """
-                                UPDATE core.approvals
-                                SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
-                                WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                RETURNING approval_id, purchase_order_id, method
-                                """,
-                                (now, tid, inv_id),
-                            ).fetchall()
-                            for apv in sup_rows:
-                                conn.execute(
-                                    """
-                                    INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
-                                    VALUES (%s, 'approval.superseded', 1, %s, %s, %s, %s)
-                                    """,
-                                    (
-                                        new_id("evt"),
-                                        now,
-                                        tid,
-                                        ev.get("trace_id"),
-                                        Jsonb(
-                                            {
-                                                "approval_id": apv["approval_id"],
-                                                "invoice_id": inv_id,
-                                                "purchase_order_id": apv["purchase_order_id"],
-                                                "method": apv["method"],
-                                                "reason": "PAYMENT_FAILED",
-                                            }
+                                if bound_apv_id is not None:
+                                    sup_rows = conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
+                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                        RETURNING approval_id, purchase_order_id, method
+                                        """,
+                                        (now, tid, bound_apv_id),
+                                    ).fetchall()
+                                else:
+                                    sup_rows = conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
+                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
+                                        RETURNING approval_id, purchase_order_id, method
+                                        """,
+                                        (now, tid, inv_id),
+                                    ).fetchall()
+                                for apv in sup_rows:
+                                    conn.execute(
+                                        """
+                                        INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
+                                        VALUES (%s, 'approval.superseded', 1, %s, %s, %s, %s)
+                                        """,
+                                        (
+                                            new_id("evt"),
+                                            now,
+                                            tid,
+                                            ev.get("trace_id"),
+                                            Jsonb(
+                                                {
+                                                    "approval_id": apv["approval_id"],
+                                                    "invoice_id": inv_id,
+                                                    "purchase_order_id": apv["purchase_order_id"],
+                                                    "method": apv["method"],
+                                                    "reason": "PAYMENT_FAILED",
+                                                }
+                                            ),
                                         ),
-                                    ),
-                                )
-                            _notify_payment_issue(
-                                conn,
-                                tenant_id=tid,
-                                store_id=inv["store_id"],
-                                invoice_id=inv_id,
-                                now=now,
-                                trace_id=ev.get("trace_id"),
-                            )
-                            if pi_id:
-                                _emit_payment_sse(
+                                    )
+                                _notify_payment_issue(
                                     conn,
                                     tenant_id=tid,
                                     store_id=inv["store_id"],
                                     invoice_id=inv_id,
-                                    payment_intent_id=pi_id,
-                                    pi_status="failed",
                                     now=now,
+                                    trace_id=ev.get("trace_id"),
                                 )
+                                if pi_id:
+                                    _emit_payment_sse(
+                                        conn,
+                                        tenant_id=tid,
+                                        store_id=inv["store_id"],
+                                        invoice_id=inv_id,
+                                        payment_intent_id=pi_id,
+                                        pi_status="failed",
+                                        now=now,
+                                    )
 
-                        elif ev_type == "payment.denied":
+                    elif ev_type == "payment.denied":
+                        # I4: Only apply to the matching payment generation and only when invoice CAS matches
+                        if generation_matches:
                             reasons = data.get("gate_reasons") or []
                             reason_codes_gate = {
                                 (r.get("code") if isinstance(r, dict) else str(r)) for r in reasons
@@ -933,132 +1066,139 @@ def process_ledger_outbox_once(
                                 if (reason_codes_gate & {"BLOCKED_INVOICE", "OFFICIAL_FRAUD_LIST"})
                                 else "pending_approval"
                             )
-                            conn.execute(
+                            upd = conn.execute(
                                 """
                                 UPDATE core.invoices
                                 SET status = %s, scheduled_for = NULL, version = version + 1, updated_at = %s
                                 WHERE tenant_id = %s AND invoice_id = %s AND status IN ('scheduled', 'paying')
+                                RETURNING status
                                 """,
                                 (target_st, now, tid, inv_id),
-                            )
-                            sup_rows = conn.execute(
+                            ).fetchone()
+                            if upd:
+                                if bound_apv_id is not None:
+                                    sup_rows = conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
+                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                        RETURNING approval_id, purchase_order_id, method
+                                        """,
+                                        (now, tid, bound_apv_id),
+                                    ).fetchall()
+                                else:
+                                    sup_rows = conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
+                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
+                                        RETURNING approval_id, purchase_order_id, method
+                                        """,
+                                        (now, tid, inv_id),
+                                    ).fetchall()
+                                for apv in sup_rows:
+                                    conn.execute(
+                                        """
+                                        INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
+                                        VALUES (%s, 'approval.superseded', 1, %s, %s, %s, %s)
+                                        """,
+                                        (
+                                            new_id("evt"),
+                                            now,
+                                            tid,
+                                            ev.get("trace_id"),
+                                            Jsonb(
+                                                {
+                                                    "approval_id": apv["approval_id"],
+                                                    "invoice_id": inv_id,
+                                                    "purchase_order_id": apv["purchase_order_id"],
+                                                    "method": apv["method"],
+                                                    "reason": "PAYMENT_DENIED",
+                                                }
+                                            ),
+                                        ),
+                                    )
+                                _notify_payment_issue(
+                                    conn,
+                                    tenant_id=tid,
+                                    store_id=inv["store_id"],
+                                    invoice_id=inv_id,
+                                    now=now,
+                                    trace_id=ev.get("trace_id"),
+                                )
+                                if pi_id:
+                                    _emit_payment_sse(
+                                        conn,
+                                        tenant_id=tid,
+                                        store_id=inv["store_id"],
+                                        invoice_id=inv_id,
+                                        payment_intent_id=pi_id,
+                                        pi_status="denied",
+                                        now=now,
+                                    )
+
+                    elif ev_type == "payment.expired":
+                        if data.get("reason") == "AUTHORIZATION_TIMEOUT" and generation_matches:
+                            # I4/I6: judge the approval attached to this expired intent; require valid job_id linkage
+                            latest_job = conn.execute(
                                 """
-                                UPDATE core.approvals
-                                SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
-                                WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                RETURNING approval_id, purchase_order_id, method
+                                SELECT job_id FROM core.jobs
+                                WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+                                ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                                LIMIT 1
                                 """,
-                                (now, tid, inv_id),
-                            ).fetchall()
-                            for apv in sup_rows:
+                                (tid, inv_id),
+                            ).fetchone()
+                            apv_still_valid = (
+                                active_apv is not None
+                                and (bound_apv_id is None or active_apv["approval_id"] == bound_apv_id)
+                                and (
+                                    latest_job is None
+                                    or (
+                                        active_apv["job_id"] is not None
+                                        and active_apv["job_id"] == latest_job["job_id"]
+                                    )
+                                )
+                            )
+                            if apv_still_valid:
                                 conn.execute(
                                     """
-                                    INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
-                                    VALUES (%s, 'approval.superseded', 1, %s, %s, %s, %s)
+                                    UPDATE core.invoices
+                                    SET status = 'scheduled', version = version + 1, updated_at = %s
+                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
                                     """,
-                                    (
-                                        new_id("evt"),
-                                        now,
-                                        tid,
-                                        ev.get("trace_id"),
-                                        Jsonb(
-                                            {
-                                                "approval_id": apv["approval_id"],
-                                                "invoice_id": inv_id,
-                                                "purchase_order_id": apv["purchase_order_id"],
-                                                "method": apv["method"],
-                                                "reason": "PAYMENT_DENIED",
-                                            }
-                                        ),
-                                    ),
+                                    (now, tid, inv_id),
                                 )
-                            _notify_payment_issue(
+                            else:
+                                upd = conn.execute(
+                                    """
+                                    UPDATE core.invoices
+                                    SET status = 'pending_approval', scheduled_for = NULL, version = version + 1, updated_at = %s
+                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
+                                    RETURNING status
+                                    """,
+                                    (now, tid, inv_id),
+                                ).fetchone()
+                                if upd and active_apv is not None:
+                                    conn.execute(
+                                        """
+                                        UPDATE core.approvals
+                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'NEW_JOB'
+                                        WHERE approval_id = %s AND status = 'active'
+                                        """,
+                                        (now, active_apv["approval_id"]),
+                                    )
+                        if pi_id and generation_matches:
+                            _emit_payment_sse(
                                 conn,
                                 tenant_id=tid,
                                 store_id=inv["store_id"],
                                 invoice_id=inv_id,
+                                payment_intent_id=pi_id,
+                                pi_status="expired",
                                 now=now,
-                                trace_id=ev.get("trace_id"),
                             )
-                            if pi_id:
-                                _emit_payment_sse(
-                                    conn,
-                                    tenant_id=tid,
-                                    store_id=inv["store_id"],
-                                    invoice_id=inv_id,
-                                    payment_intent_id=pi_id,
-                                    pi_status="denied",
-                                    now=now,
-                                )
-
-                        elif ev_type == "payment.expired":
-                            if data.get("reason") == "AUTHORIZATION_TIMEOUT":
-                                # I6: reuse still-active, valid approval -> scheduled; otherwise -> pending_approval & supersede
-                                active_apv = conn.execute(
-                                    """
-                                    SELECT approval_id, job_id, purchase_order_id, method
-                                    FROM core.approvals
-                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                    LIMIT 1
-                                    """,
-                                    (tid, inv_id),
-                                ).fetchone()
-                                latest_job = conn.execute(
-                                    """
-                                    SELECT job_id FROM core.jobs
-                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
-                                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
-                                    LIMIT 1
-                                    """,
-                                    (tid, inv_id),
-                                ).fetchone()
-                                apv_still_valid = (
-                                    active_apv is not None
-                                    and (
-                                        latest_job is None
-                                        or active_apv["job_id"] is None
-                                        or active_apv["job_id"] == latest_job["job_id"]
-                                    )
-                                )
-                                if apv_still_valid:
-                                    conn.execute(
-                                        """
-                                        UPDATE core.invoices
-                                        SET status = 'scheduled', version = version + 1, updated_at = %s
-                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
-                                        """,
-                                        (now, tid, inv_id),
-                                    )
-                                else:
-                                    conn.execute(
-                                        """
-                                        UPDATE core.invoices
-                                        SET status = 'pending_approval', scheduled_for = NULL, version = version + 1, updated_at = %s
-                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
-                                        """,
-                                        (now, tid, inv_id),
-                                    )
-                                    if active_apv is not None:
-                                        conn.execute(
-                                            """
-                                            UPDATE core.approvals
-                                            SET status = 'superseded', superseded_at = %s, superseded_reason = 'NEW_JOB'
-                                            WHERE approval_id = %s AND status = 'active'
-                                            """,
-                                            (now, active_apv["approval_id"]),
-                                        )
-                            if pi_id:
-                                _emit_payment_sse(
-                                    conn,
-                                    tenant_id=tid,
-                                    store_id=inv["store_id"],
-                                    invoice_id=inv_id,
-                                    payment_intent_id=pi_id,
-                                    pi_status="expired",
-                                    now=now,
-                                )
-                processed += 1
-            _set_outbox_cursor(conn, "ledger.outbox", int(ev["seq"]))
+            processed += 1
     return processed
 
 
@@ -1094,6 +1234,18 @@ def execute_scheduled_payments_once(
                 invoice_id=row["invoice_id"], approval_id=row["approval_id"]
             )
             pi_id = intent.get("payment_intent_id")
+            if pi_id:
+                with conn.transaction():
+                    conn.execute(
+                        """
+                        INSERT INTO core.payment_intent_links (
+                            payment_intent_id, tenant_id, invoice_id, approval_id, created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (payment_intent_id) DO NOTHING
+                        """,
+                        (pi_id, row["tenant_id"], row["invoice_id"], row["approval_id"], clk.now()),
+                    )
             if pi_id and intent.get("status") == "authorized":
                 exec_res = gate_client.execute_intent(payment_intent_id=pi_id)
                 results.append(exec_res)
@@ -1120,8 +1272,11 @@ def run_worker_tick(
 
     with db.connect() as conn:
         if source_port is not None:
-            ingested = poll_sources_once(conn, source_port, clock=clk)
-            ingested_count = sum(1 for r in ingested if not r.already_existed)
+            try:
+                ingested = poll_sources_once(conn, source_port, clock=clk)
+                ingested_count = sum(1 for r in ingested if not r.already_existed)
+            except Exception:
+                logger.warning("poll_sources_once failed; continuing outbox dispatch", exc_info=True)
         core_events = process_core_outbox_once(conn, gate_client, clock=clk)
         # Second pass in same tick so chained events (job.completed -> approved -> scheduled) settle promptly
         core_events += process_core_outbox_once(conn, gate_client, clock=clk)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Protocol
@@ -13,6 +14,8 @@ from core.ingest.application.ingest_invoice import IngestCommand, IngestResult, 
 from core.shared.clock import Clock, SystemClock
 from core.shared.errors import ProblemError
 from core.shared.ids import new_id
+
+logger = logging.getLogger("core.poller")
 
 
 @dataclass(frozen=True)
@@ -178,65 +181,77 @@ def poll_sources_once(
     for tenant in tenants:
         tid = tenant["tenant_id"]
 
-        # 1. Poll inbox
-        inbox_cursor = _get_cursor(conn, tid, "inbox")
-        messages, next_inbox_cursor = source_port.list_inbox_messages(tenant["mailbox"], after=inbox_cursor)
-        for msg in messages:
-            for att in msg.attachments:
+        # 1. Poll inbox (isolated per tenant/source so upstream failure never blocks other feeds)
+        try:
+            inbox_cursor = _get_cursor(conn, tid, "inbox")
+            messages, next_inbox_cursor = source_port.list_inbox_messages(
+                tenant["mailbox"], after=inbox_cursor
+            )
+            for msg in messages:
+                for att in msg.attachments:
+                    try:
+                        res = ingest_invoice(
+                            conn,
+                            IngestCommand(
+                                tenant_id=tid,
+                                raw_bytes=att.raw_bytes,
+                                filename=att.filename,
+                                content_type=att.content_type,
+                                source="email",
+                                message_text=msg.body_text,
+                                external_message_id=msg.message_id,
+                                from_address=msg.from_address,
+                                subject=msg.subject,
+                                received_at=msg.received_at,
+                            ),
+                            clock=clk,
+                        )
+                        results.append(res)
+                    except ProblemError:
+                        # Unparseable attachment on inbox should not crash the poller loop
+                        continue
+            # I8: checkpoint terminal page using last processed message_id when next_cursor is None
+            effective_inbox_cursor = next_inbox_cursor or (messages[-1].message_id if messages else None)
+            if effective_inbox_cursor is not None and effective_inbox_cursor != inbox_cursor:
+                with conn.transaction():
+                    _set_cursor(conn, tid, "inbox", effective_inbox_cursor)
+        except Exception:
+            logger.warning("Inbox poll failed for tenant %s; continuing", tid, exc_info=True)
+
+        # 2. Poll utility bills (isolated per tenant/source)
+        try:
+            bills_cursor = _get_cursor(conn, tid, "bills")
+            bills, next_bills_cursor = source_port.list_bills(tenant["wallet_id"], after=bills_cursor)
+            for bill in bills:
+                with conn.transaction():
+                    _upsert_utility_reading_from_bill(conn, tenant_id=tid, bill=bill)
+                xml_bytes = source_port.fetch_bill_document(bill.bill_id) if bill.xml_attachment_id else None
+                if xml_bytes is None:
+                    continue
                 try:
                     res = ingest_invoice(
                         conn,
                         IngestCommand(
                             tenant_id=tid,
-                            raw_bytes=att.raw_bytes,
-                            filename=att.filename,
-                            content_type=att.content_type,
-                            source="email",
-                            message_text=msg.body_text,
-                            external_message_id=msg.message_id,
-                            from_address=msg.from_address,
-                            subject=msg.subject,
-                            received_at=msg.received_at,
+                            raw_bytes=xml_bytes,
+                            filename=f"{bill.bill_id}.xml",
+                            content_type="application/xml",
+                            source="bill_pay",
+                            invoice_type_hint="utility",
+                            store_id_hint=bill.store_ref,
+                            due_on_hint=bill.due_date,
                         ),
                         clock=clk,
                     )
                     results.append(res)
                 except ProblemError:
-                    # Unparseable attachment on inbox should not crash the poller loop
                     continue
-        if next_inbox_cursor is not None:
-            with conn.transaction():
-                _set_cursor(conn, tid, "inbox", next_inbox_cursor)
-
-        # 2. Poll utility bills
-        bills_cursor = _get_cursor(conn, tid, "bills")
-        bills, next_bills_cursor = source_port.list_bills(tenant["wallet_id"], after=bills_cursor)
-        for bill in bills:
-            with conn.transaction():
-                _upsert_utility_reading_from_bill(conn, tenant_id=tid, bill=bill)
-            xml_bytes = source_port.fetch_bill_document(bill.bill_id) if bill.xml_attachment_id else None
-            if xml_bytes is None:
-                continue
-            try:
-                res = ingest_invoice(
-                    conn,
-                    IngestCommand(
-                        tenant_id=tid,
-                        raw_bytes=xml_bytes,
-                        filename=f"{bill.bill_id}.xml",
-                        content_type="application/xml",
-                        source="bill_pay",
-                        invoice_type_hint="utility",
-                        store_id_hint=bill.store_ref,
-                        due_on_hint=bill.due_date,
-                    ),
-                    clock=clk,
-                )
-                results.append(res)
-            except ProblemError:
-                continue
-        if next_bills_cursor is not None:
-            with conn.transaction():
-                _set_cursor(conn, tid, "bills", next_bills_cursor)
+            # I8: checkpoint terminal page using last processed bill_id when next_cursor is None
+            effective_bills_cursor = next_bills_cursor or (bills[-1].bill_id if bills else None)
+            if effective_bills_cursor is not None and effective_bills_cursor != bills_cursor:
+                with conn.transaction():
+                    _set_cursor(conn, tid, "bills", effective_bills_cursor)
+        except Exception:
+            logger.warning("Bills poll failed for tenant %s; continuing", tid, exc_info=True)
 
     return results

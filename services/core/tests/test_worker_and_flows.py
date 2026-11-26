@@ -154,6 +154,8 @@ def _ensure_ledger_outbox(db: Database) -> None:
                 """
             )
             conn.execute("TRUNCATE TABLE ledger.outbox RESTART IDENTITY")
+            conn.execute("GRANT USAGE ON SCHEMA ledger TO worker")
+            conn.execute("GRANT SELECT ON ledger.outbox TO worker")
 
 
 @pytest.mark.db
@@ -478,17 +480,21 @@ def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pe
         ).fetchone()["vendor_account_id"]
 
         with conn.transaction():
-            # Invoice 1: paying + still-active valid approval -> should return to scheduled
+            # Invoice 1: paying + still-active valid approval bound to completed job -> should return to scheduled
+            conn.execute(
+                "UPDATE core.jobs SET status = 'completed', completed_at = %s WHERE job_id = %s",
+                (fixed_clock.now(), r1.job_id),
+            )
             conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r1.invoice_id,))
             conn.execute(
                 """
                 INSERT INTO core.approvals (
-                    approval_id, tenant_id, invoice_id, status, amount_vnd,
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
                     payee_account_id, channel, intent_hash, method, created_at
                 )
-                VALUES (%s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                VALUES (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
                 """,
-                (new_id("apv"), TENANT_A, r1.invoice_id, va, "d" * 64, fixed_clock.now()),
+                (new_id("apv"), TENANT_A, r1.invoice_id, r1.job_id, va, "d" * 64, fixed_clock.now()),
             )
             # Invoice 2: paying + NO active approval -> should return to pending_approval
             conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r2.invoice_id,))
@@ -517,3 +523,288 @@ def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pe
 
     assert st1 == "scheduled"
     assert st2 == "pending_approval"
+
+
+@pytest.mark.db
+def test_b2_outbox_receipts_picks_up_late_committed_lower_seq(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B2: two independent connections commit outbox seq N+1 before seq N; receipt table picks up both with zero skips."""
+    _ensure_ledger_outbox(seeded_db)
+    hash_early = hash_tax_id_indicator("0399000001")
+    hash_late = hash_tax_id_indicator("0399000002")
+    evt_n = new_id("evt")
+    evt_n1 = new_id("evt")
+
+    # Connection 1 opens tx and allocates lower seq N (uncommitted)
+    with seeded_db.connect() as conn1, seeded_db.connect() as conn2:
+        conn1.execute(
+            """
+            INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+            VALUES (%s, 'indicator.flagged', 1, %s, NULL, %s)
+            """,
+            (
+                evt_n,
+                fixed_clock.now(),
+                Jsonb(
+                    {
+                        "indicators": [{"kind": "tax_id", "value_hash": hash_early}],
+                        "reason_codes": ["OFFICIAL_FRAUD_LIST"],
+                        "source": "finding",
+                        "source_ref": "srf_early",
+                    }
+                ),
+            ),
+        )
+        # Connection 2 inserts higher seq N+1 and commits FIRST
+        conn2.execute(
+            """
+            INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+            VALUES (%s, 'indicator.flagged', 1, %s, NULL, %s)
+            """,
+            (
+                evt_n1,
+                fixed_clock.now(),
+                Jsonb(
+                    {
+                        "indicators": [{"kind": "tax_id", "value_hash": hash_late}],
+                        "reason_codes": ["OFFICIAL_FRAUD_LIST"],
+                        "source": "finding",
+                        "source_ref": "srf_late",
+                    }
+                ),
+            ),
+        )
+        conn2.commit()
+
+        # Worker (non-superuser role!) polls while conn1 is still uncommitted -> processes N+1
+        with worker_db.connect() as wconn:
+            n_first = process_core_outbox_once(wconn, RecordingGate(), clock=fixed_clock)
+        assert n_first == 1
+
+        # Now conn1 commits lower seq N
+        conn1.commit()
+
+    # Next worker poll MUST pick up seq N (receipt table prevents seq cursor skip)
+    with worker_db.connect() as wconn:
+        n_second = process_core_outbox_once(wconn, RecordingGate(), clock=fixed_clock)
+        hashes = {
+            r["value_hash"]
+            for r in wconn.execute("SELECT value_hash FROM risk.indicators").fetchall()
+        }
+    assert n_second == 1
+    assert hash_early in hashes
+    assert hash_late in hashes
+
+
+@pytest.mark.db
+def test_i3_cross_alert_creates_qt03_suspension_and_blocks_second_invoice_autopay(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """I3 & Nit 2: cross_alert creates QT-03 suspension for vendor; second auto_pay_eligible invoice is revalidated and demoted."""
+    xml_1 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    xml_2 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001430.xml").read_bytes()
+
+    with seeded_db.connect() as conn:
+        r1 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_1, filename="c1.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        r2 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_2, filename="c2.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        inv1_row = conn.execute("SELECT vendor_id, seller_tax_id FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'pending_approval', severity = 'green' WHERE invoice_id = %s",
+                (r1.invoice_id,),
+            )
+            conn.execute(
+                "UPDATE core.invoices SET status = 'auto_pay_eligible', severity = 'green' WHERE invoice_id = %s",
+                (r2.invoice_id,),
+            )
+            conn.execute(
+                "UPDATE core.jobs SET status = 'completed', completed_at = %s WHERE job_id = %s",
+                (fixed_clock.now(), r2.job_id),
+            )
+        # Publish cross_alert matching inv1's vendor tax_id -> should create QT-03 suspension!
+        publish_cross_alert(
+            conn,
+            indicators=[{"kind": "tax_id", "value_hash": hash_tax_id_indicator(inv1_row["seller_tax_id"])}],
+            reason_codes=["PERSONAL_ACCOUNT"],
+            published_by="stf_01",
+            clock=fixed_clock,
+        )
+
+    with worker_db.connect() as wconn:
+        process_core_outbox_once(wconn, RecordingGate(), clock=fixed_clock)
+        susp = wconn.execute(
+            "SELECT reason_codes FROM core.auto_pay_suspensions WHERE tenant_id = %s AND vendor_id = %s AND lifted_at IS NULL",
+            (TENANT_A, inv1_row["vendor_id"]),
+        ).fetchone()
+    assert susp is not None
+    assert "CROSS_ALERT_HIT" in susp["reason_codes"]
+
+    # Now emit job.completed for invoice 2 (same vendor, still marked auto_pay_eligible before suspension)
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'auto_pay_eligible', severity = 'green', verification_required = FALSE WHERE invoice_id = %s",
+                (r2.invoice_id,),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'job.completed', %s, %s, %s)
+                """,
+                (
+                    new_id("evt"),
+                    fixed_clock.now(),
+                    TENANT_A,
+                    Jsonb({"job_id": r2.job_id, "task_type": "investigate_invoice", "invoice_id": r2.invoice_id, "final_severity": "green", "reason_codes": ["OK"]}),
+                ),
+            )
+
+    with worker_db.connect() as wconn:
+        process_core_outbox_once(wconn, RecordingGate(), clock=fixed_clock)
+        inv2_after = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r2.invoice_id,)).fetchone()
+        apvs = wconn.execute("SELECT approval_id FROM core.approvals WHERE invoice_id = %s", (r2.invoice_id,)).fetchall()
+    assert inv2_after["status"] == "pending_approval"
+    assert apvs == []
+
+
+@pytest.mark.db
+def test_i4_late_payment_events_do_not_invalidate_newer_approval(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """I4: late payment.failed/denied for an older intent generation MUST NOT supersede a newer active approval."""
+    _ensure_ledger_outbox(seeded_db)
+    xml_1 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    with seeded_db.connect() as conn:
+        r1 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_1, filename="gen.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        va = conn.execute(
+            "SELECT vendor_account_id FROM core.vendor_accounts WHERE tenant_id = %s LIMIT 1",
+            (TENANT_A,),
+        ).fetchone()["vendor_account_id"]
+        apv_old = new_id("apv")
+        apv_new = new_id("apv")
+        pi_old = new_id("pi")
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'scheduled', scheduled_for = '2026-11-28' WHERE invoice_id = %s",
+                (r1.invoice_id,),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at
+                )
+                VALUES
+                    (%s, %s, %s, %s, 'superseded', 26500000, %s, 'bank_transfer', %s, 'single', %s),
+                    (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                """,
+                (
+                    apv_old, TENANT_A, r1.invoice_id, r1.job_id, va, "e" * 64, fixed_clock.now(),
+                    apv_new, TENANT_A, r1.invoice_id, r1.job_id, va, "f" * 64, fixed_clock.now(),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.payment_intent_links (payment_intent_id, tenant_id, invoice_id, approval_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (pi_old, TENANT_A, r1.invoice_id, apv_old, fixed_clock.now()),
+            )
+            # Late payment.failed and payment.denied for OLD pi_old arrive!
+            conn.execute(
+                """
+                INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'payment.failed', %s, %s, %s),
+                       (%s, 'payment.denied', %s, %s, %s)
+                """,
+                (
+                    new_id("evt"), fixed_clock.now(), TENANT_A,
+                    Jsonb({"payment_intent_id": pi_old, "invoice_id": r1.invoice_id, "failure_code": "TIMEOUT"}),
+                    new_id("evt"), fixed_clock.now(), TENANT_A,
+                    Jsonb({"payment_intent_id": pi_old, "invoice_id": r1.invoice_id, "gate_reasons": [{"code": "OVER_LIMIT"}]}),
+                ),
+            )
+
+    with worker_db.connect() as wconn:
+        process_ledger_outbox_once(wconn, clock=fixed_clock)
+        inv = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()
+        apv = wconn.execute("SELECT status FROM core.approvals WHERE approval_id = %s", (apv_new,)).fetchone()
+    assert inv["status"] == "scheduled"
+    assert apv["status"] == "active"
+
+
+@pytest.mark.db
+def test_i8_poller_checkpoints_terminal_page_and_isolates_failures(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """I8: terminal page (next_cursor=None) checkpoints last message_id/bill_id; per-tenant errors are isolated."""
+    from core.ingest.application.poller import InboxAttachment, InboxMessage, poll_sources_once
+
+    xml_bytes = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+
+    with worker_db.connect() as wconn:
+        mbs = [
+            r["mailbox"]
+            for r in wconn.execute("SELECT mailbox FROM core.tenants ORDER BY tenant_id").fetchall()
+        ]
+    failing_mailbox, ok_mailbox = mbs[0], mbs[1]
+
+    class StubSource:
+        def __init__(self) -> None:
+            self.inbox_calls: list[tuple[str, str | None]] = []
+            self.bills_calls: list[tuple[str, str | None]] = []
+
+        def list_inbox_messages(self, mailbox: str, after: str | None = None):
+            self.inbox_calls.append((mailbox, after))
+            if mailbox == failing_mailbox:
+                raise RuntimeError("simulated upstream 503 on one tenant mailbox")
+            if after == "msg_term_01":
+                return [], None
+            return [
+                InboxMessage(
+                    message_id="msg_term_01",
+                    from_address="billing@vendor.test",
+                    subject="Hoa don",
+                    body_text="Gui hoa don",
+                    received_at=fixed_clock.now(),
+                    attachments=(
+                        InboxAttachment(
+                            attachment_id="att_1",
+                            filename="1C26TTN_00001425.xml",
+                            content_type="application/xml",
+                            raw_bytes=xml_bytes,
+                        ),
+                    ),
+                )
+            ], None  # terminal page: next_cursor is None!
+
+        def list_bills(self, wallet_id: str, after: str | None = None):
+            self.bills_calls.append((wallet_id, after))
+            return [], None
+
+        def fetch_bill_document(self, bill_id: str) -> bytes | None:
+            return None
+
+    src = StubSource()
+    with worker_db.connect() as wconn:
+        res1 = poll_sources_once(wconn, src, clock=fixed_clock)
+        res2 = poll_sources_once(wconn, src, clock=fixed_clock)
+
+    assert len(res1) == 1
+    assert res2 == []
+    # Second call for ok_mailbox received after='msg_term_01' (checkpointed on terminal page!)
+    ok_calls = [after for mb, after in src.inbox_calls if mb == ok_mailbox]
+    assert ok_calls == [None, "msg_term_01"]
