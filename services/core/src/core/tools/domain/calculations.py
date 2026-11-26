@@ -137,9 +137,10 @@ def compute_price_check_item(
 
     divisor = pack_parsed if (pack_parsed is not None and pack_parsed > 0) else pack_contract
     unit_price_invoice = line_price / divisor if divisor > 0 else line_price
+    unit_price_contract = price_contract / pack_contract if pack_contract > 0 else price_contract
 
-    if price_contract > 0:
-        delta_pct = ((unit_price_invoice - price_contract) / price_contract) * _HUNDRED
+    if unit_price_contract > 0:
+        delta_pct = ((unit_price_invoice - unit_price_contract) / unit_price_contract) * _HUNDRED
     else:
         delta_pct = Decimal("0")
 
@@ -152,7 +153,7 @@ def compute_price_check_item(
         "sku": sku,
         "contract_item_id": contract_item_id,
         "unit_price_invoice": fmt_dec6(unit_price_invoice),
-        "unit_price_contract": fmt_dec6(price_contract),
+        "unit_price_contract": fmt_dec6(unit_price_contract),
         "delta_pct": fmt_dec6(delta_pct),
         "pack_qty_contract": fmt_dec6(pack_contract),
         "pack_qty_parsed": fmt_dec6(pack_parsed) if pack_parsed is not None else None,

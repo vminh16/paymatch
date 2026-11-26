@@ -52,22 +52,17 @@ class Ed25519KeyManager:
         *,
         audience: str,
         issuer: str | None = None,
+        now_ts: int | None = None,
     ) -> dict[str, Any]:
         try:
             kwargs: dict[str, Any] = {
                 "algorithms": ["EdDSA"],
                 "audience": audience,
+                "options": {"verify_exp": False},
             }
             if issuer is not None:
                 kwargs["issuer"] = issuer
-            return jwt.decode(token, self._public_key, **kwargs)
-        except jwt.ExpiredSignatureError as exc:
-            raise ProblemError(
-                status=401,
-                code="TOKEN_EXPIRED",
-                title="Token expired",
-                detail="Token đã hết hạn.",
-            ) from exc
+            claims = jwt.decode(token, self._public_key, **kwargs)
         except jwt.PyJWTError as exc:
             raise ProblemError(
                 status=401,
@@ -75,6 +70,16 @@ class Ed25519KeyManager:
                 title="Invalid token",
                 detail=f"Token không hợp lệ: {exc}",
             ) from exc
+        exp = claims.get("exp")
+        check_now = int(time.time()) if now_ts is None else now_ts
+        if exp is not None and int(exp) < check_now:
+            raise ProblemError(
+                status=401,
+                code="TOKEN_EXPIRED",
+                title="Token expired",
+                detail="Token đã hết hạn.",
+            )
+        return claims
 
     def issue_capability_token(
         self,
