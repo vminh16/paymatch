@@ -216,6 +216,7 @@ class PaymentIntentRecord:
     expires_at: datetime | None
     created_at: datetime
     stuck_notified_at: datetime | None = None
+    document_sha256: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +237,11 @@ class EscrowRecord:
     created_at: datetime
     released_at: datetime | None
     refunded_at: datetime | None
+    release_approval_id: str | None = None
+    pending_action: str | None = None
+    pending_refund_reason: str | None = None
+    action_started_at: datetime | None = None
+    stuck_notified_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

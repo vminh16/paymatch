@@ -1,144 +1,45 @@
 """Read-only Postgres adapter for cross-schema queries against `core`, `control`, and `risk`.
 
 ================================================================================
-DOCUMENTED READ-ONLY CROSS-SCHEMA CONTRACT (owned by `core`; Gate ONLY SELECTs)
+DOCUMENTED READ-ONLY CROSS-SCHEMA CONTRACT (aligned 1:1 with `services/core/migrations/002..004`)
 ================================================================================
 
-Schema `core`:
-  - core.tenants(
-      tenant_id TEXT PRIMARY KEY,
-      wallet_id TEXT NOT NULL
-    )
-  - core.invoices(
-      invoice_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      store_id TEXT NULL,
-      vendor_id TEXT NULL,
-      purchase_order_id TEXT NULL,
-      seller_tax_id TEXT NOT NULL,
-      symbol TEXT NOT NULL,
-      number TEXT NOT NULL,
-      invoice_type TEXT NOT NULL,
-      total_vnd BIGINT NULL,
-      status TEXT NOT NULL,
-      severity TEXT NULL,
-      reason_codes JSONB/TEXT[] NOT NULL,
-      document_sha256 TEXT NOT NULL
-    )
-  - core.vendors(
-      vendor_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      tax_id TEXT NOT NULL,
-      phone_on_file TEXT NULL,
-      status TEXT NOT NULL
-    )
-  - core.vendor_accounts(
-      vendor_account_id TEXT PRIMARY KEY,
-      vendor_id TEXT NOT NULL,
-      tenant_id TEXT NOT NULL,
-      kind TEXT NOT NULL,              -- 'bank_account' | 'card_merchant'
-      bank_code TEXT NULL,
-      bank_name TEXT NULL,
-      account_number TEXT NULL,
-      merchant_id TEXT NULL,
-      account_name TEXT NOT NULL,
-      status TEXT NOT NULL             -- 'verified' | 'escrow_only' | 'retired'
-    )
-  - core.mandates(
-      mandate_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      version INT NOT NULL,
-      mode TEXT NOT NULL,              -- 'review_only' | 'ask_first' | 'auto_pay'
-      limits JSONB NOT NULL,           -- {"per_invoice_vnd": int, "per_day_vnd": int}
-      auto_pay_vendor_ids JSONB NOT NULL,   -- [vendor_id, ...]
-      channel_rules JSONB NOT NULL,         -- [{"invoice_type": str, "channel": str}, ...]
-      bulk_approvable JSONB NOT NULL,       -- [{"reason_codes": [str], "max_amount_vnd": int}, ...]
-      auto_pay_window JSONB NOT NULL        -- {"start": "HH:MM", "end": "HH:MM"}
-    )
-  - core.auto_pay_suspensions(
-      tenant_id TEXT NOT NULL,
-      vendor_id TEXT NOT NULL,
-      lifted_at TIMESTAMPTZ NULL
-    )
-  - core.approvals(
-      approval_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      invoice_id TEXT NULL,
-      purchase_order_id TEXT NULL,
-      source_invoice_id TEXT NULL,
-      job_id TEXT NULL,
-      status TEXT NOT NULL,            -- 'active' | 'superseded' | 'consumed'
-      method TEXT NOT NULL,            -- 'single' | 'bulk' | 'mandate'
-      amount_vnd BIGINT NOT NULL,
-      payee_account_id TEXT NOT NULL,
-      channel TEXT NOT NULL,
-      intent_hash TEXT NOT NULL,
-      approver_user_id TEXT NULL,
-      mandate_version INT NULL,
-      bulk_batch_id TEXT NULL,
-      verification JSONB NULL          -- {"called_phone_on_file": bool, "result": str, "note": str|null, "at": str}
-    )
-  - core.jobs(
-      job_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      task_type TEXT NOT NULL,         -- 'investigate_invoice'
-      invoice_id TEXT NULL,
-      status TEXT NOT NULL,            -- 'completed'
-      completed_at TIMESTAMPTZ NULL
-    )
-  - core.purchase_orders(
-      purchase_order_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      vendor_id TEXT NOT NULL,
-      store_id TEXT NOT NULL,
-      total_vnd BIGINT NOT NULL,
-      status TEXT NOT NULL
-    )
-  - core.goods_receipts(
-      goods_receipt_id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      purchase_order_id TEXT NOT NULL,
-      store_id TEXT NOT NULL
-    )
+Schema `core` (SELECT only via least-privilege `gate` role):
+  - core.tenants(tenant_id, wallet_id)
+  - core.users(user_id, tenant_id, role)
+  - core.vendors(vendor_id, tenant_id, name, tax_id, phone_on_file, status)
+  - core.vendor_accounts(vendor_account_id, vendor_id, tenant_id, kind, bank_code,
+      bank_name, account_number, merchant_id, account_name, status)
+  - core.mandates(mandate_id, tenant_id, version, mode, limits, auto_pay_vendor_ids,
+      channel_rules, bulk_approvable, auto_pay_window)
+  - core.auto_pay_suspensions(tenant_id, vendor_id, lifted_at)
+  - core.invoice_documents(document_id, sha256)
+  - core.invoices(invoice_id, tenant_id, document_id, store_id, vendor_id,
+      purchase_order_id, seller_tax_id, symbol, number, invoice_type, total_vnd,
+      status, severity, reason_codes)
+      -> Joined with core.invoice_documents(document_id) for authoritative `sha256`!
+  - core.jobs(job_id, tenant_id, task_type, invoice_id, status, completed_at)
+  - core.approvals(approval_id, tenant_id, invoice_id, purchase_order_id,
+      source_invoice_id, job_id, status, method, amount_vnd, payee_account_id,
+      channel, intent_hash, approver_user_id, mandate_version, bulk_batch_id,
+      verification)
+  - core.purchase_orders(purchase_order_id, tenant_id, vendor_id, store_id,
+      total_vnd, status)
+  - core.goods_receipts(goods_receipt_id, tenant_id, purchase_order_id, store_id)
 
-Schema `control`:
-  - control.policies(
-      policy_id TEXT PRIMARY KEY,
-      kind TEXT NOT NULL CHECK (kind IN ('platform_limits', 'kill_switch')),
-      scope TEXT NULL,                 -- KillSwitchScope
-      target_id TEXT NULL,
-      value JSONB NOT NULL DEFAULT '{}'::jsonb,
-      status TEXT NOT NULL,            -- platform_limits: 'active'; kill_switch: 'engaged'|'released'
-      engaged_by TEXT NULL,
-      released_by TEXT NULL,
-      updated_at TIMESTAMPTZ NOT NULL
-    )
+Schema `control` (SELECT only):
+  - control.policies(policy_id, kind, scope, target_id, status, value, reason, updated_at)
 
-Schema `risk`:
-  - risk.indicators(
-      indicator_id TEXT PRIMARY KEY,
-      kind TEXT NOT NULL,
-      value_hash TEXT NOT NULL
-    )
-  - risk.hard_blocks(
-      hard_block_id TEXT PRIMARY KEY,
-      indicator_kind TEXT NOT NULL,
-      value_hash TEXT NOT NULL,
-      status TEXT NOT NULL,            -- 'active' | 'lifted'
-      created_at TIMESTAMPTZ NOT NULL
-    )
-  - risk.cross_alerts(
-      cross_alert_id TEXT PRIMARY KEY,
-      indicator_kind TEXT NOT NULL,
-      value_hash TEXT NOT NULL,
-      status TEXT NOT NULL,            -- 'published' | 'withdrawn'
-      published_at TIMESTAMPTZ NOT NULL
-    )
+Schema `risk` (SELECT only):
+  - risk.indicators(indicator_id, kind, value_hash)
+  - risk.hard_blocks(hard_block_id, indicator_kind, value_hash, status, indicator_ids)
+  - risk.cross_alerts(cross_alert_id, indicator_kind, value_hash, status, indicator_ids)
 
-Fail-closed invariant (#10):
-  Any Postgres error or missing active `platform_limits` row in `control.policies`
-  causes `load_policy_state()` to return `PolicyState(available=False)`.
+Fail-closed invariants (#10 & B6):
+  - Missing/unreadable `control.policies` -> `PolicyState(available=False)` (DENY / 503).
+  - Unreadable `risk.indicators`, `risk.hard_blocks`, or `risk.cross_alerts` ->
+    raises `PolicyUnavailableError` (DENY / 503). Gate NEVER swallows risk read errors
+    and NEVER calls SIMO directly.
 ================================================================================
 """
 
@@ -161,11 +62,31 @@ from gate.domain.models import (
     MandateSnapshot,
     PlatformLimitsSnapshot,
     PolicyState,
+    PolicyUnavailableError,
     PurchaseOrderSnapshot,
     RiskSignals,
     VendorAccountSnapshot,
     VendorSnapshot,
     VerificationRecord,
+)
+
+REQUIRED_READ_RELATIONS: tuple[str, ...] = (
+    "core.tenants",
+    "core.users",
+    "core.vendors",
+    "core.vendor_accounts",
+    "core.mandates",
+    "core.auto_pay_suspensions",
+    "core.invoice_documents",
+    "core.invoices",
+    "core.jobs",
+    "core.approvals",
+    "core.purchase_orders",
+    "core.goods_receipts",
+    "control.policies",
+    "risk.indicators",
+    "risk.hard_blocks",
+    "risk.cross_alerts",
 )
 
 
@@ -191,12 +112,12 @@ class PostgresCoreReadStore:
             options="-c default_transaction_read_only=on",
         )
 
-    def ping(self) -> bool:
+    def check_required_relations(self) -> bool:
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT 1;")
-                    cur.fetchone()
+                    for rel in REQUIRED_READ_RELATIONS:
+                        cur.execute(f"SELECT 1 FROM {rel} LIMIT 1;")
             return True
         except Exception:
             return False
@@ -211,27 +132,43 @@ class PostgresCoreReadStore:
                 row = cur.fetchone()
                 return str(row["wallet_id"]) if row else None
 
+    def is_tenant_owner(self, tenant_id: str, user_id: str) -> bool:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM core.users
+                    WHERE tenant_id = %s AND user_id = %s AND role = 'owner'
+                    LIMIT 1;
+                    """,
+                    (tenant_id, user_id),
+                )
+                return cur.fetchone() is not None
+
     def get_invoice(self, invoice_id: str) -> InvoiceSnapshot | None:
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     SELECT
-                        invoice_id,
-                        tenant_id,
-                        vendor_id,
-                        purchase_order_id,
-                        seller_tax_id,
-                        symbol,
-                        number,
-                        invoice_type,
-                        total_vnd,
-                        status,
-                        severity,
-                        reason_codes,
-                        document_sha256
-                    FROM core.invoices
-                    WHERE invoice_id = %s;
+                        i.invoice_id,
+                        i.tenant_id,
+                        i.vendor_id,
+                        i.purchase_order_id,
+                        i.seller_tax_id,
+                        i.symbol,
+                        i.number,
+                        i.invoice_type,
+                        i.total_vnd,
+                        i.status,
+                        i.severity,
+                        i.reason_codes,
+                        d.sha256 AS document_sha256
+                    FROM core.invoices AS i
+                    JOIN core.invoice_documents AS d
+                      ON d.document_id = i.document_id
+                    WHERE i.invoice_id = %s;
                     """,
                     (invoice_id,),
                 )
@@ -581,7 +518,7 @@ class PostgresCoreReadStore:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT policy_id, kind, scope, target_id, value, status
+                        SELECT policy_id, kind, scope, target_id, status, value, reason
                         FROM control.policies
                         WHERE (kind = 'platform_limits' AND status = 'active')
                            OR (kind = 'kill_switch' AND status = 'engaged')
@@ -614,7 +551,7 @@ class PostgresCoreReadStore:
                         target_id=r["target_id"],
                         indicator_kind=val.get("indicator_kind"),
                         value_hash=val.get("value_hash"),
-                        reason=str(val.get("reason", "")),
+                        reason=str(r["reason"] or val.get("reason", "")),
                     )
                 )
 
@@ -628,52 +565,24 @@ class PostgresCoreReadStore:
         )
 
     def check_risk_signals(self, indicators: Sequence[IndicatorRef]) -> RiskSignals:
-        if not indicators:
-            return RiskSignals()
+        """Query risk.indicators, risk.hard_blocks, risk.cross_alerts (fail-closed on ANY error — B6)."""
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    if not indicators:
+                        # Still verify risk tables are readable (fail-closed).
+                        cur.execute("SELECT 1 FROM risk.indicators LIMIT 1;")
+                        cur.execute("SELECT 1 FROM risk.hard_blocks LIMIT 1;")
+                        cur.execute("SELECT 1 FROM risk.cross_alerts LIMIT 1;")
+                        return RiskSignals()
 
-        pairs = [(ind.kind, ind.value_hash.lower()) for ind in indicators]
-        kinds = [p[0] for p in pairs]
-        hashes = [p[1] for p in pairs]
+                    pairs = [(ind.kind, ind.value_hash.lower()) for ind in indicators]
+                    kinds = [p[0] for p in pairs]
+                    hashes = [p[1] for p in pairs]
 
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT hb.indicator_kind, hb.value_hash
-                    FROM risk.hard_blocks AS hb
-                    JOIN unnest(%s::text[], %s::text[]) AS q(kind, value_hash)
-                      ON hb.indicator_kind = q.kind
-                     AND lower(hb.value_hash) = q.value_hash
-                    WHERE hb.status = 'active';
-                    """,
-                    (kinds, hashes),
-                )
-                hard_hits = tuple(
-                    IndicatorRef(kind=r["indicator_kind"], value_hash=r["value_hash"].lower())
-                    for r in cur.fetchall()
-                )
-
-                cur.execute(
-                    """
-                    SELECT DISTINCT ca.indicator_kind, ca.value_hash
-                    FROM risk.cross_alerts AS ca
-                    JOIN unnest(%s::text[], %s::text[]) AS q(kind, value_hash)
-                      ON ca.indicator_kind = q.kind
-                     AND lower(ca.value_hash) = q.value_hash
-                    WHERE ca.status = 'published';
-                    """,
-                    (kinds, hashes),
-                )
-                cross_hits = tuple(
-                    IndicatorRef(kind=r["indicator_kind"], value_hash=r["value_hash"].lower())
-                    for r in cur.fetchall()
-                )
-
-                matched_ids: set[str] = set()
-                try:
                     cur.execute(
                         """
-                        SELECT ind.indicator_id
+                        SELECT ind.indicator_id, ind.kind, lower(ind.value_hash) AS value_hash
                         FROM risk.indicators AS ind
                         JOIN unnest(%s::text[], %s::text[]) AS q(kind, value_hash)
                           ON ind.kind = q.kind
@@ -681,13 +590,58 @@ class PostgresCoreReadStore:
                         """,
                         (kinds, hashes),
                     )
-                    matched_ids = {str(r["indicator_id"]) for r in cur.fetchall()}
-                except psycopg.errors.UndefinedTable:
-                    # risk.indicators is optional if kill switches store value_hash directly.
-                    pass
+                    matched_rows = cur.fetchall()
+                    matched_ids = [str(r["indicator_id"]) for r in matched_rows]
 
-        return RiskSignals(
-            hard_block_hits=hard_hits,
-            cross_alert_hits=cross_hits,
-            matched_indicator_ids=frozenset(matched_ids),
-        )
+                    cur.execute(
+                        """
+                        SELECT DISTINCT q.kind, q.value_hash
+                        FROM unnest(%s::text[], %s::text[]) AS q(kind, value_hash)
+                        LEFT JOIN risk.indicators AS ind
+                          ON ind.kind = q.kind
+                         AND lower(ind.value_hash) = q.value_hash
+                        JOIN risk.hard_blocks AS hb
+                          ON hb.status = 'active'
+                         AND (
+                               (hb.indicator_kind = q.kind AND lower(hb.value_hash) = q.value_hash)
+                               OR (ind.indicator_id IS NOT NULL AND ind.indicator_id = ANY(hb.indicator_ids))
+                         );
+                        """,
+                        (kinds, hashes),
+                    )
+                    hard_hits = tuple(
+                        IndicatorRef(kind=r["kind"], value_hash=r["value_hash"])
+                        for r in cur.fetchall()
+                    )
+
+                    cur.execute(
+                        """
+                        SELECT DISTINCT q.kind, q.value_hash
+                        FROM unnest(%s::text[], %s::text[]) AS q(kind, value_hash)
+                        LEFT JOIN risk.indicators AS ind
+                          ON ind.kind = q.kind
+                         AND lower(ind.value_hash) = q.value_hash
+                        JOIN risk.cross_alerts AS ca
+                          ON ca.status = 'published'
+                         AND (
+                               (ca.indicator_kind = q.kind AND lower(ca.value_hash) = q.value_hash)
+                               OR (ind.indicator_id IS NOT NULL AND ind.indicator_id = ANY(ca.indicator_ids))
+                         );
+                        """,
+                        (kinds, hashes),
+                    )
+                    cross_hits = tuple(
+                        IndicatorRef(kind=r["kind"], value_hash=r["value_hash"])
+                        for r in cur.fetchall()
+                    )
+
+            return RiskSignals(
+                hard_block_hits=hard_hits,
+                cross_alert_hits=cross_hits,
+                matched_indicator_ids=frozenset(matched_ids),
+            )
+        except Exception as exc:
+            raise PolicyUnavailableError(
+                "Không đọc được bảng rủi ro (risk.indicators / risk.hard_blocks / risk.cross_alerts); "
+                "Payment Gate từ chối theo nguyên tắc fail-closed."
+            ) from exc

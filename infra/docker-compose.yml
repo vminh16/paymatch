@@ -6,6 +6,8 @@ services:
       POSTGRES_DB: paymatch
       POSTGRES_USER: paymatch
       POSTGRES_PASSWORD: paymatch   # chỉ dùng cho local/demo
+    volumes:
+      - ./init-gate-role.sql:/docker-entrypoint-initdb.d/01-gate-role.sql:ro
     ports: ["5432:5432"]
 
   sim-world:
@@ -32,7 +34,8 @@ services:
       - sim-world
     environment:
       GATE_PORT: "8100"
-      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      DATABASE_URL: ${GATE_DATABASE_URL:-postgresql://gate:gate@postgres:5432/paymatch}
+      GATE_AUTO_MIGRATE: ${GATE_AUTO_MIGRATE:-true}
       SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
       SIM_GATE_SERVICE_KEY: ${SIM_GATE_SERVICE_KEY:-dev-gate-key}
       DEMO_MODE: ${DEMO_MODE:-true}

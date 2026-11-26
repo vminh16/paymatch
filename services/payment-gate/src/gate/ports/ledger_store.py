@@ -51,10 +51,34 @@ class ExecutePrepareOutcome:
     request_payload: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EscrowActionPrepareOutcome:
+    escrow: EscrowRecord
+    should_call_rail: bool
+    denied_result: EvaluationResult | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedExecutionTuple:
+    invoice_id: str
+    document_sha256: str
+    payee_account_id: str
+    amount_vnd: int
+    channel: str
+    approval_method: str
+    intent_hash: str
+
+
 class LedgerStore(Protocol):
-    def ping(self) -> bool: ...
+    def check_required_relations(self) -> bool: ...
 
     def has_settled_ledger_for_invoice(self, invoice_id: str) -> bool: ...
+
+    def has_active_or_settled_claim_for_invoice(self, invoice_id: str) -> bool: ...
+
+    def is_approval_tainted(self, approval_id: str) -> bool:
+        """True if approval_id already produced a failed, denied, or settled intent (B5)."""
+        ...
 
     def get_open_escrow_for_po(self, purchase_order_id: str) -> EscrowRecord | None: ...
 
@@ -78,6 +102,7 @@ class LedgerStore(Protocol):
         tenant_id: str,
         invoice_id: str,
         purchase_order_id: str | None,
+        document_sha256: str,
         approval_id: str,
         approval_method: str,
         budget_date: date,
@@ -89,39 +114,29 @@ class LedgerStore(Protocol):
         now: datetime,
         expires_at: datetime,
         trace_id: str | None,
-        validate_with_locked_budget: Callable[[DailyBudgetSnapshot], EvaluationResult],
+        validate_with_locked_budget: Callable[[DailyBudgetSnapshot, bool, bool], EvaluationResult],
     ) -> CreateIntentOutcome:
-        """Atomically check active intent, lock daily_budget (for mandate), validate, and authorize or deny."""
-        ...
+        """Atomically check active intent + cross-channel claim + taint, lock daily_budget, validate, and authorize or deny.
 
-    def record_denied_intent(
-        self,
-        *,
-        tenant_id: str,
-        invoice_id: str,
-        purchase_order_id: str | None,
-        approval_id: str,
-        approval_method: str,
-        payee_account_id: str,
-        channel: str,
-        amount_vnd: int,
-        intent_hash: str,
-        transfer_memo: str,
-        reasons: tuple[GateReasonItem, ...],
-        now: datetime,
-        trace_id: str | None,
-    ) -> PaymentIntentRecord: ...
+        Callback receives (locked_budget, has_other_invoice_claim, approval_tainted).
+        """
+        ...
 
     def prepare_execute_intent(
         self,
         *,
         payment_intent_id: str,
         now: datetime,
+        exec_date: date,
         trace_id: str | None,
-        reevaluate: Callable[[PaymentIntentRecord, DailyBudgetSnapshot], EvaluationResult],
+        reevaluate: Callable[
+            [PaymentIntentRecord, DailyBudgetSnapshot, bool],
+            tuple[EvaluationResult, VerifiedExecutionTuple | None],
+        ],
         build_rail_request: Callable[[PaymentIntentRecord], tuple[str, dict[str, Any]]],
     ) -> ExecutePrepareOutcome:
-        """Lock intent, re-evaluate everything, consume token, transition authorized->executing, or deny."""
+        """Lock intent, handle midnight rollover to exec_date (B4), re-evaluate & verify full tuple
+        against intent + token (B5), consume token, transition authorized->executing, or deny."""
         ...
 
     def finalize_intent_settled(
@@ -146,6 +161,17 @@ class LedgerStore(Protocol):
         trace_id: str | None,
     ) -> PaymentIntentRecord: ...
 
+    def finalize_intent_denied_from_executing(
+        self,
+        *,
+        payment_intent_id: str,
+        reasons: tuple[GateReasonItem, ...],
+        now: datetime,
+        trace_id: str | None,
+    ) -> PaymentIntentRecord:
+        """Abort a card intent before re-POST replay when re-evaluation fails (B2)."""
+        ...
+
     def cancel_authorized_intent(
         self,
         *,
@@ -159,9 +185,11 @@ class LedgerStore(Protocol):
 
     def list_executing_intents(self) -> list[tuple[PaymentIntentRecord, RailTransactionRecord | None]]: ...
 
-    def mark_intent_stuck_notified(
-        self, *, payment_intent_id: str, now: datetime
-    ) -> bool: ...
+    def record_intent_rail_ref(
+        self, *, payment_intent_id: str, rail_ref_id: str, now: datetime
+    ) -> None: ...
+
+    def mark_intent_stuck_notified(self, *, payment_intent_id: str, now: datetime) -> bool: ...
 
     # --- Escrows ---
 
@@ -169,19 +197,22 @@ class LedgerStore(Protocol):
 
     def get_escrow_by_approval_id(self, approval_id: str) -> EscrowRecord | None: ...
 
-    def create_pending_escrow(
+    def create_pending_escrow_atomic(
         self,
         *,
-        tenant_id: str,
-        purchase_order_id: str,
-        vendor_account_id: str,
         approval_id: str,
+        purchase_order_id: str,
+        tenant_id: str,
+        vendor_account_id: str,
         amount_vnd: int,
         source_invoice_id: str | None,
         expires_on: date,
         now: datetime,
         request_payload: dict[str, Any],
-    ) -> CreateEscrowOutcome: ...
+        validate_with_open_po: Callable[[bool], EvaluationResult],
+    ) -> CreateEscrowOutcome:
+        """Atomically check B2 approval_id idempotency FIRST, then PO lock + open-PO check + insert."""
+        ...
 
     def finalize_escrow_held(
         self,
@@ -203,27 +234,57 @@ class LedgerStore(Protocol):
         trace_id: str | None,
     ) -> EscrowRecord: ...
 
+    def prepare_escrow_release(
+        self,
+        *,
+        escrow_id: str,
+        release_invoice_id: str | None,
+        release_approval_id: str,
+        goods_receipt_id: str,
+        now: datetime,
+        reevaluate: Callable[[EscrowRecord, bool], EvaluationResult],
+    ) -> EscrowActionPrepareOutcome:
+        """Atomically lock escrow, claim release_invoice_id across ALL channels (B1),
+        persist pending_action='release' + rail_transactions BEFORE calling rail."""
+        ...
+
+    def abort_escrow_release(self, *, escrow_id: str, now: datetime) -> EscrowRecord:
+        """Clear pending_action='release' and release invoice claim before re-POST if re-eval fails (B2)."""
+        ...
+
     def finalize_escrow_released(
         self,
         *,
         escrow_id: str,
-        release_invoice_id: str,
-        release_approval_id: str,
-        goods_receipt_id: str,
         budget_date: date,
         response_payload: dict[str, Any] | None,
         now: datetime,
         trace_id: str | None,
     ) -> EscrowRecord: ...
 
-    def finalize_escrow_refunded(
+    def prepare_escrow_refund(
         self,
         *,
         escrow_id: str,
         reason: str,
+        now: datetime,
+    ) -> EscrowActionPrepareOutcome:
+        """Atomically lock escrow and persist pending_action='refund' + rail_transactions before rail call."""
+        ...
+
+    def finalize_escrow_refunded(
+        self,
+        *,
+        escrow_id: str,
         response_payload: dict[str, Any] | None,
         now: datetime,
         trace_id: str | None,
     ) -> EscrowRecord: ...
 
     def list_pending_escrows(self) -> list[tuple[EscrowRecord, RailTransactionRecord | None]]: ...
+
+    def list_escrows_with_pending_action(
+        self,
+    ) -> list[tuple[EscrowRecord, RailTransactionRecord | None]]: ...
+
+    def mark_escrow_stuck_notified(self, *, escrow_id: str, now: datetime) -> bool: ...

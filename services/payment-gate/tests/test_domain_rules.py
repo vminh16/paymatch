@@ -502,6 +502,7 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
         vendor_account=escrow_acc,
         latest_completed_job_id=JOB_01,
         has_settled_ledger=False,
+        mandate=make_default_mandate(),
         policy=_policy(),
         risk_signals=RiskSignals(),
         indicators=(),
@@ -526,6 +527,7 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
         vendor_account=escrow_acc,
         latest_completed_job_id=JOB_01,
         has_settled_ledger=False,
+        mandate=make_default_mandate(),
         policy=_policy(),
         risk_signals=RiskSignals(),
         indicators=(),
@@ -550,12 +552,33 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
         vendor_account=escrow_acc,
         latest_completed_job_id=JOB_01,
         has_settled_ledger=False,
+        mandate=make_default_mandate(),
         policy=_policy(),
         risk_signals=RiskSignals(),
         indicators=(),
         now=NOW_VN,
     )
     assert rel_ok.decision == GateDecision.ALLOW
+
+    # review_only mandate denies escrow release!
+    rel_review_only = validate_escrow_release(
+        escrow=held_escrow,
+        release_approval=rel_apv,
+        release_invoice=inv,
+        goods_receipt=good_grn,
+        po=po,
+        vendor=vendor,
+        vendor_account=escrow_acc,
+        latest_completed_job_id=JOB_01,
+        has_settled_ledger=False,
+        mandate=make_default_mandate(mode="review_only"),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        now=NOW_VN,
+    )
+    assert rel_review_only.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.MANDATE_NOT_AUTO_PAY for r in rel_review_only.reasons)
 
     # B1: ESCROW_MISMATCH when release approved amount < held amount (must be EXACT equality)
     smaller_inv = replace(inv, total_vnd=8_000_000)
@@ -572,6 +595,7 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
         vendor_account=escrow_acc,
         latest_completed_job_id=JOB_01,
         has_settled_ledger=False,
+        mandate=make_default_mandate(),
         policy=_policy(),
         risk_signals=RiskSignals(),
         indicators=(),
@@ -594,6 +618,7 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
         vendor_account=escrow_acc,
         latest_completed_job_id=JOB_01,
         has_settled_ledger=False,
+        mandate=make_default_mandate(),
         policy=_policy(),
         risk_signals=RiskSignals(),
         indicators=(),
@@ -928,3 +953,73 @@ def test_channel_selection_bulk_rules_time_window_and_state_machines():
     require_escrow_transition(EscrowStatus.held, EscrowStatus.released)
     with pytest.raises(InvalidStateTransitionError):
         require_escrow_transition(EscrowStatus.released, EscrowStatus.refunded)
+
+
+def test_b5_manual_owner_proof_and_tainted_approval_denied():
+    vendor, acc = make_coffee_vendor()
+    inv = make_coffee_invoice(status="pending_approval", severity="yellow")
+
+    # Non-owner approver -> DENY
+    apv_manual = make_approval_for_invoice(inv, method="single")
+    res_non_owner = validate_intent_authorization(
+        invoice=inv,
+        approval=apv_manual,
+        latest_completed_job_id=JOB_01,
+        vendor=vendor,
+        vendor_accounts=(acc,),
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        daily_budget=DailyBudgetSnapshot(budget_date=NOW_VN.date()),
+        vendor_suspended=False,
+        has_settled_ledger=False,
+        held_po_escrow=None,
+        now=NOW_VN,
+        approver_is_owner=False,
+    )
+    assert res_non_owner.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.APPROVAL_STALE for r in res_non_owner.reasons)
+
+    # Missing approver_user_id on manual approval -> DENY
+    apv_null_user = replace(apv_manual, approver_user_id=None)
+    res_null = validate_intent_authorization(
+        invoice=inv,
+        approval=apv_null_user,
+        latest_completed_job_id=JOB_01,
+        vendor=vendor,
+        vendor_accounts=(acc,),
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        daily_budget=DailyBudgetSnapshot(budget_date=NOW_VN.date()),
+        vendor_suspended=False,
+        has_settled_ledger=False,
+        held_po_escrow=None,
+        now=NOW_VN,
+        approver_is_owner=True,
+    )
+    assert res_null.decision == GateDecision.DENY
+
+    # Tainted approval (previously failed/denied/settled) -> DENY
+    res_tainted = validate_intent_authorization(
+        invoice=inv,
+        approval=apv_manual,
+        latest_completed_job_id=JOB_01,
+        vendor=vendor,
+        vendor_accounts=(acc,),
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        daily_budget=DailyBudgetSnapshot(budget_date=NOW_VN.date()),
+        vendor_suspended=False,
+        has_settled_ledger=False,
+        held_po_escrow=None,
+        now=NOW_VN,
+        approver_is_owner=True,
+        approval_tainted=True,
+    )
+    assert res_tainted.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.APPROVAL_STALE for r in res_tainted.reasons)

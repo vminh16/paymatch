@@ -15,6 +15,7 @@ from gate.adapters.http.errors import HttpProblemError, build_problem_response
 from gate.adapters.http.routes import router
 from gate.adapters.http.serializers import to_gate_reason, to_payment_intent
 from gate.adapters.postgres.ledger_store import PostgresLedgerStore
+from gate.adapters.postgres.migrator import apply_migrations
 from gate.adapters.postgres.read_store import PostgresCoreReadStore
 from gate.adapters.sim_world.clock import SimWorldClock, SystemClock
 from gate.adapters.sim_world.rail import SimWorldPaymentRail
@@ -67,6 +68,7 @@ def create_app(
         authorization_ttl_seconds=cfg.authorization_ttl_seconds,
     )
     poller = GateBackgroundPoller(
+        read_store=r_store,
         ledger_store=l_store,
         rail=p_rail,
         clock=clk,
@@ -75,6 +77,10 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        if cfg.auto_migrate and cfg.database_url and ledger_store is None:
+            applied = await asyncio.to_thread(apply_migrations, cfg.database_url)
+            if applied:
+                logger.info("Applied Payment Gate ledger migrations: %s", applied)
         stop_event = asyncio.Event()
         task: asyncio.Task[None] | None = None
 

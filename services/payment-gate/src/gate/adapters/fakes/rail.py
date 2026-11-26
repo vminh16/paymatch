@@ -37,7 +37,9 @@ class FakePaymentRail:
         self.timeout_get_transfer: bool = False
         self.fail_next_card_code: str | None = None
         self.timeout_next_card: bool = False
+        self.issue_card_without_capture: bool = False
         self.timeout_next_escrow: bool = False
+        self.timeout_next_release: bool = False
         self.fail_next_escrow_code: str | None = None
         self.now_fn = lambda: datetime(2026, 11, 26, 8, 32, 0, tzinfo=VN_TZ)
 
@@ -151,11 +153,13 @@ class FakePaymentRail:
                 )
 
             card_id = new_id("crd")
+            status = "issued" if self.issue_card_without_capture else "captured"
+            self.issue_card_without_capture = False
             res = RailCardResult(
                 card_id=card_id,
                 last4="4821",
-                status="captured",
-                raw_response={"card_id": card_id, "last4": "4821", "status": "captured"},
+                status=status,
+                raw_response={"card_id": card_id, "last4": "4821", "status": status},
             )
             self.cards[idempotency_key] = (fp, res)
             self.cards_by_id[card_id] = res
@@ -232,6 +236,9 @@ class FakePaymentRail:
             self.escrow_calls.append(
                 {"op": "release", "rail_escrow_id": rail_escrow_id, "idempotency_key": idempotency_key}
             )
+            if self.timeout_next_release:
+                self.timeout_next_release = False
+                raise RailTimeoutError("Simulated escrow release timeout")
             if rail_escrow_id not in self.escrows_by_id:
                 return RailEscrowActionResult(status="failed", failure_code="NOT_FOUND")
             self.escrows_by_id[rail_escrow_id] = "released"

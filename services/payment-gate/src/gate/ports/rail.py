@@ -7,16 +7,24 @@ from datetime import datetime
 from typing import Any, Literal, Protocol
 
 
-class RailTimeoutError(Exception):
-    """Raised when the payment rail does not respond in time (outcome UNKNOWN — never mark failed)."""
+class RailAmbiguousError(Exception):
+    """Raised when rail outcome is UNKNOWN (timeout, 5xx, 401/403/400/404, 409 conflict, bad schema).
+
+    CRITICAL (B3): Callers MUST NOT finalize as `failed`, MUST KEEP the invoice/PO claim
+    and budget reservation, and MUST alert after the stuck threshold.
+    """
 
 
-class RailConflictError(Exception):
-    """Raised when the rail reports 409 IDEMPOTENCY_KEY_REUSED (payload mismatch)."""
+class RailTimeoutError(RailAmbiguousError):
+    """Raised when the payment rail does not respond in time (outcome UNKNOWN)."""
+
+
+class RailConflictError(RailAmbiguousError):
+    """Raised when the rail reports 409 IDEMPOTENCY_KEY_REUSED (ambiguous — never release claim)."""
 
 
 class RailNotFoundError(Exception):
-    """Raised when a polled transfer/card/escrow does not exist on the rail (404)."""
+    """Raised when a polled transfer/card does not exist on the rail (404)."""
 
 
 @dataclass(frozen=True, slots=True)

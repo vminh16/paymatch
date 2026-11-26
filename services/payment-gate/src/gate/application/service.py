@@ -36,13 +36,18 @@ from gate.domain.rules import (
     validate_intent_authorization,
 )
 from gate.ports.clock import Clock
-from gate.ports.ledger_store import CreateEscrowOutcome, CreateIntentOutcome, LedgerStore
-from gate.ports.rail import PaymentRail, RailConflictError, RailTimeoutError
+from gate.ports.ledger_store import (
+    CreateEscrowOutcome,
+    CreateIntentOutcome,
+    LedgerStore,
+    VerifiedExecutionTuple,
+)
+from gate.ports.rail import PaymentRail, RailAmbiguousError
 from gate.ports.read_store import CoreReadStore
 
 
 class UpstreamTimeoutError(Exception):
-    """Raised when a synchronous rail action (release/refund) times out."""
+    """Raised when a synchronous rail action (release/refund) gets an ambiguous/timeout reply."""
 
 
 class PaymentGateService:
@@ -64,7 +69,7 @@ class PaymentGateService:
         self._auth_ttl = timedelta(seconds=authorization_ttl_seconds)
 
     def is_ready(self) -> bool:
-        if not (self._read.ping() and self._ledger.ping()):
+        if not (self._read.check_required_relations() and self._ledger.check_required_relations()):
             return False
         policy = self._read.load_policy_state()
         return policy.available
@@ -97,6 +102,11 @@ class PaymentGateService:
                 "Không đọc được cấu hình policy/kill switch; Payment Gate từ chối theo nguyên tắc fail-closed."
             )
         return policy
+
+    def _is_manual_approver_owner(self, tenant_id: str, approver_user_id: str | None) -> bool:
+        if not approver_user_id:
+            return False
+        return self._read.is_tenant_owner(tenant_id, approver_user_id)
 
     # --- Evaluate (zero side effects) ---
 
@@ -133,6 +143,7 @@ class PaymentGateService:
         indicators = extract_indicators(
             seller_tax_id=invoice.seller_tax_id, vendor=vendor, payee_account=payee
         )
+        # B6: Raises PolicyUnavailableError (fail-closed) if any risk table is unreadable.
         risk_signals = self._read.check_risk_signals(indicators)
         vendor_suspended = (
             self._read.is_vendor_suspended(invoice.tenant_id, vendor.vendor_id)
@@ -224,7 +235,9 @@ class PaymentGateService:
         approval_id: str,
         locked_budget: DailyBudgetSnapshot,
         already_reserved: bool,
-    ) -> tuple[EvaluationResult, VendorAccountSnapshot | None]:
+        has_other_claim: bool = False,
+        approval_tainted: bool = False,
+    ) -> tuple[EvaluationResult, VendorAccountSnapshot | None, VerifiedExecutionTuple | None]:
         policy = self._require_policy()
         approval = self._read.get_approval(approval_id)
         vendor, accounts = self._resolve_vendor_and_accounts(invoice)
@@ -247,7 +260,6 @@ class PaymentGateService:
             held_po_escrow=held_escrow,
             preferred_account_id=preferred,
         )
-        # Also include the approval's account in indicator extraction (in case it was flagged!)
         acc_for_indicators = payee
         if acc_for_indicators is None and approval is not None:
             acc_for_indicators = self._read.get_vendor_account(
@@ -264,10 +276,18 @@ class PaymentGateService:
             if vendor is not None
             else False
         )
-        has_settled = self._ledger.has_settled_ledger_for_invoice(invoice.invoice_id)
+        has_settled = (
+            has_other_claim
+            or self._ledger.has_settled_ledger_for_invoice(invoice.invoice_id)
+        )
         latest_job_id = self._read.get_latest_completed_job_id(
             invoice.tenant_id, invoice.invoice_id
         )
+        approver_is_owner = True
+        if approval is not None and approval.method in ("single", "bulk"):
+            approver_is_owner = self._is_manual_approver_owner(
+                invoice.tenant_id, approval.approver_user_id
+            )
         now = self._clock.now()
         res = validate_intent_authorization(
             invoice=invoice,
@@ -285,8 +305,21 @@ class PaymentGateService:
             held_po_escrow=held_escrow,
             now=now,
             already_reserved_for_intent=already_reserved,
+            approver_is_owner=approver_is_owner,
+            approval_tainted=approval_tainted,
         )
-        return res, payee
+        verified_tuple: VerifiedExecutionTuple | None = None
+        if res.decision == GateDecision.ALLOW and payee is not None and approval is not None:
+            verified_tuple = VerifiedExecutionTuple(
+                invoice_id=invoice.invoice_id,
+                document_sha256=invoice.document_sha256,
+                payee_account_id=payee.vendor_account_id,
+                amount_vnd=res.amount_vnd,
+                channel=res.channel.value,
+                approval_method=approval.method,
+                intent_hash=res.intent_hash,
+            )
+        return res, payee, verified_tuple
 
     def create_intent(
         self,
@@ -314,7 +347,6 @@ class PaymentGateService:
         expires_at = now + self._auth_ttl
         memo = format_transfer_memo(invoice)
 
-        # Resolve initial payee/channel for intent persistence; actual validation happens under DB lock!
         vendor, accounts = self._resolve_vendor_and_accounts(invoice)
         mandate = self._read.get_latest_mandate(invoice.tenant_id)
         held_escrow = (
@@ -336,14 +368,24 @@ class PaymentGateService:
         recorded_payee_id = (
             payee.vendor_account_id if payee is not None else approval.payee_account_id
         )
-        amount_vnd = invoice.total_vnd if (invoice.total_vnd is not None and invoice.total_vnd >= 0) else 0
+        amount_vnd = (
+            invoice.total_vnd
+            if (invoice.total_vnd is not None and invoice.total_vnd >= 0)
+            else 0
+        )
 
-        def _validate_under_lock(locked_budget: DailyBudgetSnapshot) -> EvaluationResult:
-            eval_res, _ = self._evaluate_intent_with_budget(
+        def _validate_under_lock(
+            locked_budget: DailyBudgetSnapshot,
+            has_other_claim: bool,
+            approval_tainted: bool,
+        ) -> EvaluationResult:
+            eval_res, _, _ = self._evaluate_intent_with_budget(
                 invoice=invoice,
                 approval_id=approval_id,
                 locked_budget=locked_budget,
                 already_reserved=False,
+                has_other_claim=has_other_claim,
+                approval_tainted=approval_tainted,
             )
             return eval_res
 
@@ -351,6 +393,7 @@ class PaymentGateService:
             tenant_id=invoice.tenant_id,
             invoice_id=invoice.invoice_id,
             purchase_order_id=invoice.purchase_order_id,
+            document_sha256=invoice.document_sha256,
             approval_id=approval_id,
             approval_method=approval.method,
             budget_date=budget_date,
@@ -381,12 +424,15 @@ class PaymentGateService:
         self._require_policy()
 
         now = self._clock.now()
+        exec_date = self._clock.today_vn()
         resolved_payee_holder: list[VendorAccountSnapshot] = []
         wallet_id_holder: list[str] = []
 
         def _reevaluate(
-            intent: PaymentIntentRecord, locked_budget: DailyBudgetSnapshot
-        ) -> EvaluationResult:
+            intent: PaymentIntentRecord,
+            exec_budget: DailyBudgetSnapshot,
+            already_reserved: bool,
+        ) -> tuple[EvaluationResult, VerifiedExecutionTuple | None]:
             if intent.invoice_id is None:
                 raise InvalidStateTransitionError(
                     "PaymentIntent has no invoice_id.", current_status=intent.status.value
@@ -394,11 +440,12 @@ class PaymentGateService:
             invoice = self._read.get_invoice(intent.invoice_id)
             if invoice is None:
                 raise ResourceNotFoundError(f"Invoice '{intent.invoice_id}' not found.")
-            eval_res, payee = self._evaluate_intent_with_budget(
+            eval_res, payee, verified_tuple = self._evaluate_intent_with_budget(
                 invoice=invoice,
                 approval_id=intent.approval_id,
-                locked_budget=locked_budget,
-                already_reserved=(intent.approval_method == "mandate"),
+                locked_budget=exec_budget,
+                already_reserved=already_reserved,
+                approval_tainted=self._ledger.is_approval_tainted(intent.approval_id),
             )
             if eval_res.decision == GateDecision.ALLOW:
                 assert payee is not None
@@ -411,7 +458,7 @@ class PaymentGateService:
                     )
                 wallet_id_holder.clear()
                 wallet_id_holder.append(wallet_id)
-            return eval_res
+            return eval_res, verified_tuple
 
         def _build_rail_request(intent: PaymentIntentRecord) -> tuple[str, dict[str, Any]]:
             payee = resolved_payee_holder[0]
@@ -451,6 +498,7 @@ class PaymentGateService:
         prep = self._ledger.prepare_execute_intent(
             payment_intent_id=payment_intent_id,
             now=now,
+            exec_date=exec_date,
             trace_id=trace_id,
             reevaluate=_reevaluate,
             build_rail_request=_build_rail_request,
@@ -529,21 +577,19 @@ class PaymentGateService:
                         now=done_now,
                         trace_id=trace_id,
                     )
-                # Issued but not yet captured -> keep executing for poller
+                # Issued but not yet captured -> persist card_id so poller uses status-only GET!
+                if card_res.card_id:
+                    self._ledger.record_intent_rail_ref(
+                        payment_intent_id=intent.payment_intent_id,
+                        rail_ref_id=card_res.card_id,
+                        now=done_now,
+                    )
                 return intent
 
-        except RailTimeoutError:
-            # NEVER mark failed when outcome is unknown; money may have moved!
+        except RailAmbiguousError:
+            # B3: NEVER mark failed on timeout, 403, 409 conflict, 5xx, or bad schema!
+            # Keep invoice claim & daily budget reservation; poller reconciles & alerts at 24h.
             return intent
-        except RailConflictError:
-            return self._ledger.finalize_intent_failed(
-                payment_intent_id=intent.payment_intent_id,
-                rail_txn_id=None,
-                failure_code="IDEMPOTENCY_CONFLICT",
-                response_payload=None,
-                now=self._clock.now(),
-                trace_id=trace_id,
-            )
 
         return intent
 
@@ -599,7 +645,7 @@ class PaymentGateService:
         tenant_id: str | None = None,
         trace_id: str | None = None,
     ) -> CreateEscrowOutcome:
-        # B2: One approval_id funds at most one escrow forever -> return original escrow (200) in any status!
+        # Fast-path B2 idempotency check (also re-checked atomically inside transaction under lock!).
         existing_for_approval = self._ledger.get_escrow_by_approval_id(approval_id)
         if existing_for_approval is not None:
             self._check_tenant_match(existing_for_approval.tenant_id, tenant_id)
@@ -617,15 +663,10 @@ class PaymentGateService:
             else None
         )
         if po is not None:
-            self._check_tenant_match(po.tenant_id, tenant_id)
+            self._check_tenant_match(approval.tenant_id, po.tenant_id)
         vendor = self._read.get_vendor(po.tenant_id, po.vendor_id) if po is not None else None
         vendor_account = self._read.get_vendor_account(
             approval.tenant_id, approval.payee_account_id
-        )
-        has_open_escrow = (
-            self._ledger.get_open_escrow_for_po(po.purchase_order_id) is not None
-            if po is not None
-            else False
         )
         mandate = self._read.get_latest_mandate(approval.tenant_id)
         indicators = extract_indicators(
@@ -634,29 +675,37 @@ class PaymentGateService:
             payee_account=vendor_account,
         )
         risk_signals = self._read.check_risk_signals(indicators)
+        approver_is_owner = self._is_manual_approver_owner(
+            approval.tenant_id, approval.approver_user_id
+        )
         now = self._clock.now()
 
-        eval_res = validate_escrow_create(
-            approval=approval,
-            po=po,
-            vendor=vendor,
-            vendor_account=vendor_account,
-            has_open_escrow=has_open_escrow,
-            mandate=mandate,
-            policy=policy,
-            risk_signals=risk_signals,
-            indicators=indicators,
-            now=now,
-        )
-        if eval_res.decision != GateDecision.ALLOW:
+        # Pre-check non-PO structural errors (missing PO or payee account) so we have valid IDs for the atomic lock.
+        if (
+            po is None
+            or vendor_account is None
+            or not vendor_account.bank_code
+            or not vendor_account.account_number
+        ):
+            pre_eval = validate_escrow_create(
+                approval=approval,
+                po=po,
+                vendor=vendor,
+                vendor_account=vendor_account,
+                has_open_escrow=False,
+                mandate=mandate,
+                policy=policy,
+                risk_signals=risk_signals,
+                indicators=indicators,
+                now=now,
+                approver_is_owner=approver_is_owner,
+            )
             raise GateDeniedError(
-                eval_res.reasons,
-                kill_switch_blocked=eval_res.kill_switch_blocked,
-                policy_unavailable=eval_res.policy_unavailable,
+                pre_eval.reasons,
+                kill_switch_blocked=pre_eval.kill_switch_blocked,
+                policy_unavailable=pre_eval.policy_unavailable,
             )
 
-        assert po is not None and vendor_account is not None
-        assert vendor_account.bank_code and vendor_account.account_number
         wallet_id = self._read.get_tenant_wallet_id(po.tenant_id)
         if not wallet_id:
             raise ResourceNotFoundError(f"Tenant wallet not found for tenant '{po.tenant_id}'.")
@@ -671,18 +720,45 @@ class PaymentGateService:
             "amount_vnd": approval.amount_vnd,
             "expires_on": expires_on.isoformat(),
         }
-        pending_outcome = self._ledger.create_pending_escrow(
-            tenant_id=po.tenant_id,
-            purchase_order_id=po.purchase_order_id,
-            vendor_account_id=vendor_account.vendor_account_id,
+
+        def _validate_with_open_po(has_open_po: bool) -> EvaluationResult:
+            fresh_policy = self._require_policy()
+            fresh_approval = self._read.get_approval(approval_id)
+            fresh_mandate = self._read.get_latest_mandate(approval.tenant_id)
+            fresh_risk = self._read.check_risk_signals(indicators)
+            fresh_owner = self._is_manual_approver_owner(
+                approval.tenant_id,
+                fresh_approval.approver_user_id if fresh_approval is not None else None,
+            )
+            return validate_escrow_create(
+                approval=fresh_approval,
+                po=po,
+                vendor=vendor,
+                vendor_account=vendor_account,
+                has_open_escrow=has_open_po,
+                mandate=fresh_mandate,
+                policy=fresh_policy,
+                risk_signals=fresh_risk,
+                indicators=indicators,
+                now=now,
+                approver_is_owner=fresh_owner,
+            )
+
+        # Atomic B2 idempotency-first + PO advisory lock + open-PO check + pending insert!
+        pending_outcome = self._ledger.create_pending_escrow_atomic(
             approval_id=approval.approval_id,
+            purchase_order_id=po.purchase_order_id,
+            tenant_id=po.tenant_id,
+            vendor_account_id=vendor_account.vendor_account_id,
             amount_vnd=approval.amount_vnd,
             source_invoice_id=approval.source_invoice_id,
             expires_on=expires_on,
             now=now,
             request_payload=req_payload,
+            validate_with_open_po=_validate_with_open_po,
         )
         if not pending_outcome.created:
+            self._check_tenant_match(pending_outcome.escrow.tenant_id, tenant_id)
             return pending_outcome
         escrow = pending_outcome.escrow
 
@@ -718,20 +794,9 @@ class PaymentGateService:
                 ),
                 created=True,
             )
-        except RailTimeoutError:
-            # Stay pending; background poller re-POSTs idempotently.
+        except RailAmbiguousError:
+            # B3: Stay `pending` on timeout/403/409/5xx/bad schema; poller re-evaluates & reconciles!
             return CreateEscrowOutcome(escrow=escrow, created=True)
-        except RailConflictError:
-            return CreateEscrowOutcome(
-                escrow=self._ledger.finalize_escrow_failed(
-                    escrow_id=escrow.escrow_id,
-                    failure_code="IDEMPOTENCY_CONFLICT",
-                    response_payload=None,
-                    now=self._clock.now(),
-                    trace_id=trace_id,
-                ),
-                created=True,
-            )
 
     def release_escrow(
         self,
@@ -746,84 +811,131 @@ class PaymentGateService:
         if escrow is None:
             raise ResourceNotFoundError(f"Escrow '{escrow_id}' not found.")
         self._check_tenant_match(escrow.tenant_id, tenant_id)
-        if escrow.status != EscrowStatus.held:
-            raise InvalidStateTransitionError(
-                f"Cannot release escrow in status '{escrow.status.value}'.",
-                current_status=escrow.status.value,
-            )
 
-        policy = self._require_policy()
+        # Fail closed immediately if policy unreadable.
+        self._require_policy()
+
         release_approval = self._read.get_approval(approval_id)
+        if release_approval is not None:
+            self._check_tenant_match(escrow.tenant_id, release_approval.tenant_id)
+
         release_invoice = (
             self._read.get_invoice(release_approval.invoice_id)
             if release_approval is not None and release_approval.invoice_id
             else None
         )
+        if release_invoice is not None:
+            self._check_tenant_match(escrow.tenant_id, release_invoice.tenant_id)
+
         goods_receipt = self._read.get_goods_receipt(goods_receipt_id)
+        if goods_receipt is not None:
+            self._check_tenant_match(escrow.tenant_id, goods_receipt.tenant_id)
+
         po = self._read.get_purchase_order(escrow.purchase_order_id)
-        vendor = self._read.get_vendor(po.tenant_id, po.vendor_id) if po is not None else None
-        vendor_account = self._read.get_vendor_account(escrow.tenant_id, escrow.vendor_account_id)
-        latest_job_id = (
-            self._read.get_latest_completed_job_id(escrow.tenant_id, release_invoice.invoice_id)
-            if release_invoice is not None
-            else None
-        )
-        has_settled = (
-            self._ledger.has_settled_ledger_for_invoice(release_invoice.invoice_id)
-            if release_invoice is not None
-            else False
-        )
-        indicators = extract_indicators(
-            seller_tax_id=release_invoice.seller_tax_id if release_invoice else (vendor.tax_id if vendor else None),
-            vendor=vendor,
-            payee_account=vendor_account,
-        )
-        risk_signals = self._read.check_risk_signals(indicators)
+        if po is not None:
+            self._check_tenant_match(escrow.tenant_id, po.tenant_id)
+
         now = self._clock.now()
 
-        eval_res = validate_escrow_release(
-            escrow=escrow,
-            release_approval=release_approval,
-            release_invoice=release_invoice,
-            goods_receipt=goods_receipt,
-            po=po,
-            vendor=vendor,
-            vendor_account=vendor_account,
-            latest_completed_job_id=latest_job_id,
-            has_settled_ledger=has_settled,
-            policy=policy,
-            risk_signals=risk_signals,
-            indicators=indicators,
-            now=now,
-        )
-        if eval_res.decision != GateDecision.ALLOW:
-            raise GateDeniedError(
-                eval_res.reasons,
-                kill_switch_blocked=eval_res.kill_switch_blocked,
-                policy_unavailable=eval_res.policy_unavailable,
+        def _reevaluate_release(locked_escrow: EscrowRecord, has_claim: bool) -> EvaluationResult:
+            fresh_policy = self._require_policy()
+            fresh_approval = self._read.get_approval(approval_id)
+            fresh_invoice = (
+                self._read.get_invoice(fresh_approval.invoice_id)
+                if fresh_approval is not None and fresh_approval.invoice_id
+                else None
+            )
+            fresh_grn = self._read.get_goods_receipt(goods_receipt_id)
+            fresh_po = self._read.get_purchase_order(locked_escrow.purchase_order_id)
+            vendor = (
+                self._read.get_vendor(fresh_po.tenant_id, fresh_po.vendor_id)
+                if fresh_po is not None
+                else None
+            )
+            vendor_account = self._read.get_vendor_account(
+                locked_escrow.tenant_id, locked_escrow.vendor_account_id
+            )
+            mandate = self._read.get_latest_mandate(locked_escrow.tenant_id)
+            latest_job_id = (
+                self._read.get_latest_completed_job_id(
+                    locked_escrow.tenant_id, fresh_invoice.invoice_id
+                )
+                if fresh_invoice is not None
+                else None
+            )
+            has_settled = has_claim or (
+                self._ledger.has_settled_ledger_for_invoice(fresh_invoice.invoice_id)
+                if fresh_invoice is not None
+                else False
+            )
+            indicators = extract_indicators(
+                seller_tax_id=(
+                    fresh_invoice.seller_tax_id
+                    if fresh_invoice
+                    else (vendor.tax_id if vendor else None)
+                ),
+                vendor=vendor,
+                payee_account=vendor_account,
+            )
+            risk_signals = self._read.check_risk_signals(indicators)
+            approver_is_owner = self._is_manual_approver_owner(
+                locked_escrow.tenant_id,
+                fresh_approval.approver_user_id if fresh_approval is not None else None,
+            )
+            return validate_escrow_release(
+                escrow=locked_escrow,
+                release_approval=fresh_approval,
+                release_invoice=fresh_invoice,
+                goods_receipt=fresh_grn,
+                po=fresh_po,
+                vendor=vendor,
+                vendor_account=vendor_account,
+                latest_completed_job_id=latest_job_id,
+                has_settled_ledger=has_settled,
+                mandate=mandate,
+                policy=fresh_policy,
+                risk_signals=risk_signals,
+                indicators=indicators,
+                now=now,
+                approver_is_owner=approver_is_owner,
             )
 
-        assert release_approval is not None and release_invoice is not None
-        assert escrow.rail_escrow_id is not None
+        # B1: Atomically lock escrow + claim release_invoice_id across ALL channels + persist
+        # pending_action='release' & rail_transactions BEFORE calling the rail!
+        prep = self._ledger.prepare_escrow_release(
+            escrow_id=escrow_id,
+            release_invoice_id=release_invoice.invoice_id if release_invoice is not None else None,
+            release_approval_id=approval_id,
+            goods_receipt_id=goods_receipt_id,
+            now=now,
+            reevaluate=_reevaluate_release,
+        )
+        if prep.denied_result is not None:
+            raise GateDeniedError(
+                prep.denied_result.reasons,
+                kill_switch_blocked=prep.denied_result.kill_switch_blocked,
+                policy_unavailable=prep.denied_result.policy_unavailable,
+            )
+        if not prep.should_call_rail:
+            return prep.escrow
+
+        assert prep.escrow.rail_escrow_id is not None
         try:
             action_res = self._rail.release_escrow(
-                rail_escrow_id=escrow.rail_escrow_id,
-                idempotency_key=f"rel_{escrow.escrow_id}",
+                rail_escrow_id=prep.escrow.rail_escrow_id,
+                idempotency_key=f"rel_{prep.escrow.escrow_id}",
             )
-        except RailTimeoutError as exc:
+        except RailAmbiguousError as exc:
+            # B1 + B3: Keep claim & pending_action='release'; poller reconciles against stored binding!
             raise UpstreamTimeoutError(str(exc)) from exc
 
         if action_res.status != "released":
-            raise InvalidStateTransitionError(
-                f"Rail rejected escrow release: {action_res.failure_code}",
-                current_status=escrow.status.value,
+            raise UpstreamTimeoutError(
+                f"Unexpected escrow release status from rail: {action_res.status}"
             )
 
         return self._ledger.finalize_escrow_released(
-            escrow_id=escrow.escrow_id,
-            release_invoice_id=release_invoice.invoice_id,
-            release_approval_id=release_approval.approval_id,
-            goods_receipt_id=goods_receipt_id,
+            escrow_id=prep.escrow.escrow_id,
             budget_date=self._clock.today_vn(),
             response_payload=action_res.raw_response,
             now=self._clock.now(),
@@ -842,30 +954,32 @@ class PaymentGateService:
         if escrow is None:
             raise ResourceNotFoundError(f"Escrow '{escrow_id}' not found.")
         self._check_tenant_match(escrow.tenant_id, tenant_id)
-        if escrow.status != EscrowStatus.held:
-            raise InvalidStateTransitionError(
-                f"Cannot refund escrow in status '{escrow.status.value}'.",
-                current_status=escrow.status.value,
-            )
 
-        assert escrow.rail_escrow_id is not None
+        prep = self._ledger.prepare_escrow_refund(
+            escrow_id=escrow_id,
+            reason=reason,
+            now=self._clock.now(),
+        )
+        if not prep.should_call_rail:
+            return prep.escrow
+
+        assert prep.escrow.rail_escrow_id is not None
         try:
             action_res = self._rail.refund_escrow(
-                rail_escrow_id=escrow.rail_escrow_id,
-                idempotency_key=f"ref_{escrow.escrow_id}",
+                rail_escrow_id=prep.escrow.rail_escrow_id,
+                idempotency_key=f"ref_{prep.escrow.escrow_id}",
             )
-        except RailTimeoutError as exc:
+        except RailAmbiguousError as exc:
+            # B1 + B3: Keep pending_action='refund'; poller reconciles!
             raise UpstreamTimeoutError(str(exc)) from exc
 
         if action_res.status != "refunded":
-            raise InvalidStateTransitionError(
-                f"Rail rejected escrow refund: {action_res.failure_code}",
-                current_status=escrow.status.value,
+            raise UpstreamTimeoutError(
+                f"Unexpected escrow refund status from rail: {action_res.status}"
             )
 
         return self._ledger.finalize_escrow_refunded(
-            escrow_id=escrow.escrow_id,
-            reason=reason,
+            escrow_id=prep.escrow.escrow_id,
             response_payload=action_res.raw_response,
             now=self._clock.now(),
             trace_id=trace_id,

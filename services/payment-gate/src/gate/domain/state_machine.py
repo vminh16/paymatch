@@ -18,7 +18,11 @@ _INTENT_TRANSITIONS: dict[PaymentIntentStatus, frozenset[PaymentIntentStatus]] =
         }
     ),
     PaymentIntentStatus.executing: frozenset(
-        {PaymentIntentStatus.settled, PaymentIntentStatus.failed}
+        {
+            PaymentIntentStatus.settled,
+            PaymentIntentStatus.failed,
+            PaymentIntentStatus.denied,
+        }
     ),
     PaymentIntentStatus.settled: frozenset(),
     PaymentIntentStatus.failed: frozenset(),

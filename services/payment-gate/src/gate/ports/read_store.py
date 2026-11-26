@@ -20,9 +20,13 @@ from gate.domain.models import (
 
 
 class CoreReadStore(Protocol):
-    def ping(self) -> bool: ...
+    def check_required_relations(self) -> bool:
+        """Verify all required core/control/risk relations are readable."""
+        ...
 
     def get_tenant_wallet_id(self, tenant_id: str) -> str | None: ...
+
+    def is_tenant_owner(self, tenant_id: str, user_id: str) -> bool: ...
 
     def get_invoice(self, invoice_id: str) -> InvoiceSnapshot | None: ...
 
@@ -51,11 +55,12 @@ class CoreReadStore(Protocol):
     def get_goods_receipt(self, goods_receipt_id: str) -> GoodsReceiptSnapshot | None: ...
 
     def load_policy_state(self) -> PolicyState:
-        """Read PlatformLimits and engaged KillSwitches from control.policies.
-
-        Must return PolicyState(available=False) or raise PolicyUnavailableError on any read error
-        (fail-closed invariant #10).
-        """
+        """Read PlatformLimits and engaged KillSwitches from control.policies (fail-closed)."""
         ...
 
-    def check_risk_signals(self, indicators: Sequence[IndicatorRef]) -> RiskSignals: ...
+    def check_risk_signals(self, indicators: Sequence[IndicatorRef]) -> RiskSignals:
+        """Query risk.indicators, risk.hard_blocks, risk.cross_alerts.
+
+        MUST raise PolicyUnavailableError if any required risk table is unreadable (B6 fail-closed).
+        """
+        ...

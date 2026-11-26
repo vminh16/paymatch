@@ -21,7 +21,7 @@ from gate.domain.models import (
     KillSwitchSnapshot,
     PolicyState,
 )
-from gate.ports.rail import RailConflictError
+from gate.ports.rail import RailAmbiguousError, RailConflictError
 from paymatch_contracts.gate import IntentGateDeniedProblem
 
 from gate_fixtures import (
@@ -46,6 +46,7 @@ from gate_fixtures import (
     STORE_01,
     TENANT_A,
     TENANT_B,
+    USER_OWNER,
     VENDOR_COFFEE,
     VENDOR_POS,
     VENDOR_SYRUP,
@@ -69,6 +70,7 @@ def _make_test_env():
     rail.now_fn = clock.now
 
     read_store.tenant_wallets[TENANT_A] = WALLET_A
+    read_store.owner_users.add((TENANT_A, USER_OWNER))
     read_store.mandates[TENANT_A] = make_default_mandate()
 
     coffee_vendor, coffee_acc = make_coffee_vendor()
@@ -738,3 +740,128 @@ def test_sim_world_rail_and_clock_adapters():
         raise AssertionError("Expected RailConflictError")
     except RailConflictError:
         pass
+
+
+def test_b2_poller_blocks_card_and_escrow_replay_after_kill_switch_or_revoked_approval():
+    client, read_store, ledger_store, rail, clock, poller = _make_test_env()
+
+    # 1. Virtual card times out on first POST -> stays executing (card_id unknown)
+    pos_inv = InvoiceSnapshot(
+        invoice_id=INV_POS,
+        tenant_id=TENANT_A,
+        vendor_id=VENDOR_POS,
+        purchase_order_id=None,
+        seller_tax_id="0999010032",
+        symbol="1C26TSV",
+        number="00000112",
+        invoice_type="software",
+        total_vnd=12_000_000,
+        status="scheduled",
+        severity="green",
+        reason_codes=("OK",),
+        document_sha256="b" * 64,
+    )
+    read_store.invoices[INV_POS] = pos_inv
+    read_store.latest_jobs[(TENANT_A, INV_POS)] = JOB_01
+    read_store.approvals[APV_02] = make_approval_for_invoice(
+        pos_inv,
+        approval_id=APV_02,
+        payee_account_id=ACC_POS_CARD,
+        channel="virtual_card",
+        method="mandate",
+    )
+    pi_id = client.post(
+        "/gate/intents",
+        json={"invoice_id": INV_POS, "approval_id": APV_02},
+        headers=_hdr("core-worker"),
+    ).json()["payment_intent_id"]
+
+    rail.timeout_next_card = True
+    r_exec = client.post(
+        f"/gate/intents/{pi_id}:execute",
+        json={},
+        headers=_hdr("core-worker"),
+    )
+    assert r_exec.status_code == 200 and r_exec.json()["status"] == "executing"
+    assert len(rail.card_calls) == 1
+
+    # Engage tenant kill switch BEFORE poller runs!
+    read_store.policy_state = replace(
+        read_store.policy_state,
+        kill_switches=(
+            KillSwitchSnapshot(kill_switch_id="ksw_ten", scope="tenant", target_id=TENANT_A),
+        ),
+    )
+    tick = poller.run_once()
+    assert tick.denied_intents == 1
+    assert ledger_store.intents[pi_id].status.value == "denied"
+    assert len(rail.card_calls) == 1  # Poller did NOT replay POST /sim/rails/cards!
+
+    # 2. Pending escrow times out on first POST -> approval revoked BEFORE poller runs!
+    read_store.policy_state = replace(read_store.policy_state, kill_switches=())
+    po = read_store.purchase_orders[PO_01]
+    create_apv = make_escrow_create_approval(po, approval_id=APV_ESC_CREATE)
+    read_store.approvals[APV_ESC_CREATE] = create_apv
+    rail.timeout_next_escrow = True
+    r_esc = client.post(
+        "/gate/escrows",
+        json={"approval_id": APV_ESC_CREATE, "expires_on": "2026-12-10"},
+        headers=_hdr("merchant-api"),
+    )
+    assert r_esc.status_code == 201 and r_esc.json()["status"] == "pending"
+    esc_id = r_esc.json()["escrow_id"]
+    assert len(rail.escrow_calls) == 1
+
+    # Revoke approval before poller replays!
+    read_store.approvals[APV_ESC_CREATE] = replace(create_apv, status="superseded")
+    tick2 = poller.run_once()
+    assert tick2.failed_escrows == 1
+    assert ledger_store.escrows[esc_id].status.value == "failed"
+    assert len(rail.escrow_calls) == 1  # Poller did NOT replay POST /sim/rails/escrows!
+
+
+def test_b3_sim_world_rail_ambiguous_errors_never_finalize_failed_and_b6_risk_fail_closed():
+    # B3: HTTP 403, 409 IDEMPOTENCY_KEY_REUSED, 500, and malformed JSON -> RailAmbiguousError
+    responses = iter(
+        [
+            httpx.Response(403, json={"code": "FORBIDDEN", "detail": "bad key"}),
+            httpx.Response(409, json={"code": "IDEMPOTENCY_KEY_REUSED", "detail": "mismatch"}),
+            httpx.Response(500, json={"code": "INTERNAL_ERROR", "detail": "boom"}),
+            httpx.Response(200, json={"unexpected": "schema"}),
+        ]
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return next(responses)
+
+    rail = SimWorldPaymentRail(
+        sim_url="http://sim/sim",
+        service_key="sim-gate-key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    for expected_exc in (RailAmbiguousError, RailConflictError, RailAmbiguousError, RailAmbiguousError):
+        try:
+            rail.create_transfer(
+                idempotency_key="pi_01",
+                from_wallet_id=WALLET_A,
+                bank_code="VNMB01",
+                account_number="990010000001",
+                account_name="TEST",
+                amount_vnd=1000,
+                memo="memo",
+            )
+            raise AssertionError(f"Expected {expected_exc.__name__}")
+        except expected_exc:
+            pass
+
+    # B6: Unreadable risk tables -> 503 UPSTREAM_UNAVAILABLE (fail-closed)
+    client, read_store, *_ = _make_test_env()
+    read_store.risk_readable = False
+    assert client.get("/gate/readyz").status_code == 503
+    r_eval = client.post(
+        "/gate/evaluate",
+        json={"invoice_id": INV_COFFEE},
+        headers=_hdr("merchant-api"),
+    )
+    assert r_eval.status_code == 503
+    assert r_eval.json()["code"] == "UPSTREAM_UNAVAILABLE"

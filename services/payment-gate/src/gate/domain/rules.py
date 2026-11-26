@@ -587,6 +587,8 @@ def validate_intent_authorization(
     held_po_escrow: EscrowRecord | None,
     now: datetime,
     already_reserved_for_intent: bool = False,
+    approver_is_owner: bool = True,
+    approval_tainted: bool = False,
 ) -> EvaluationResult:
     """Strict authorization check for POST /gate/intents and re-evaluation at :execute.
 
@@ -772,6 +774,25 @@ def validate_intent_authorization(
                     code=GateReasonCode.APPROVAL_STALE,
                     layer=GateReasonLayer.hard_rule,
                     detail=f"Approval đang ở trạng thái '{approval.status}', không còn active.",
+                )
+            )
+        if approval_tainted:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.APPROVAL_STALE,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Approval này đã từng gắn với lệnh chi thất bại/từ chối/tất toán và không thể dùng lại.",
+                )
+            )
+        # B5: Manual single/bulk approvals MUST have a non-null owner approver_user_id.
+        if approval.method in ("single", "bulk") and (
+            not approval.approver_user_id or not approver_is_owner
+        ):
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.APPROVAL_STALE,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Bản ghi duyệt thủ công (single/bulk) bắt buộc phải có approver_user_id thuộc vai Chủ chuỗi (owner).",
                 )
             )
         if approval.invoice_id != invoice.invoice_id or approval.tenant_id != invoice.tenant_id:
@@ -1056,6 +1077,7 @@ def validate_escrow_create(
     risk_signals: RiskSignals,
     indicators: Sequence[IndicatorRef],
     now: datetime,
+    approver_is_owner: bool = True,
 ) -> EvaluationResult:
     """Validate POST /gate/escrows strictly from Approval + DB records."""
     deny_reasons: list[GateReasonItem] = []
@@ -1108,6 +1130,14 @@ def validate_escrow_create(
                     code=GateReasonCode.APPROVAL_STALE,
                     layer=GateReasonLayer.hard_rule,
                     detail=f"Approval tạo cọc đang ở trạng thái '{approval.status}', không còn active.",
+                )
+            )
+        if not approval.approver_user_id or not approver_is_owner:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.APPROVAL_STALE,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Approval tạo cọc bắt buộc phải có approver_user_id thuộc vai Chủ chuỗi (owner).",
                 )
             )
         if approval.channel != Channel.escrow.value:
@@ -1240,10 +1270,12 @@ def validate_escrow_release(
     vendor_account: VendorAccountSnapshot | None,
     latest_completed_job_id: str | None,
     has_settled_ledger: bool,
+    mandate: MandateSnapshot | None,
     policy: PolicyState,
     risk_signals: RiskSignals,
     indicators: Sequence[IndicatorRef],
     now: datetime,
+    approver_is_owner: bool = True,
 ) -> EvaluationResult:
     """Validate POST /gate/escrows/{id}:release (F7): requires GRN + matching approved invoice."""
     deny_reasons: list[GateReasonItem] = []
@@ -1312,6 +1344,15 @@ def validate_escrow_release(
             )
         )
 
+    if mandate is None or mandate.mode == "review_only":
+        deny_reasons.append(
+            GateReasonItem(
+                code=GateReasonCode.MANDATE_NOT_AUTO_PAY,
+                layer=GateReasonLayer.mandate,
+                detail="Tenant đang ở chế độ review_only (hoặc chưa ký mandate), không được giải ngân cọc.",
+            )
+        )
+
     if release_approval is None:
         deny_reasons.append(
             GateReasonItem(
@@ -1327,6 +1368,22 @@ def validate_escrow_release(
                     code=GateReasonCode.APPROVAL_STALE,
                     layer=GateReasonLayer.hard_rule,
                     detail=f"Approval giải ngân đang ở trạng thái '{release_approval.status}', không còn active.",
+                )
+            )
+        if not release_approval.approver_user_id or not approver_is_owner:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.APPROVAL_STALE,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Approval giải ngân cọc bắt buộc phải có approver_user_id thuộc vai Chủ chuỗi (owner).",
+                )
+            )
+        if release_approval.tenant_id != escrow.tenant_id:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.ESCROW_MISMATCH,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Approval giải ngân không thuộc cùng tenant với khoản cọc.",
                 )
             )
         if release_approval.channel != Channel.escrow.value:
@@ -1385,6 +1442,14 @@ def validate_escrow_release(
             )
         )
     else:
+        if release_invoice.tenant_id != escrow.tenant_id:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.ESCROW_MISMATCH,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Hóa đơn giải ngân không thuộc cùng tenant với khoản cọc.",
+                )
+            )
         if release_invoice.status in ("blocked", "rejected"):
             deny_reasons.append(
                 GateReasonItem(

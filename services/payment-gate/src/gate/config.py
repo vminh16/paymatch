@@ -29,6 +29,7 @@ class Settings:
     authorization_ttl_seconds: int = 15 * 60
     stuck_threshold_seconds: int = 24 * 60 * 60
     enable_background_poller: bool = True
+    auto_migrate: bool = True
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -47,4 +48,5 @@ class Settings:
             authorization_ttl_seconds=int(os.getenv("GATE_AUTHORIZATION_TTL_SECONDS", "900")),
             stuck_threshold_seconds=int(os.getenv("GATE_STUCK_THRESHOLD_SECONDS", "86400")),
             enable_background_poller=_env_bool("GATE_ENABLE_POLLER", default=True),
+            auto_migrate=_env_bool("GATE_AUTO_MIGRATE", default=True),
         )

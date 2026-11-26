@@ -4,12 +4,15 @@ from gate.ports.clock import Clock
 from gate.ports.ledger_store import (
     CreateEscrowOutcome,
     CreateIntentOutcome,
+    EscrowActionPrepareOutcome,
     ExecutePrepareOutcome,
     LedgerStore,
     RailTransactionRecord,
+    VerifiedExecutionTuple,
 )
 from gate.ports.rail import (
     PaymentRail,
+    RailAmbiguousError,
     RailCardResult,
     RailConflictError,
     RailEscrowActionResult,
@@ -23,10 +26,13 @@ from gate.ports.read_store import CoreReadStore
 __all__ = [
     "Clock",
     "CoreReadStore",
+    "CreateEscrowOutcome",
     "CreateIntentOutcome",
+    "EscrowActionPrepareOutcome",
     "ExecutePrepareOutcome",
     "LedgerStore",
     "PaymentRail",
+    "RailAmbiguousError",
     "RailCardResult",
     "RailConflictError",
     "RailEscrowActionResult",
@@ -35,4 +41,5 @@ __all__ = [
     "RailTimeoutError",
     "RailTransactionRecord",
     "RailTransferResult",
+    "VerifiedExecutionTuple",
 ]

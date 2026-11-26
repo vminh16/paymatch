@@ -1,7 +1,15 @@
 -- Migration 001: Initialize schema `ledger` owned exclusively by payment-gate.
 -- See docs/02-architecture/data-model.md §2 (ledger) and docs/05-api/events.md §1.
 
-CREATE SCHEMA IF NOT EXISTS ledger;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ledger'
+    ) THEN
+        EXECUTE 'CREATE SCHEMA ledger';
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS ledger.schema_migrations (
     version TEXT PRIMARY KEY,
@@ -14,13 +22,14 @@ CREATE TABLE IF NOT EXISTS ledger.payment_intents (
     tenant_id TEXT NOT NULL,
     invoice_id TEXT NULL,
     purchase_order_id TEXT NULL,
+    document_sha256 TEXT NOT NULL DEFAULT '',
     intent_hash TEXT NOT NULL,
     approval_id TEXT NOT NULL,
     approval_method TEXT NOT NULL CHECK (approval_method IN ('single', 'bulk', 'mandate')),
     budget_date DATE NULL,
     payee_account_id TEXT NOT NULL,
     channel TEXT NOT NULL CHECK (channel IN ('bank_transfer', 'virtual_card', 'escrow')),
-    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0),
+    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0 AND amount_vnd <= 9007199254740991),
     status TEXT NOT NULL CHECK (
         status IN ('created', 'authorized', 'executing', 'settled', 'failed', 'expired', 'denied')
     ),
@@ -49,6 +58,9 @@ CREATE INDEX IF NOT EXISTS idx_payment_intents_invoice
     ON ledger.payment_intents (tenant_id, invoice_id)
     WHERE invoice_id IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS idx_payment_intents_approval
+    ON ledger.payment_intents (approval_id, status);
+
 CREATE INDEX IF NOT EXISTS idx_payment_intents_status_expires
     ON ledger.payment_intents (status, expires_at)
     WHERE status = 'authorized';
@@ -57,11 +69,17 @@ CREATE INDEX IF NOT EXISTS idx_payment_intents_status_executing
     ON ledger.payment_intents (status, executed_at)
     WHERE status = 'executing';
 
--- Single-use payment authorization tokens issued in phase 1 and consumed on phase 2 execute.
+-- Single-use payment authorization tokens bound to full payment tuple (B5).
 CREATE TABLE IF NOT EXISTS ledger.payment_tokens (
     token_id TEXT PRIMARY KEY,
     payment_intent_id TEXT NOT NULL UNIQUE REFERENCES ledger.payment_intents(payment_intent_id),
     tenant_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    document_sha256 TEXT NOT NULL,
+    payee_account_id TEXT NOT NULL,
+    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0 AND amount_vnd <= 9007199254740991),
+    channel TEXT NOT NULL CHECK (channel IN ('bank_transfer', 'virtual_card', 'escrow')),
+    approval_method TEXT NOT NULL CHECK (approval_method IN ('single', 'bulk', 'mandate')),
     intent_hash TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('issued', 'consumed', 'revoked', 'expired')),
     issued_at TIMESTAMPTZ NOT NULL,
@@ -71,6 +89,7 @@ CREATE TABLE IF NOT EXISTS ledger.payment_tokens (
 
 -- Escrow holds bound to a purchase order (F7).
 -- Hard invariant (B2): one approval_id funds at most one escrow, forever (UNIQUE approval_id).
+-- In-flight release/refund actions are persisted before rail dispatch (B1).
 CREATE TABLE IF NOT EXISTS ledger.escrows (
     escrow_id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -85,6 +104,10 @@ CREATE TABLE IF NOT EXISTS ledger.escrows (
     goods_receipt_id TEXT NULL,
     rail_escrow_id TEXT NULL,
     failure_code TEXT NULL,
+    pending_action TEXT NULL CHECK (pending_action IS NULL OR pending_action IN ('release', 'refund')),
+    pending_refund_reason TEXT NULL,
+    action_started_at TIMESTAMPTZ NULL,
+    stuck_notified_at TIMESTAMPTZ NULL,
     expires_on DATE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     released_at TIMESTAMPTZ NULL,
@@ -102,6 +125,27 @@ CREATE INDEX IF NOT EXISTS idx_escrows_tenant_po
 CREATE INDEX IF NOT EXISTS idx_escrows_pending
     ON ledger.escrows (status, created_at)
     WHERE status = 'pending';
+
+CREATE INDEX IF NOT EXISTS idx_escrows_pending_action
+    ON ledger.escrows (pending_action, action_started_at)
+    WHERE pending_action IS NOT NULL;
+
+-- Cross-channel atomic invoice claim (B1): guarantees at most ONE active/in-flight/settled
+-- payment per invoice across ALL channels (bank_transfer, virtual_card, AND escrow release).
+CREATE TABLE IF NOT EXISTS ledger.invoice_claims (
+    invoice_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    claim_kind TEXT NOT NULL CHECK (claim_kind IN ('payment_intent', 'escrow_release')),
+    payment_intent_id TEXT NULL UNIQUE REFERENCES ledger.payment_intents(payment_intent_id),
+    escrow_id TEXT NULL UNIQUE REFERENCES ledger.escrows(escrow_id),
+    status TEXT NOT NULL CHECK (status IN ('claimed', 'settled')),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    CHECK (
+        (claim_kind = 'payment_intent' AND payment_intent_id IS NOT NULL AND escrow_id IS NULL)
+        OR (claim_kind = 'escrow_release' AND escrow_id IS NOT NULL AND payment_intent_id IS NULL)
+    )
+);
 
 -- Append-only financial ledger. Never updated or deleted.
 CREATE TABLE IF NOT EXISTS ledger.ledger_entries (
@@ -123,13 +167,13 @@ CREATE TABLE IF NOT EXISTS ledger.ledger_entries (
             'escrow_failed'
         )
     ),
-    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0),
+    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0 AND amount_vnd <= 9007199254740991),
     rail_txn_id TEXT NULL,
     failure_code TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL
 );
 
--- Hard invariant (#11): at most ONE settled ledger entry per invoice.
+-- Hard invariant (#11): at most ONE settled ledger entry per invoice across all channels.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_entries_settled_invoice
     ON ledger.ledger_entries (invoice_id)
     WHERE invoice_id IS NOT NULL AND entry_type IN ('settled', 'escrow_released');
@@ -206,3 +250,13 @@ CREATE TABLE IF NOT EXISTS ledger.outbox (
 
 CREATE INDEX IF NOT EXISTS idx_ledger_outbox_tenant_seq
     ON ledger.outbox (tenant_id, seq);
+
+-- Grant read-only access on ledger to `merchant` (core-worker) if role exists.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'merchant') THEN
+        EXECUTE 'GRANT USAGE ON SCHEMA ledger TO merchant';
+        EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA ledger TO merchant';
+    END IF;
+END
+$$;
