@@ -3,7 +3,18 @@ name = "agent-runtime"
 version = "0.1.0"
 description = "Chạy đội bot: plan, worker ReAct, aggregate, brief"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "contracts-py",
+    "paymatch-hashing",
+    "httpx>=0.28",
+    "pydantic>=2",
+    "pyyaml>=6.0",
+    "langgraph>=0.3",
+]
+
+[tool.uv.sources]
+contracts-py = { workspace = true }
+paymatch-hashing = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
