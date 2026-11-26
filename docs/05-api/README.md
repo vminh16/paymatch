@@ -70,7 +70,7 @@ Gate **đọc thẳng** DB schema `core`, `control`, `risk` (chỉ-đọc) để
 | Kiểu đường dẫn | Tài nguyên số nhiều (`/invoices/{invoice_id}`). Hành động không phải CRUD dùng **custom method** `POST …/{id}:verb` (`:approve`, `:execute`). Không dùng `PUT`; sửa một phần dùng `PATCH` (JSON Merge Patch) |
 | ID | Chuỗi có tiền tố + ULID: `ten_`, `sto_`, `usr_`, `grt_` (tool grant), `itm_` (dòng hợp đồng), `wal_` (ví), `adj_` (yêu cầu điều chỉnh), `pvw_` (preview duyệt hàng loạt), `cnv_` (hội thoại), `cmg_` (tin nhắn hội thoại), `rpt_` (báo cáo), `hbk_` (hard block), `msg_`, `urd_` (chỉ số điện nước), `stf_`, `inv_`, `doc_`, `lin_`, `job_`, `fnd_`, `brf_`, `apv_`, `abt_`, `man_`, `ven_`, `vac_`, `vvf_`, `ctr_`, `po_`, `grn_`, `exp_`, `bot_` (bot tenant; bot hệ thống dùng id `kebab-case`), `skl_`, `tcl_`, `pi_`, `esc_`, `ind_`, `alr_`, `cas_`, `cac_`, `cxa_`, `ksw_`, `ksr_`, `ntf_`, `evt_`, `chl_` |
 | Tiền | `integer`, đơn vị **VND** (đồng), tên trường hậu tố `_vnd`. Không dùng số thực cho tiền |
-| Số lượng, đơn giá, tỷ lệ | **chuỗi thập phân** (`"12.500000"`), tối đa 6 chữ số thập phân như XML gốc (QĐ 1271) |
+| Số lượng, đơn giá, tỷ lệ | **chuỗi thập phân** (`"12.500000"`), tối đa 6 chữ số thập phân như XML gốc (QĐ 1233) |
 | Thời gian | RFC 3339 có múi giờ (`2026-11-26T09:15:00+07:00`). Ngày: `YYYY-MM-DD`, hiểu theo giờ Việt Nam |
 | Phân trang | `?limit=` (mặc định 50, tối đa 200) và `?cursor=`. Trả `{items: [...], next_cursor: string \| null}` |
 | Lọc | tham số query trùng tên trường; nhiều giá trị lặp tham số (`?status=blocked&status=pending_approval`) |
@@ -112,7 +112,7 @@ Mọi lỗi trả `application/problem+json` (RFC 9457) có thêm `code` (enum �
 | 404 | `NOT_FOUND` | Không có, **hoặc thuộc tenant khác** (không tiết lộ tồn tại) |
 | 409 | `INVALID_STATE` | Hành động không hợp lệ ở trạng thái hiện tại (kèm `current_status`) |
 | 409 | `INTENT_HASH_MISMATCH` | Hóa đơn/payee/số tiền/kênh đã đổi sau lúc xem trước |
-| 409 | `DUPLICATE_INVOICE` | Upload trùng `(MST bán, ký hiệu, số)`; kèm `existing_invoice_id` |
+| 409 | `DUPLICATE_INVOICE` | Upload file khác (`sha256` khác) trùng khóa `(MST bán, ký hiệu, int(số))`; không lưu, kèm `existing_invoice_id` (upload đúng cùng `sha256` là no-op trả hóa đơn đã có; qua `email`/`bill_pay` lưu kèm `duplicate_of` + Finding đỏ) |
 | 409 | `IDEMPOTENCY_KEY_REUSED`, `LEASE_LOST`, `MAKER_CHECKER_VIOLATION` | |
 | 412 | `PRECONDITION_FAILED` | `If-Match` sai |
 | 422 | `GATE_DENIED` | Gate từ chối; kèm `gate_reasons[]` |

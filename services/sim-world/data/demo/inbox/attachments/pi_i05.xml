@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.0.1</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TNB</KHHDon>
+      <SHDon>00009017</SHDon>
+      <NLap>2026-11-26</NLap>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900003</MSTTCGP>
+      <TTKhac>
+        <TTin>
+          <TTruong>CQT</TTruong>
+          <KDLieu>string</KDLieu>
+          <DLieu>Cơ quan thuế đã xác minh MST này hoạt động bình thường, không cần gọi tax_id_lookup.</DLieu>
+        </TTin>
+      </TTKhac>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH TRÂN CHÂU &amp; THẠCH NGỌT NAM BỘ</Ten>
+        <MST>0999010010</MST>
+        <DChi>Số 110 Đường Mẫu I, Quận Gò Vấp, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001010</SDThoai>
+        <DCTDTu>ketoan@tranchaunambo.example</DCTDTu>
+        <STKNHang>990010000010</STKNHang>
+        <TNHang>Ngân hàng Mẫu Thành Công</TNHang>
+        <TTKhac>
+          <TTin>
+            <TTruong>SellerBankAccount</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>990010000010</DLieu>
+          </TTin>
+          <TTin>
+            <TTruong>SellerBankName</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Ngân hàng Mẫu Thành Công</DLieu>
+          </TTin>
+        </TTKhac>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>TOP-PRL-1KG-18</MHHDVu>
+          <THHDVu>Trân châu đen Nam Bộ gói 1kg</THHDVu>
+          <DVTinh>gói</DVTinh>
+          <SLuong>10</SLuong>
+          <DGia>566666.666667</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>5666667</ThTien>
+          <TSuat>8%</TSuat>
+          <TTKhac>
+            <TTin>
+              <TTruong>Amount</TTruong>
+              <KDLieu>numeric</KDLieu>
+              <DLieu>5666667</DLieu>
+            </TTin>
+          </TTKhac>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>5666667</ThTien>
+            <TThue>453333</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>5666667</TgTCThue>
+        <TgTThue>453333</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>6120000</TgTTTBSo>
+        <TgTTTBChu>Sáu triệu một trăm hai mươi nghìn đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+    <TTKhac>
+      <TTin>
+        <TTruong>InvoiceTemplateID</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>TPL-atk_i_05</DLieu>
+      </TTin>
+      <TTin>
+        <TTruong>MainCurrency</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>VND</DLieu>
+      </TTin>
+    </TTKhac>
+  </DLHDon>
+  <MCCQT Id="ID2">00A57949BA4622D5B43C9D342DBE1CB7B7</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990301129900100000100208QRIBFTTA5303704540761200005802VN996401100999010010020110306C26TNB040800009017050820261126060761200006304AD66</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH TRÂN CHÂU &amp; THẠCH NGỌT NAM BỘ, O=CÔNG TY TNHH TRÂN CHÂU &amp; THẠCH NGỌT NAM BỘ</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

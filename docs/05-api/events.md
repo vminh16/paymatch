@@ -29,7 +29,7 @@ Event:
 
 | Type | Phát bởi | `data` | Trạng thái hóa đơn (CAS) | Việc khác của core-worker |
 |---|---|---|---|---|
-| `invoice.ingested` | core ingest | `{invoice_id, source, invoice_type, duplicate_of \| null}` | — (ingest tạo hóa đơn ở `investigating` và job `queued` trong cùng transaction) | — |
+| `invoice.ingested` | core ingest | `{invoice_id, source, invoice_type, duplicate_of \| null}` (`duplicate_of` chỉ xuất hiện khi file khác `sha256` trùng khóa qua `email`/`bill_pay`/`scenario`; upload trùng trả `409` không lưu và không phát sự kiện; cùng `sha256` là no-op, không phát lại sự kiện) | — (ingest tạo hóa đơn ở `investigating` và job `queued` trong cùng transaction) | — |
 | `job.progressed` | internal-api | `{job_id, task_type, attempt, bot_id?, type, tool_id?, severity?}` (không mang chữ) | — | đẩy SSE job |
 | `message.completed` | internal-api | `{conversation_id, message_id, job_id, status}` | — | đẩy SSE tenant cho người hỏi |
 | `job.completed` | internal-api | `{job_id, task_type, invoice_id?, final_severity?, reason_codes?}` | — (internal-api đã ghi trong `:complete`) | QT-03 → `auto_pay_suspensions`; nếu `auto_pay_eligible` → tạo approval `mandate` rồi CAS `auto_pay_eligible → approved`; có mã chống gian lận → `indicator.flagged` |

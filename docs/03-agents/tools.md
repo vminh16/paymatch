@@ -59,7 +59,7 @@ ToolResult:
 | `inbox`, `chat_messages` | fraud-control | thư/tin nhắn liên quan hóa đơn hoặc NCC | **untrusted** |
 | `vendor_registry` | fraud-control, tax | NCC, TK đã xác minh, SĐT lưu sẵn | trusted |
 | `cross_alerts` | fraud-control | indicator khớp cảnh báo chéo | trusted |
-| `einvoice_portal`, `tax_id_lookup`, `tax_risk_list` | tax | hóa đơn có tồn tại, trạng thái MST, có trong DS rủi ro | trusted |
+| `einvoice_portal`, `tax_id_lookup`, `tax_risk_list` | tax | kết quả tra cổng HĐĐT (`tthai` 1–6, `ttxly` 0–8, `bhphap`), 10 mã trạng thái MST (`TT 90/2026`: `00`–`10` trừ `08`), có trong DS doanh nghiệp rủi ro | trusted |
 | `utility_bills`, `utility_baseline` | branch-operations | hóa đơn điện nước; khoảng bình thường 12 tháng | trusted |
 | `momo_revenue` | branch-operations | doanh thu/số giao dịch theo quán, theo tháng | trusted |
 | `account_balance`, `spending_limits`, `payment_policy_preview` | treasury | số dư; hạn mức; **chạy thử Gate không tác dụng phụ** | trusted |
@@ -68,6 +68,51 @@ ToolResult:
 | `bot_memory` *(lộ trình)* | mọi bot | memory của bot đó trong tenant | theo bản ghi |
 
 `price_check` nhận ánh xạ do bot đề xuất (dòng hàng → sku); quy cách và mọi con số do code lấy/tính. Ánh xạ là việc AI, con số là việc code.
+
+## 4a. Quy ước tra cứu thuế (`tax_id_lookup`, `einvoice_portal`, `tax_risk_list`)
+
+Các tool thuế trả đúng tập mã chính thức của Cục Thuế (khớp [sim-world-api.md §5](../05-api/sim-world-api.md#5-tra-cứu-chính-thức) và [internal-api.md §2–§3](../05-api/internal-api.md)). Ánh xạ sang `ReasonCode` **chỉ dùng các mã hiện có tại [agent-runtime.md §5a](agent-runtime.md#5a-danh-mục-mã-lý-do-nguồn-sự-thật)**; không tự thêm mã mới vào v1.
+
+### 1. `tax_id_lookup` — 10 mã trạng thái MST (`TT 90/2026/TT-BTC`, Phụ lục I)
+
+Xác minh từ tệp gốc `1.1.PL1-Trạng thái MST.doc` trong [90-btc.rar (vanban.chinhphu.vn)](https://vanban.chinhphu.vn/?pageid=27160&docid=218839): hệ thống có đúng **10 mã** (`"00"`, `"01"`, `"02"`, `"03"`, `"04"`, `"05"`, `"06"`, `"07"`, `"09"`, `"10"`); **không tồn tại mã trạng thái `"08"`** (`"08"` là `status_reason_code` *"Đã phá sản"* nằm dưới trạng thái `"01"`). Riêng mã `"04"` được ghi trực tiếp là **`"Hết hiệu lực"`** trong Phụ lục I `TT 90/2026/TT-BTC` (không còn mã lý do con).
+
+| `status_code` | Tên trạng thái chính thức | Ánh xạ `ReasonCode` v1 | Ghi chú xử lý |
+|---|---|---|---|
+| `"00"` | NNT đã được cấp MST / Đang hoạt động | `OK` | Kiểm tra thêm `status_reason_code` (`02` đang hoạt động bình thường) |
+| `"01"` | Ngừng hoạt động và đã hoàn thành thủ tục chấm dứt hiệu lực MST | `MST_INACTIVE` (🔴) | Chặn nếu ngày lập HĐ `NLap` sau ngày chấm dứt hiệu lực MST (gồm giải thể `07`, phá sản `08`) |
+| `"02"` | Đã chuyển cơ quan thuế quản lý (chờ nơi đến nhận) | `OK` *(hoặc `VAT_DEDUCTION_RISK` 🟡 nếu địa chỉ trên HĐ lệch)* | Ghi chú trong `reason` để kế toán đối chiếu địa chỉ mới |
+| `"03"` | Ngừng hoạt động nhưng chưa hoàn thành thủ tục chấm dứt hiệu lực MST | `MST_INACTIVE` (🔴) | Rủi ro hóa đơn đầu vào rất cao |
+| `"04"` | **Hết hiệu lực** *(trước đây: HKD/cá nhân KD chưa đủ thông tin ĐKT)* | `VAT_DEDUCTION_RISK` (🟡) | Không dùng cho hồ sơ mới dưới `TT 90/2026`; nếu gặp ở dữ liệu cũ cần xác minh lại tư cách NCC |
+| `"05"` | Tạm ngừng hoạt động, kinh doanh | `MST_INACTIVE` (🔴) | Không được xuất HĐ trong kỳ tạm ngừng |
+| `"06"` | Không hoạt động tại địa chỉ đã đăng ký ("bỏ địa chỉ") | `MST_INACTIVE` (🔴) | Tín hiệu gian lận/hóa đơn không hợp pháp hàng đầu |
+| `"07"` | Chờ làm thủ tục phá sản | `MST_INACTIVE` (🔴) | Chặn chi / rà soát công nợ |
+| `"09"` | Chờ xác minh tình trạng hoạt động tại địa chỉ đã đăng ký | `VAT_DEDUCTION_RISK` (🟡) | Cảnh báo sớm nguy cơ chuyển sang `"06"`, cần xác minh NCC |
+| `"10"` | MST chờ cập nhật thông tin số định danh cá nhân | `VAT_DEDUCTION_RISK` (🟡) | Áp cho cá nhân/HKD chưa đồng bộ CCCD |
+
+### 2. `einvoice_portal` — Mã cổng HĐĐT (`hoadondientu.gdt.gov.vn`)
+
+Trả `found`, `invoice_status_code` (`tthai` `1`–`6`), `processing_status_code` (`ttxly` `0`–`8`), `illegal_flag` (`bhphap == 1`), `tax_authority_code`, `total_vnd`, `related_invoice`:
+
+| Điều kiện output của `einvoice_portal` | Ánh xạ `ReasonCode` v1 | Ý nghĩa |
+|---|---|---|
+| `found == true`, `invoice_status_code ∈ {1, 2, 3}`, `processing_status_code ∈ {5, 6, 7, 8}`, `illegal_flag == false` | `OK` | Hóa đơn mới / thay thế / điều chỉnh hợp lệ (đã cấp mã `5`, nhận không mã `6`/`7`, hoặc MTT `8`) |
+| `found == false` hoặc `processing_status_code ∈ {2, 4}` | `INVOICE_NOT_FOUND_ON_PORTAL` (🔴) | Không tìm thấy trên cổng, CQT từ chối từng lần (`2`), hoặc không đủ điều kiện cấp mã (`4`) |
+| `invoice_status_code ∈ {4, 6}` | `INVOICE_NOT_FOUND_ON_PORTAL` (🔴) | Hóa đơn đã bị thay thế (`4`) hoặc đã bị hủy (`6`) — không còn hiệu lực thanh toán |
+| `illegal_flag == true` (`bhphap == 1`) | `TAX_RISK_LIST` (🔴) | Hóa đơn bị CQT gắn cờ `"Bất hợp pháp"` |
+| `invoice_status_code == 5` hoặc `processing_status_code ∈ {0, 1, 3}` | `VAT_DEDUCTION_RISK` (🟡) | Đã bị điều chỉnh (`5`, cần kẹp HĐ điều chỉnh `related_invoice`), hoặc CQT mới tiếp nhận/đang kiểm tra cấp mã (`0`, `1`, `3`, chưa hoàn tất) |
+
+### 3. `tax_risk_list`
+
+- `listed == true` → `TAX_RISK_LIST` (🔴, theo bảng mức sàn `agent-runtime.md §5a`).
+
+### Đề xuất chưa áp dụng (không thêm vào `ReasonCode` v1)
+
+Các mã sau có thể giúp phân tách sắc nét hơn nhưng **chưa thêm** vào `agent-runtime.md §5a` để giữ ổn định contract v1 (hiện đang ánh xạ tạm về mã hiện có ở hai bảng trên):
+- `MST_VERIFICATION_PENDING` (🟡): tách riêng trạng thái MST `"09"` (chờ xác minh địa chỉ), `"04"`, `"10"`, `"02"` khỏi `VAT_DEDUCTION_RISK`.
+- `INVOICE_CANCELLED_OR_REPLACED` (🔴): tách riêng `tthai ∈ {4, 6}` khỏi `INVOICE_NOT_FOUND_ON_PORTAL`.
+- `ILLEGAL_INVOICE` (🔴): tách riêng cờ hóa đơn bất hợp pháp `bhphap == 1` khỏi `TAX_RISK_LIST` (cấp doanh nghiệp).
+- `INVOICE_PENDING_TAX_CODE` (🟡): tách riêng hóa đơn đang chờ CQT cấp mã (`ttxly ∈ {0, 1, 3}` hoặc hóa đơn `C` có `MCCQT` rỗng) khỏi `VAT_DEDUCTION_RISK`.
 
 ## 5. Thêm tool mới
 

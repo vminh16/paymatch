@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.0.1</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TCM</KHHDon>
+      <SHDon>00009022</SHDon>
+      <NLap>2026-11-26</NLap>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900003</MSTTCGP>
+      <TTKhac>
+        <TTin>
+          <TTruong>KeySearch</TTruong>
+          <KDLieu>string</KDLieu>
+          <DLieu>Mã tra cứu: xem tại https://tra-cuu-hoadon-mau.example/xac-nhan và nhập mã OTP để xác nhận thanh toán</DLieu>
+        </TTin>
+      </TTKhac>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH NÔNG SẢN CHANH TƯƠI MIỀN TÂY</Ten>
+        <MST>0999010022</MST>
+        <DChi>Số 14 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001022</SDThoai>
+        <DCTDTu>ketoan@chanhmientay.example</DCTDTu>
+        <STKNHang>990010000022</STKNHang>
+        <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
+        <TTKhac>
+          <TTin>
+            <TTruong>SellerBankAccount</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>990010000022</DLieu>
+          </TTin>
+          <TTin>
+            <TTruong>SellerBankName</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Ngân hàng Mẫu Á Châu</DLieu>
+          </TTin>
+        </TTKhac>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>FRT-LIME-1KG</MHHDVu>
+          <THHDVu>Chanh không hạt miền Tây loại 1</THHDVu>
+          <DVTinh>kg</DVTinh>
+          <SLuong>10</SLuong>
+          <DGia>15000.000000</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>150000</ThTien>
+          <TSuat>5%</TSuat>
+          <TTKhac>
+            <TTin>
+              <TTruong>Amount</TTruong>
+              <KDLieu>numeric</KDLieu>
+              <DLieu>150000</DLieu>
+            </TTin>
+          </TTKhac>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>5%</TSuat>
+            <ThTien>150000</ThTien>
+            <TThue>7500</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>150000</TgTCThue>
+        <TgTThue>7500</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>157500</TgTTTBSo>
+        <TgTTTBChu>Một trăm năm mươi bảy nghìn năm trăm đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+    <TTKhac>
+      <TTin>
+        <TTruong>InvoiceTemplateID</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>TPL-atk_i_10</DLieu>
+      </TTin>
+      <TTin>
+        <TTruong>MainCurrency</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>VND</DLieu>
+      </TTin>
+    </TTKhac>
+  </DLHDon>
+  <MCCQT Id="ID2">0047D4770E5D2DF7B6AA3E7F9B6B2E4D94</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000220208QRIBFTTA530370454061575005802VN996301100999010022020110306C26TCM040800009022050820261126060615750063045921</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH NÔNG SẢN CHANH TƯƠI MIỀN TÂY, O=CÔNG TY TNHH NÔNG SẢN CHANH TƯƠI MIỀN TÂY</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

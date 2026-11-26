@@ -6,7 +6,7 @@ Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. Mỗi mục ở đ
 
 ```yaml
 MoneyVnd: integer            # đồng, >= 0 trừ khi ghi rõ
-Decimal: string              # pattern ^-?\d{1,15}(\.\d{1,6})?$
+Decimal: string              # pattern ^-?\d{1,15}(\.\d{1,6})?$; parser cắt chữ số 0 thừa cuối phần thập phân (vd 0.000000000 → "0") trước khi kiểm mẫu; chữ số khác 0 sau vị trí thứ 6 được giữ nguyên ở parser domain (không tự làm tròn/cắt) và sẽ không khớp mẫu này ở tầng schema/API
 Timestamp: string            # RFC 3339, có offset
 LocalDate: string            # YYYY-MM-DD, giờ Việt Nam
 Severity: green | yellow | red
@@ -21,7 +21,7 @@ UntrustedText:               # mọi chữ do người bán viết hoặc do LLM
   source: invoice_xml | email_body | chat_message | bot_reason | ocr
 ```
 
-Quy tắc: **không có trường số tiền nào được đọc từ `UntrustedText`**. Số TK ngân hàng xuất hiện trong chữ hoặc trong XML (`NBan/STKNHang`) chỉ nằm trong `untrusted` và chỉ để so sánh.
+Quy tắc: **không có trường số tiền nào được đọc từ `UntrustedText`**. Số TK ngân hàng xuất hiện trong chữ hoặc trong XML (`NBan/STKNHang`, `TTKhac` chứa STK người bán, hoặc trường thanh toán của `DLQRCode`) chỉ nằm trong `untrusted` và chỉ để so sánh.
 
 ## 2. Hóa đơn
 
@@ -50,7 +50,7 @@ InvoiceSummary:                       # dòng trong danh sách, hàng chờ
 
 Invoice: InvoiceSummary +
   source: InvoiceSource
-  duplicate_of: string | null         # hóa đơn trùng vẫn được lưu, mang Finding đỏ DUPLICATE_INVOICE
+  duplicate_of: string | null         # file khác sha256 trùng khóa qua email/bill_pay/scenario (lưu kèm Finding đỏ DUPLICATE_INVOICE; upload trùng trả 409 không lưu)
   manual_fields: {entered_by, entered_at} | null   # có khi số liệu được nhập tay (PDF/ảnh, NON_XML_SOURCE)
   document: {document_id, format: xml | pdf | image, sha256, received_at}
   buyer_tax_id: string
@@ -59,12 +59,12 @@ Invoice: InvoiceSummary +
   vat_breakdown: [{vat_rate: string, taxable_vnd, vat_vnd}]   # LTSuat; vat_rate theo PL V: "8%", "KCT"...
   tax_authority_code: string | null   # MCCQT
   einvoice_provider_tax_id: string | null   # MSTTCGP
-  related_invoice: {relation: replace | adjust | ..., symbol, number, issued_on} | null   # TTHDLQuan
+  related_invoice: {relation: replace | adjust | replace_multiple | adjust_multiple | trade_discount, symbol, number, issued_on} | null   # TTHDLQuan (TCHDon 1..5)
   lines: [InvoiceLine]
   untrusted:                          # tách khỏi phần số
     seller_name: UntrustedText        # NBan/Ten (đối chiếu registry riêng)
     seller_address: UntrustedText
-    seller_bank_account: {number: string, bank_name: string} | null   # NBan/STKNHang, TNHang — KHÔNG BAO GIỜ là payee
+    seller_bank_account: {number: string, bank_name: string} | null   # trích từ NBan/STKNHang+TNHang, TTKhac chứa STK người bán, hoặc DLQRCode — KHÔNG BAO GIỜ là payee
     payment_terms: UntrustedText | null        # HTTToan
     other_info: [{field: string, value: UntrustedText}]   # mọi TTKhac
     messages: [{message_id, channel: email | chat, received_at, body: UntrustedText}]   # thân email kèm theo

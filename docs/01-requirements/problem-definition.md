@@ -2,6 +2,8 @@
 
 Trạng thái: **Đã chốt (26/11/2026)**. Mọi thiết kế phải đối chiếu với tài liệu này; thay đổi ở đây cần cả đội đồng ý.
 
+> **Cập nhật persona (26/11/2026):** Persona đã chốt ở [docs/04-data/persona.md](../04-data/persona.md) (chuỗi 15 quán + 1 bếp trung tâm, ~45 NCC, ~550 hóa đơn/tháng, ≤ 100 lao động có BHXH) **thay thế các con số quy mô ở BRD §5.1**; bản gốc [PayMatch_BRD_v1.0.md](PayMatch_BRD_v1.0.md) giữ nguyên làm tài liệu lịch sử.
+
 ## 1. Bài toán
 
 **Trước khi tiền rời tài khoản, trả lời: hóa đơn này có nên trả không, trả bao nhiêu, cho ai, qua kênh nào — kèm bằng chứng cho mỗi câu trả lời — và con người chỉ phải xem những khoản đáng ngờ.**
@@ -52,15 +54,15 @@ Là **kiểm soát trước khi chi**, kèm trợ lý hỏi đáp chỉ-đọc t
 
 ## 6a. Hàng trăm hóa đơn thì duyệt thế nào
 
-Một chuỗi ~200 hóa đơn/tháng (~7/ngày). Mỗi hóa đơn được duyệt bằng **một trong ba cách**, nhưng luôn sinh **một bản ghi duyệt riêng** gắn đúng intent của hóa đơn đó:
+Một chuỗi 15 quán + 1 bếp trung tâm phát sinh **~550 hóa đơn/tháng (~18 hóa đơn/ngày)** (giả định của nhóm, không có nguồn công khai; xem [persona.md](../04-data/persona.md)). Mỗi hóa đơn được duyệt bằng **một trong ba cách**, nhưng luôn sinh **một bản ghi duyệt riêng** gắn đúng intent của hóa đơn đó:
 
 | Cách duyệt | Áp cho | Người làm gì |
 |---|---|---|
-| **Tự động theo mandate** | 🟢 trong chế độ tự chi, trong hạn mức | Không làm gì; nhận tóm tắt cuối ngày |
-| **Duyệt hàng loạt** | 🟢 trong chế độ "hỏi trước khi chi"; 🟡 có **mã lý do nhẹ** do chủ chuỗi chọn sẵn (ví dụ `NON_XML_SOURCE` dưới 2 triệu) | Xem danh sách gộp theo NCC/lý do → một lần xác thực → hệ thống tạo N bản ghi duyệt, mỗi bản ký vào intent của một hóa đơn |
+| **Tự động theo mandate** | 🟢 trong chế độ tự chi, trong hạn mức (≤ 30 triệu/HĐ, ≤ 50 triệu/ngày theo D9) | Không làm gì; nhận tóm tắt cuối ngày |
+| **Duyệt hàng loạt** | 🟢 trong chế độ "hỏi trước khi chi" hoặc 🟢 vượt trần ngày D9 (khi tổng chi 50–80 triệu/ngày); 🟡 có **mã lý do nhẹ** do chủ chuỗi chọn sẵn (ví dụ `NON_XML_SOURCE` dưới 2 triệu) | Xem danh sách gộp theo NCC/lý do → một lần xác thực → hệ thống tạo N bản ghi duyệt, mỗi bản ký vào intent của một hóa đơn |
 | **Duyệt từng hóa đơn** | 🟡 còn lại; 🔴 sau khi đã gỡ nguyên nhân (mục 6b) | Đọc tờ trình 5 dòng, bấm Duyệt/Từ chối |
 
-Kỳ vọng: nếu ~80% hóa đơn xanh và tỷ lệ báo nhầm ≤ 10% (MT4), chủ chuỗi chỉ phải đọc kỹ khoảng **1–2 hóa đơn/ngày**; phần còn lại là một lần bấm cuối ngày hoặc không cần bấm.
+Kỳ vọng: với ~18 hóa đơn/ngày, nếu ~80% hóa đơn xanh (`18 × 80% = 14,4 HĐ/ngày`) và tỷ lệ báo nhầm ≤ 10% (MT4): số hóa đơn vàng/đỏ thực là `18 × (1 − 80%) = 3,6 HĐ/ngày`, cộng tối đa `14,4 × 10% ≈ 1,4 HĐ/ngày` báo nhầm trên nhóm xanh → tổng là `3,6 + 1,4 = 5,0` (**khoảng 4–5 hóa đơn/ngày**; trừ phần nhỏ vàng nhẹ duyệt hàng loạt thì chủ chuỗi đọc kỹ khoảng **3–5 hóa đơn/ngày**). Phần hóa đơn xanh trong trần D9 tự chi theo mandate; phần xanh vượt trần ngày gom vào một lần duyệt hàng loạt cuối ngày.
 
 Quy tắc an toàn của duyệt hàng loạt:
 - 🔴 **không bao giờ** vào duyệt hàng loạt.

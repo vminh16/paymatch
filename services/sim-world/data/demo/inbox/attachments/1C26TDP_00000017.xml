@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TDP</KHHDon>
+      <SHDon>00000017</SHDon>
+      <NLap>2026-11-26</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900001</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH KHO SỈ NGUYÊN LIỆU ĐẠI PHÁT MẪU</Ten>
+        <MST>0999090011</MST>
+        <DChi>Số 111 Đường Mẫu Z, Quận Bình Tân, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0900999011</SDThoai>
+        <DCTDTu>ketoan@khosidaiphat.example</DCTDTu>
+        <STKNHang>998855667788</STKNHang>
+        <TNHang>Ngân hàng Mẫu Thành Công</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>PWD-CRM-25KG</MHHDVu>
+          <THHDVu>Bột kem béo công nghiệp bao 25kg (lô sỉ)</THHDVu>
+          <DVTinh>Bao</DVTinh>
+          <SLuong>6</SLuong>
+          <DGia>2000000</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>12000000</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>12000000</ThTien>
+            <TThue>960000</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>12000000</TgTCThue>
+        <TgTThue>960000</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>12960000</TgTTTBSo>
+        <TgTTTBChu>Mười hai triệu chín trăm sáu mươi nghìn đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <MCCQT Id="ID2">00EE1ED1ADFEAD862F97D24ECCFA2AE0B3</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990301129988556677880208QRIBFTTA53037045408129600005802VN996501100999090011020110306C26TDP0408000000170508202611260608129600006304CE86</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH KHO SỈ NGUYÊN LIỆU ĐẠI PHÁT MẪU, O=CÔNG TY TNHH KHO SỈ NGUYÊN LIỆU ĐẠI PHÁT MẪU</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

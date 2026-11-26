@@ -1,0 +1,96 @@
+category,product_name,pack_spec,unit,price_vnd,price_kind,source_url,retrieved_on
+coffee_beans,Cà Phê Robusta Buôn Mê Thuột Coffee Tree,gói 1kg,gói,309000,retail,https://coffeetree.vn/ca-phe-nguyen-chat,2026-11-26
+coffee_beans,Cà Phê Arabica Cầu Đất Coffee Tree,gói 1kg,gói,483000,retail,https://coffeetree.vn/ca-phe-nguyen-chat,2026-11-26
+coffee_beans,Cà phê hạt đặc biệt Lộc Phát pha máy rang vừa,bịch 1kg (thùng 12 bịch),bịch,280000,retail,https://vinbar.vn/products/ca-phe-hat-dac-biet-loc-phat-pha-may-1kg-rang-vua-12-bich-thung,2026-11-26
+coffee_beans,Cà phê hạt đặc biệt Lộc Phát pha máy rang vừa,bịch 1kg (đơn sỉ từ 12 bịch/thùng),bịch,278000,wholesale,https://vinbar.vn/products/ca-phe-hat-dac-biet-loc-phat-pha-may-1kg-rang-vua-12-bich-thung,2026-11-26
+coffee_beans,Cà Phê Trung Nguyên Nâu rang xay,gói 500g,gói,120000,retail,https://cooponline.vn/ca-phe-hat-rang-success-3-lon-340g--s250517626,2026-11-26
+condensed_milk,Sữa đặc có đường Ông Thọ đỏ Vinamilk,lon 380g,lon,27700,retail,https://cooponline.vn/sua-dac-co-duong-ong-tho-nhan-do-380g--s250515045,2026-11-26
+condensed_milk,Sữa đặc có đường Ông Thọ đỏ Vinamilk,thùng 48 lon x 380g,thùng,1320000,retail,https://cooponline.vn/s-sua-dac-ong-tho-do-vnm-thung-48x380g--s250518893,2026-11-26
+condensed_milk,Sữa đặc Ông Thọ chữ xanh hộp giấy,hộp 380g,hộp,27700,retail,https://cooponline.vn/sua-dac-ong-tho-chu-xanh-hop-giay-380g--s250106755,2026-11-26
+condensed_milk,Sữa đặc Ông Thọ chữ xanh hộp giấy,thùng 24 hộp x 380g,thùng,660000,retail,https://cooponline.vn/sua-dac-ong-tho-chu-xanh-hop-giay-thung-24x380g--s250107435,2026-11-26
+condensed_milk,Sữa đặc có đường Ông Thọ đỏ hộp giấy,hộp 1284g,hộp,85500,retail,https://cooponline.vn/sua-dac-co-duong-ong-tho-do-hop-giay-1284g--s250106340,2026-11-26
+condensed_milk,Sữa đặc Ông Thọ đỏ cao cấp hộp giấy,hộp 1kg,hộp,67000,retail,https://cooponline.vn/sua-dac-ong-tho-do-cao-cap-hop-giay-1kg--s250108552,2026-11-26
+condensed_milk,Creamer đặc Ngôi Sao Phương Nam xanh lá,lon 380g,lon,21700,retail,https://cooponline.vn/sua-dac-co-duong-ngoi-sao-phuong-nam-xanh-la-lon-380g--s250106298,2026-11-26
+condensed_milk,Creamer đặc Ngôi Sao Phương Nam xanh biển,hộp 1284g,hộp,60500,retail,https://cooponline.vn/sua-dac-ngoi-sao-phuong-nam-xanh-bien-hop-1284kg--s250106740,2026-11-26
+condensed_milk,Thùng Sữa Đặc Ngôi Sao Phương Nam xanh biển (chưa VAT 8%),thùng 12 hộp x 1284g,thùng,669000,wholesale,https://kamereo.vn/products/thung-sua-dac-ngoi-sao-phuong-nam-xanh-bien-1284g-x-12-hop-S290,2026-11-26
+condensed_milk,Sữa đặc La Rosée nắp trơn,lon 1kg (thùng 24 lon),lon,41000,retail,https://vinbar.vn/products/sua-dac-la-rosee-1kg,2026-11-26
+condensed_milk,Sữa đặc La Rosée nắp trơn,lon 1kg (đơn sỉ từ 24 lon/thùng),lon,40000,wholesale,https://vinbar.vn/products/sua-dac-la-rosee-1kg,2026-11-26
+fresh_milk,Sữa tươi thanh trùng Dalatmilk nguyên chất,hộp 950ml,hộp,52500,retail,https://cooponline.vn/sua-tuoi-thanh-trung-dalat-milk-nguyen-chat-950ml--s250515084,2026-11-26
+fresh_milk,Sữa tươi thanh trùng TH true MILK ít đường,hộp 950ml,hộp,40000,retail,https://cooponline.vn/sua-tuoi-thanh-trung-th-truemilk-it-duong-hop-950ml--s250108159,2026-11-26
+fresh_milk,Sữa tươi tiệt trùng Vinamilk 100% không đường,hộp 1L (thùng 12 hộp),hộp,38000,retail,https://vinbar.vn/products/sua-tuoi-tiet-trung-vinamilk-1-lit-khong-duong-12-hop-thung,2026-11-26
+fresh_milk,Sữa tươi tiệt trùng Vinamilk 100% không đường,hộp 1L (đơn sỉ từ 12 hộp/thùng),hộp,36000,wholesale,https://vinbar.vn/products/sua-tuoi-tiet-trung-vinamilk-1-lit-khong-duong-12-hop-thung,2026-11-26
+fresh_milk,Sữa tươi tiệt trùng Happy Barn không đường,hộp 1L (đơn sỉ từ 12 hộp/thùng),hộp,28000,wholesale,https://vinbar.vn/products/sua-tuoi-tiet-trung-happy-barn-1-lit-khong-duong-12-hop-thung,2026-11-26
+fresh_milk,Sữa tiệt trùng Dutch Lady có đường hộp giấy,hộp 965ml,hộp,36900,retail,https://cooponline.vn/sua-tiet-trung-dutch-lady-co-duong-hop-giay-965ml--s250102088,2026-11-26
+fresh_milk,Sữa tươi tiệt trùng Dutch Lady có đường,thùng 12 hộp x 965ml,thùng,441000,retail,https://cooponline.vn/sua-tuoi-tiet-trung-dutch-lady-co-duong-12x965ml--s250102130,2026-11-26
+cream_whipping,Kem béo thực vật Rich's Creamer hộp lùn,hộp 454g (thùng 24 hộp),hộp,31000,retail,https://vinbar.vn/products/kem-beo-thuc-vat-rich-s-creamer-hop-lun-454g,2026-11-26
+cream_whipping,Kem pha chế tiện dụng Rich's Ice Hot hộp cao,hộp 907g (thùng 12 hộp),hộp,75000,retail,https://vinbar.vn/products/kem-pha-che-tien-dung-rich-s-icehot-907gr,2026-11-26
+cream_whipping,Whipping Cream Anchor,hộp 1L (thùng 12 hộp),hộp,180000,retail,https://vinbar.vn/products/whipping-cream-anchor-1-lit,2026-11-26
+cream_whipping,Sữa kem Whipping Cream Anchor,hộp 1L,hộp,173000,retail,https://cooponline.vn/sua-kem-anchor-1l--s250102812,2026-11-26
+cream_whipping,Whipping Cream Tatua 36%,hộp 1L,hộp,156000,retail,https://dvpmarket.com/tatua-whipping-cream-36-1l,2026-11-26
+sugar,Đường tinh luyện Biên Hòa,bịch 1kg,bịch,29900,retail,https://cooponline.vn/duong-tinh-luyen-bien-hoa-1kg--s250101361,2026-11-26
+sugar,Đường tinh luyện Biên Hòa,bịch 500g,bịch,18000,retail,https://cooponline.vn/duong-tinh-luyen-bien-hoa-500g--s250101367,2026-11-26
+sugar,Đường cát trắng An Khê,gói 1kg,gói,41000,retail,https://vinbar.vn/products/duong-kinh-trang-duong-an-khe-tui-1kg,2026-11-26
+sugar,Đường đen Nữ Hoàng Biên Hòa,bịch 1kg,bịch,56500,retail,https://cooponline.vn/c/duong,2026-11-26
+sugar,Đường nước Hàn Quốc Daesang HFCS,can 25kg,can,588000,wholesale,https://vinbar.vn/products/nuoc-duong-han-quoc-25kg,2026-11-26
+tea,Trà đen thượng hạng Lộc Phát,gói 500g (thùng 24 gói),gói,138000,retail,https://vinbar.vn/products/tra-den-thuong-hang-loc-phat-500gr,2026-11-26
+tea,Trà đen thượng hạng Lộc Phát,gói 500g (đơn sỉ từ 24 gói/thùng),gói,136000,wholesale,https://vinbar.vn/products/tra-den-thuong-hang-loc-phat-500gr,2026-11-26
+tea,Trà đen ĐB Tân Nam Bắc,gói 500g,gói,112000,retail,https://dvpmarket.com/tra-den-db-tan-nam-bac-500g,2026-11-26
+tea,Trà WAO lục trà lài (trà xanh hương lài),gói 500g,gói,84000,retail,https://dvpmarket.com/tra-wao-luc-tra-lai-500g,2026-11-26
+tea,Trà lài Dans,gói 500g,gói,85000,retail,https://dvpmarket.com/dans-tra-lai-500g,2026-11-26
+tea,Trà túi lọc Phúc Long hương lài,hộp 50g (25 gói x 2g),hộp,38000,retail,https://vinbar.vn/products/tra-hoa-lai-tui-loc-phuc-long,2026-11-26
+tea,Trà Ô Long đặc biệt lá nhuyễn Lộc Phát,gói 500g (thùng 24 gói),gói,148000,retail,https://vinbar.vn/products/tra-olong-dac-biet-dang-la-nhuyen-loc-phat-500gr-1,2026-11-26
+tea,Trà Ô Long đặc biệt lá nhuyễn Lộc Phát,gói 1kg (thùng 12 gói),gói,282000,retail,https://vinbar.vn/products/tra-olong-dac-biet-dang-la-nhuyen-loc-phat-1kg,2026-11-26
+powder,Bột trà xanh Matcha Uji Latte Grade,gói 100g,gói,130000,retail,https://vinbar.vn/products/bot-matcha-uji-100gr,2026-11-26
+powder,Bột trà xanh Matcha Uji Latte Grade,gói 500g,gói,450000,retail,https://vinbar.vn/products/bot-matcha-uji-500gr,2026-11-26
+powder,Bột Maulin Matcha Đài Loan,bịch 1kg,bịch,283000,retail,https://vinbar.vn/products/bot-tra-sua-maulin-matcha-dai-loan-1kg,2026-11-26
+powder,Bột Cacao Malaysia,bịch 1kg,bịch,156000,retail,https://vinbar.vn/products/bot-cacao-malaysia,2026-11-26
+powder,Bột Cacao Faribake HolaMart,gói 500g,gói,143000,retail,https://dvpmarket.com/hola-mart-bot-cacao-500g,2026-11-26
+powder,Bột kem béo Frima,gói 1kg (thùng 12 gói),gói,98000,retail,https://vinbar.vn/products/bot-beo-frima-1kg-12-goi-thung,2026-11-26
+powder,Bột kem béo Frima bao công nghiệp,bao 25kg,bao,2192000,wholesale,https://vinbar.vn/products/bot-beo-frima-25kg,2026-11-26
+powder,Bột kem béo Toppingreen,gói 1kg (thùng 12 gói),gói,85000,retail,https://vinbar.vn/products/bot-kem-beo-toppingreen-1kg-12-goi-thung,2026-11-26
+syrup,Syrup Torani Peach (Đào),chai 750ml,chai,178000,retail,https://dvpmarket.com/syrup-torani-peach-750ml-dao,2026-11-26
+syrup,Syrup Torani Strawberry (Dâu tây),chai 750ml,chai,178000,retail,https://dvpmarket.com/syrup-torani-strawberry-750ml-dau-tay,2026-11-26
+syrup,Syrup Torani Passion Fruit (Chanh dây),chai 750ml,chai,178000,retail,https://dvpmarket.com/syrup-torani-passion-fruit-750ml-chanh-day,2026-11-26
+syrup,Syrup Monin Lychee (Vải),chai 700ml,chai,215000,retail,https://dvpmarket.com/syrup-monin-lychee-700ml-vai,2026-11-26
+syrup,Siro Đào đậm đặc Golden Farm,chai 700ml (thùng 12 chai),chai,63000,retail,https://vinbar.vn/products/siro-dao-dam-dac-golden-farm-700ml-12-chai-thung,2026-11-26
+syrup,Siro Vải đậm đặc Golden Farm,chai 700ml (thùng 12 chai),chai,63000,retail,https://vinbar.vn/products/siro-vai-dam-dac-golden-farm-700ml-12-chai-thung,2026-11-26
+tapioca_pearls,Trân châu đen Wonderful Size 2.3,gói 1kg,gói,40000,retail,https://dvpmarket.com/wonderful-tran-chau-den-size-2-3-1kg,2026-11-26
+tapioca_pearls,Trân châu đường đen MOOD Size 2.3,gói 1kg,gói,29500,retail,https://dvpmarket.com/mood-tran-chau-duong-den-size-2-3-1kg,2026-11-26
+tapioca_pearls,Trân châu 3Q Bibi trắng ăn liền,gói 2kg (thùng 6 gói),gói,51000,retail,https://vinbar.vn/products/tran-chau-3q-bibi-trang-2kg-6-bich-thung,2026-11-26
+tapioca_pearls,Trân châu 3Q Bibi trắng ăn liền,gói 2kg (đơn sỉ từ 6 gói/thùng),gói,46000,wholesale,https://vinbar.vn/products/tran-chau-3q-bibi-trang-2kg-6-bich-thung,2026-11-26
+ice_cubes,Nước đá sạch dạng viên Hồng Phúc,túi 2kg,túi,10000,retail,https://kingfoodmart.com/kem-hop/nuoc-da-sach-dang-vien-tui-hong-phuc-2kg-1-tui-61091,2026-11-26
+bakery,Bánh sừng bò Croissant CJ Ohya,gói 250g,gói,75000,retail,https://kingfoodmart.com/banh-mi,2026-11-26
+bakery,Bánh mì que Sundo pate truyền thống,gói 189g,gói,49000,retail,https://kingfoodmart.com/banh-mi,2026-11-26
+bakery,Bánh mì Sandwich Momiji khoai tây gạo lứt,bịch 300g,bịch,22000,retail,https://cooponline.vn/c/banh-mi-sandwich,2026-11-26
+bakery,Bánh Hura Castella xốt phô mai trứng muối,túi 150g,túi,32900,retail,https://cooponline.vn/c/banh-mi-sandwich,2026-11-26
+fresh_fruit,Chanh không hạt miền Tây cỡ vừa (chưa VAT 5%),cân ký 1kg,kg,15000,wholesale,https://kamereo.vn/products/chanh-khong-hat-lime-mien-tay-co-vua-K161,2026-11-26
+fresh_fruit,Cam sành loại 1,cân ký 1kg,kg,24900,retail,https://cooponline.vn/cam-sanh-loai-1-kg--s250109102,2026-11-26
+fresh_fruit,Dâu Đà Lạt loại 1,cân ký 1kg,kg,278000,retail,https://cooponline.vn/dau-da-lat-l1-kg--s250516001,2026-11-26
+fresh_fruit,Dâu tây giống Mỹ VietGap,hộp 250g,hộp,119000,retail,https://kingfoodmart.com/dau-tay-viet-nam,2026-11-26
+plastic_cups,Ly nhựa PP 360ml đáy bằng (kèm in logo),thùng 1.000 cái,thùng,560000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly nhựa PP 500ml đáy bằng (kèm in logo),thùng 1.000 cái,thùng,620000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly nhựa PP 700ml đáy bằng (kèm in logo),thùng 1.000 cái,thùng,720000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly nhựa PP 800ml đáy bằng (kèm in logo),thùng 500 cái,thùng,380000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly trơn đáy cầu PP 700ml chưa nắp,lốc 50 cái (thùng 1.000 cái),lốc,43500,retail,https://vinbar.vn/products/ly-day-cau-700-ml,2026-11-26
+plastic_cups,Ly trơn nhựa nắp bằng nút tim 500ml chưa nắp,lốc 50 cái (thùng 500 cái),lốc,66500,retail,https://vinbar.vn/products/ly-nhua-nap-bang-trai-tim-500ml,2026-11-26
+plastic_cups,Ly nhựa PET 12oz 360ml APP (kèm in logo),thùng 1.000 cái,thùng,740000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly nhựa PET 16oz 500ml APP (kèm in logo),thùng 1.000 cái,thùng,790000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+plastic_cups,Ly nhựa PET kèm nắp cầu 350ml,thùng 1.000 bộ,thùng,1020000,wholesale,https://vinbar.vn/products/ly-nhua-pet-nap-cau-350ml,2026-11-26
+plastic_cups,Ly nhựa PET kèm nắp cầu 500ml,thùng 1.000 bộ,thùng,1070000,wholesale,https://vinbar.vn/products/ly-nhua-pet-nap-cau-500ml,2026-11-26
+plastic_cups,Ly nhựa PET kèm nắp cầu 700ml,thùng 1.000 bộ,thùng,1400000,wholesale,https://vinbar.vn/products/ly-nhua-pet-nap-cau-700ml,2026-11-26
+cup_lids,Nắp PET bằng phi 95mm KE95,thùng 1.000 cái,thùng,180000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+cup_lids,Nắp cầu PET thấp phi 95mm H95T,thùng 1.000 cái,thùng,220000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+cup_lids,Nắp bằng thấp PET phi 93mm đục lỗ tròn,thùng 1.000 cái,thùng,200000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+cup_lids,Nắp cầu PET cao phi 93mm H93C,thùng 1.000 cái,thùng,220000,quote,https://innhanhmientrung.com/bang-gia-in-ly-nhua-ly-giay-tai-in-nhanh-mien-trung/,2026-11-26
+straws,Ống hút đen phi 6 có màng bọc,bịch 500g (~380 ống; cây 10 bịch),bịch,40000,retail,https://vinbar.vn/products/ong-hut-den-phi-6-co-mang-boc-0-5kg-10-bich-cay-1-bich-khoang-380-ong,2026-11-26
+straws,Ống hút đen phi 12 trân châu có màng bọc,bịch 500g (~185 ống; cây 10 bịch),bịch,40000,retail,https://vinbar.vn/products/ong-hut-den-phi-12-co-mang-boc-0-5kg-10-bich-cay-1-bich-khoang-185-ong,2026-11-26
+straws,Ống hút giấy phi 6,thùng 10.000 cái (20 túi x 500 cái),thùng,1655000,wholesale,https://vinbar.vn/products/ong-hut-giay-phi-6-500-cai-tui-10-000-cai-thung,2026-11-26
+carrier_bags,Túi chữ T đựng ly mang đi,bịch 500g (bao 25kg),bịch,39000,retail,https://vinbar.vn/products/tui-chu-t-500gr-25kg-bao,2026-11-26
+carrier_bags,Túi trà sữa 1 ly,bịch 1kg (~156 cái; bao 25kg),kg,74000,retail,https://vinbar.vn/products/tui-tra-sua-1-ly,2026-11-26
+carrier_bags,Túi trà sữa 2 ly,bịch 1kg (~90 cái; bao 25kg),kg,77000,retail,https://vinbar.vn/products/tui-tra-sua-2-ly,2026-11-26
+paper_boxes,Hộp giấy kraft nắp móc chéo QP-D-700 700ml,cái 700ml (đóng thùng 200 cái),cái,2500,quote,https://queenpack.com.vn/tin-tuc/tin-san-pham/hop-giay-gia-si.html,2026-11-26
+paper_boxes,Hộp giấy kraft nắp gài có cửa sổ QP-W-700 700ml,cái 700ml (đóng thùng 200 cái),cái,2800,quote,https://queenpack.com.vn/tin-tuc/tin-san-pham/hop-giay-gia-si.html,2026-11-26
+paper_boxes,Hộp giấy kraft nắp móc chéo QP-D-1000 1000ml,cái 1000ml (đóng thùng 200 cái),cái,2650,quote,https://queenpack.com.vn/tin-tuc/tin-san-pham/hop-giay-gia-si.html,2026-11-26
+napkins_tissues,Khăn giấy rút Pulppy 2 lớp,gói 180 tờ,gói,12900,retail,https://cooponline.vn/c/khan-giay,2026-11-26
+napkins_tissues,Khăn giấy lụa hộp Pulppy 2 lớp,hộp 180 tờ,hộp,21500,retail,https://cooponline.vn/khan-giay-lua-hop-pulppy-2-lop-180-to--s250103856,2026-11-26
+napkins_tissues,Khăn giấy rút đa năng Co.op Select 4 lớp,túi 300 tờ,túi,27000,retail,https://cooponline.vn/c/khan-giay,2026-11-26

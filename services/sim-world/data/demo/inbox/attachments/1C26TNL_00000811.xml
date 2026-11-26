@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TNL</KHHDon>
+      <SHDon>00000811</SHDon>
+      <NLap>2026-11-26</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900007</MSTTCGP>
+      <TTKhac>
+        <TTin>
+          <TTruong>MaTraCuu</TTruong>
+          <KDLieu>string</KDLieu>
+          <DLieu>MTC-00000811</DLieu>
+        </TTin>
+      </TTKhac>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH NẮP LY &amp; PHỤ KIỆN MIỀN NAM</Ten>
+        <MST>0999010011</MST>
+        <DChi>Số 122 Đường Mẫu K, Quận Bình Tân, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001011</SDThoai>
+        <DCTDTu>ketoan@naplymiennam.example</DCTDTu>
+        <STKNHang>990010000011</STKNHang>
+        <TNHang>Ngân hàng Mẫu Nam Việt</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>LID-FLT95-1000</MHHDVu>
+          <THHDVu>Nắp PET bằng phi 95mm Miền Nam (thùng 1.000 cái)</THHDVu>
+          <DVTinh>Thùng</DVTinh>
+          <SLuong>20</SLuong>
+          <DGia>166666.666667</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>3333333</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>3333333</ThTien>
+            <TThue>266667</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>3333333</TgTCThue>
+        <TgTThue>266667</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>3600000</TgTTTBSo>
+        <TgTTTBChu>Ba triệu sáu trăm nghìn đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <MCCQT />
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH NẮP LY &amp; PHỤ KIỆN MIỀN NAM, O=CÔNG TY TNHH NẮP LY &amp; PHỤ KIỆN MIỀN NAM</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+  </DSCKS>
+</HDon>

@@ -1,0 +1,79 @@
+{
+  "platform_limits": {
+    "auto_pay_per_invoice_vnd": 30000000,
+    "auto_pay_per_day_vnd": 50000000,
+    "updated_at": "2026-11-26T08:00:00+07:00"
+  },
+  "tool_grants": [
+    {
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "tools": [
+        "invoices",
+        "vendor_contracts",
+        "price_check",
+        "official_fraud_list",
+        "price_history",
+        "purchase_orders",
+        "goods_receipts",
+        "payables_ledger",
+        "three_way_match",
+        "inbox",
+        "chat_messages",
+        "vendor_registry",
+        "cross_alerts",
+        "einvoice_portal",
+        "tax_id_lookup",
+        "tax_risk_list",
+        "utility_bills",
+        "utility_baseline",
+        "momo_revenue",
+        "account_balance",
+        "spending_limits",
+        "payment_policy_preview",
+        "invoice_search",
+        "invoice_explain",
+        "spending_summary",
+        "vendor_stats",
+        "price_trend",
+        "queue_status",
+        "utility_summary",
+        "payment_history"
+      ]
+    },
+    {
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "tools": [
+        "invoices",
+        "vendor_contracts",
+        "price_check",
+        "official_fraud_list",
+        "price_history",
+        "purchase_orders",
+        "goods_receipts",
+        "payables_ledger",
+        "three_way_match",
+        "inbox",
+        "chat_messages",
+        "vendor_registry",
+        "cross_alerts",
+        "einvoice_portal",
+        "tax_id_lookup",
+        "tax_risk_list",
+        "utility_bills",
+        "utility_baseline",
+        "momo_revenue",
+        "account_balance",
+        "spending_limits",
+        "payment_policy_preview",
+        "invoice_search",
+        "invoice_explain",
+        "spending_summary",
+        "vendor_stats",
+        "price_trend",
+        "queue_status",
+        "utility_summary",
+        "payment_history"
+      ]
+    }
+  ]
+}

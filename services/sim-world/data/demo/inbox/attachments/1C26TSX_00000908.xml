@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.0.1</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TSX</KHHDon>
+      <SHDon>00000908</SHDon>
+      <NLap>2026-11-25</NLap>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900003</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH</Ten>
+        <MST>0999010014</MST>
+        <DChi>Số 158 Đường Mẫu N, Quận 12, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001014</SDThoai>
+        <DCTDTu>ketoan@hopgiaysongxanh.example</DCTDTu>
+        <STKNHang>990010000014</STKNHang>
+        <TNHang>Ngân hàng Mẫu Nam Việt</TNHang>
+        <TTKhac>
+          <TTin>
+            <TTruong>SellerBankAccount</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>990010000014</DLieu>
+          </TTin>
+          <TTin>
+            <TTruong>SellerBankName</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Ngân hàng Mẫu Nam Việt</DLieu>
+          </TTin>
+        </TTKhac>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>BOX-KRF700-200</MHHDVu>
+          <THHDVu>Hộp giấy kraft nắp gài 700ml Sông Xanh</THHDVu>
+          <DVTinh>Thùng</DVTinh>
+          <SLuong>12</SLuong>
+          <DGia>462962.962963</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>5555556</ThTien>
+          <TSuat>8%</TSuat>
+          <TTKhac>
+            <TTin>
+              <TTruong>Amount</TTruong>
+              <KDLieu>numeric</KDLieu>
+              <DLieu>5555556</DLieu>
+            </TTin>
+          </TTKhac>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>5555556</ThTien>
+            <TThue>444444</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>5555556</TgTCThue>
+        <TgTThue>444444</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>6000000</TgTTTBSo>
+        <TgTTTBChu>Sáu triệu đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+    <TTKhac>
+      <TTin>
+        <TTruong>InvoiceTemplateID</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>TPL-amb_03_boxes</DLieu>
+      </TTin>
+      <TTin>
+        <TTruong>MainCurrency</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>VND</DLieu>
+      </TTin>
+    </TTKhac>
+  </DLHDon>
+  <MCCQT Id="ID2">008AFBE4AD16B901BA0CBD8464A3CDC00A</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990201129900100000140208QRIBFTTA5303704540760000005802VN996401100999010014020110306C26TSX040800000908050820261125060760000006304E441</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH, O=CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-25T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-25T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

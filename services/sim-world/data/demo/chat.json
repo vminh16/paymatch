@@ -1,0 +1,82 @@
+{
+  "threads": [
+    {
+      "thread_id": "thr_01M884PPZPHZFGW1W5TWXT7VA2",
+      "tenant_ref": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "vendor_id": "ven_01M889PXQCH8DZNQQAHM3HBRH4",
+      "counterparty_name": "Minh - Sale Sữa Đồng Xanh",
+      "counterparty_phone": "0900112233",
+      "messages": [
+        {
+          "message_id": "msg_01M88C0G1ZYZCZYVV2YJB4DSZE",
+          "from": "counterparty",
+          "text": "Chị Lan ơi đơn sữa tuần 4/11 đã xuất hóa đơn 31 triệu gửi mail rồi ạ, kho đang chuẩn bị xe giao.",
+          "sent_at": "2026-11-26T08:10:00+07:00",
+          "delivered_by_default": true
+        },
+        {
+          "message_id": "msg_01M88J1F4C6M6Z3SJHB4DNQKQQ",
+          "from": "counterparty",
+          "text": "Chị Lan ơi app ngân hàng công ty bên em đang bị treo tra soát chưa nhận tiền được, chị bắn gấp khoản 31 triệu này qua STK cá nhân quản lý vùng là NGUYEN VAN MINH - 998812345601 Ngân hàng Mẫu Nam Việt (VNMB02) trong 15 phút giúp em nha, xe tải đang nổ máy chờ ở kho kẻo trễ giờ cấm tải! Em đang dưới kho lạnh sóng yếu không nghe đt được ạ.",
+          "sent_at": "2026-11-26T08:18:00+07:00",
+          "delivered_by_default": false
+        }
+      ]
+    },
+    {
+      "thread_id": "thr_01M88D8JJ434JJM17W6Y3QF0PM",
+      "tenant_ref": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "vendor_id": "ven_01M88CGAPGH0KRTMDHYVB4JF3C",
+      "counterparty_name": "Hùng - Kế toán Cà Phê Tây Nguyên",
+      "counterparty_phone": "0900112244",
+      "messages": [
+        {
+          "message_id": "msg_01M88GS6E1RA3CBWY8CHB04P0V",
+          "from": "counterparty",
+          "text": "Chị ơi bên em đã giao đủ 90kg cà phê hạt rang mộc tới bếp trung tâm và gửi HĐĐT số 00001425 qua email rồi ạ.",
+          "sent_at": "2026-11-25T16:30:00+07:00",
+          "delivered_by_default": true
+        },
+        {
+          "message_id": "msg_01M88F2QGHF0A7DTG20ZFXW4PN",
+          "from": "tenant",
+          "text": "Cảm ơn em, bếp trung tâm đã ký nhận đủ hàng rồi nhé.",
+          "sent_at": "2026-11-25T16:40:00+07:00",
+          "delivered_by_default": true
+        }
+      ]
+    },
+    {
+      "thread_id": "thr_01M88BQDT4C7BS5S2WVWX47MJA",
+      "tenant_ref": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "vendor_id": null,
+      "counterparty_name": "Hạnh - Kho Nguyên Liệu Á Châu (Mới)",
+      "counterparty_phone": "0900090001",
+      "messages": [
+        {
+          "message_id": "msg_01M88DJVTSCF9ES122WJQT15ZM",
+          "from": "counterparty",
+          "text": "Chào bộ phận thu mua, Kho Phân Phối Nguyên Liệu Á Châu đang xả kho cuối tháng lô si-rô đào giảm giá sâu kèm HĐĐT đầy đủ. Chỉ giữ mã đến 15h00 chiều nay, bên quán chuyển cọc 8.800.000đ vào TK thủ kho TRAN THI HANH - STK 998800011100 Ngân hàng Mẫu Thành Công (VNMB03) để bên mình niêm phong kiện hàng giao ngay nhé!",
+          "sent_at": "2026-11-26T08:18:00+07:00",
+          "delivered_by_default": false
+        }
+      ]
+    },
+    {
+      "thread_id": "thr_01M887KZJ4VGD7VPC5BW1K30K3",
+      "tenant_ref": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "vendor_id": null,
+      "counterparty_name": "Nguyễn Thị Lan (Chủ chuỗi)",
+      "counterparty_phone": "0900888777",
+      "messages": [
+        {
+          "message_id": "msg_01M88DNZ6JJXVFF08D1WGZAXCP",
+          "from": "counterparty",
+          "text": "Em ơi chị đang ngồi phòng họp kín với đối tác mặt bằng Quận 1 không tiện nghe điện thoại. Chị vừa chốt đặt gấp lô cốc in sẵn cho kịp khai trương điểm mới, em chuyển ngay 24.500.000đ vào STK 998866554433 (PHAM QUOC DUNG - Ngân hàng Mẫu Nam Việt VNMB02) trong 10 phút rồi chụp màn hình gửi vào đây nhé. Khoản này chị duyệt rồi, đừng gọi điện làm gián đoạn cuộc họp.",
+          "sent_at": "2026-11-26T08:18:00+07:00",
+          "delivered_by_default": false
+        }
+      ]
+    }
+  ]
+}

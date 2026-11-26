@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "tax_id": "0999090001",
+      "listed": true,
+      "list_name": "CV-9901/CT-TTKT (danh sách DN rủi ro cao về thuế giả lập)",
+      "listed_on": "2026-10-15",
+      "tax_office": "Chi cục Thuế Khu vực TP.HCM (giả lập)",
+      "note": "Doanh nghiệp mới thành lập, có dấu hiệu rủi ro hóa đơn"
+    },
+    {
+      "tax_id": "0999090012",
+      "listed": true,
+      "list_name": "CV-9902/CT-TTKT (danh sách DN rủi ro cao về thuế giả lập)",
+      "listed_on": "2026-11-05",
+      "tax_office": "Chi cục Thuế Khu vực TP.HCM (giả lập)",
+      "note": "CQT cảnh báo hóa đơn có dấu hiệu bất hợp pháp"
+    }
+  ]
+}
