@@ -1,0 +1,115 @@
+"""DB tests for migrations, seed loader, RLS tenant isolation, and staff role isolation."""
+
+from __future__ import annotations
+
+import psycopg
+import pytest
+from psycopg.rows import dict_row
+
+from core.persistence.db import Database
+from core.persistence.migrator import apply_migrations
+from core.persistence.seeder import load_core_seed
+from core.shared.ids import new_id
+
+import pathlib
+
+DEMO_SEED_DIR = (
+    pathlib.Path(__file__).resolve().parents[3]
+    / "services"
+    / "sim-world"
+    / "data"
+    / "demo"
+    / "core_seed"
+)
+TENANT_A = "ten_01M88D3C06B97Y4G0S9W8BVKNG"
+TENANT_B = "ten_01M88AXX2KPMD46VQQTDDH040J"
+
+
+@pytest.mark.db
+def test_migrations_are_idempotent_and_seed_loads_demo_counts(pg_dsn: str) -> None:
+    with psycopg.connect(pg_dsn, row_factory=dict_row) as conn:
+        second_run = apply_migrations(conn)
+        assert second_run == []
+        counts = load_core_seed(conn, seed_dir=DEMO_SEED_DIR, reset=True)
+
+    assert counts["tenants"] == 2
+    assert counts["stores"] == 19
+    assert counts["vendors"] == 52
+    assert counts["tools"] == 30
+    assert counts["bots"] == 6
+    assert counts["utility_accounts"] == 32
+    assert counts["utility_readings"] == 384
+
+
+@pytest.mark.db
+def test_invariant_rls_tenant_a_sees_zero_rows_of_tenant_b(seeded_db: Database) -> None:
+    """Invariant (repo-and-testing.md §4): role merchant tenant A querying tenant B invoices returns 0 rows."""
+    doc_a = new_id("doc")
+    doc_b = new_id("doc")
+    inv_a = new_id("inv")
+    inv_b = new_id("inv")
+
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            for tid, doc_id, inv_id, num in [
+                (TENANT_A, doc_a, inv_a, "0001"),
+                (TENANT_B, doc_b, inv_b, "0002"),
+            ]:
+                conn.execute(
+                    """
+                    INSERT INTO core.invoice_documents (document_id, tenant_id, format, sha256, raw_bytes, received_at)
+                    VALUES (%s, %s, 'xml', %s, %s, now())
+                    """,
+                    (doc_id, tid, f"sha_{inv_id}", b"<HDon/>"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO core.invoices (
+                        invoice_id, tenant_id, document_id, seller_tax_id, symbol, number, number_norm,
+                        invoice_type, source, status
+                    )
+                    VALUES (%s, %s, %s, '0999010001', '1C26TAA', %s, %s, 'goods', 'upload', 'investigating')
+                    """,
+                    (inv_id, tid, doc_id, num, str(int(num))),
+                )
+
+    with seeded_db.connect(role="merchant", tenant_id=TENANT_A) as conn:
+        rows = conn.execute("SELECT invoice_id, tenant_id FROM core.invoices").fetchall()
+        assert [r["invoice_id"] for r in rows] == [inv_a]
+        b_rows = conn.execute(
+            "SELECT invoice_id FROM core.invoices WHERE invoice_id = %s", (inv_b,)
+        ).fetchall()
+        assert b_rows == []
+        vendors = conn.execute("SELECT DISTINCT tenant_id FROM core.vendors").fetchall()
+        assert [v["tenant_id"] for v in vendors] == [TENANT_A]
+
+    with seeded_db.connect(role="merchant", tenant_id=TENANT_B) as conn:
+        rows_b = conn.execute("SELECT invoice_id FROM core.invoices").fetchall()
+        assert [r["invoice_id"] for r in rows_b] == [inv_b]
+
+
+@pytest.mark.db
+def test_invariant_staff_role_cannot_read_invoices_table(seeded_db: Database) -> None:
+    """Invariant (repo-and-testing.md §4): role staff reading core.invoices directly is denied."""
+    with seeded_db.connect(role="staff") as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT * FROM core.invoices").fetchall()
+
+    # Meanwhile staff CAN read/write risk & control and INSERT into core.outbox
+    with seeded_db.connect(role="staff") as conn:
+        with conn.transaction():
+            cxa_id = new_id("cxa")
+            conn.execute(
+                """
+                INSERT INTO risk.cross_alerts (cross_alert_id, indicator_ids, reason_codes, published_by, status)
+                VALUES (%s, %s, %s, 'stf_test', 'published')
+                """,
+                (cxa_id, ["ind_test"], ["PERSONAL_ACCOUNT"]),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'cross_alert.published', now(), NULL, '{}'::jsonb)
+                """,
+                (new_id("evt"),),
+            )

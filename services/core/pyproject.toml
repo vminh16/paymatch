@@ -3,7 +3,27 @@ name = "core"
 version = "0.1.0"
 description = "Hệ thống ghi nhận: ingest, merchant, risk, control, tools"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "httpx>=0.28",
+    "psycopg[binary]>=3.2",
+    "pyjwt>=2.10",
+    "cryptography>=44",
+    "python-multipart>=0.0.18",
+    "contracts-py",
+    "paymatch-hashing",
+]
+
+[dependency-groups]
+dev = [
+    "testcontainers[postgres]>=4.8",
+]
+
+[tool.uv.sources]
+contracts-py = { workspace = true }
+paymatch-hashing = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
