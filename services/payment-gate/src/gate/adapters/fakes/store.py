@@ -199,10 +199,6 @@ class InMemoryLedgerStore:
         with self._lock:
             return any(e["invoice_id"] == invoice_id and e["entry_type"] in ("settled", "escrow_released") for e in self.ledger_entries)
 
-    def has_active_or_settled_claim_for_invoice(self, invoice_id: str) -> bool:
-        with self._lock:
-            return invoice_id in self.invoice_claims
-
     def is_approval_tainted(self, approval_id: str) -> bool:
         with self._lock:
             return any(
@@ -493,20 +489,6 @@ class InMemoryLedgerStore:
                 self._emit("payment.failed", now, intent.tenant_id, trace_id, {"payment_intent_id": payment_intent_id, "invoice_id": intent.invoice_id, "failure_code": failure_code})
             return updated
 
-    def finalize_intent_denied_from_executing(self, *, payment_intent_id: str, reasons: tuple[GateReasonItem, ...], now: datetime, trace_id: str | None) -> PaymentIntentRecord:
-        with self._lock:
-            intent = self.intents[payment_intent_id]
-            if intent.status != PaymentIntentStatus.executing:
-                return intent
-            require_intent_transition(intent.status, PaymentIntentStatus.denied)
-            updated = replace(intent, status=PaymentIntentStatus.denied, gate_reasons=reasons)
-            self.intents[payment_intent_id] = updated
-            self._release_claim_for_owner(payment_intent_id)
-            self._release_reserve(intent)
-            if intent.invoice_id:
-                self._emit("payment.denied", now, intent.tenant_id, trace_id, {"payment_intent_id": payment_intent_id, "invoice_id": intent.invoice_id, "gate_reasons": [{"code": r.code.value, "layer": r.layer.value, "detail": r.detail} for r in reasons]})
-            return updated
-
     def cancel_authorized_intent(self, *, payment_intent_id: str, reason: str, now: datetime, trace_id: str | None) -> PaymentIntentRecord:
         with self._lock:
             intent = self.intents.get(payment_intent_id)
@@ -652,14 +634,6 @@ class InMemoryLedgerStore:
                 status="pending", failure_code=None, request_payload={"idempotency_key": rel_key},
             )
             return EscrowActionPrepareOutcome(escrow=updated, should_call_rail=True)
-
-    def abort_escrow_release(self, *, escrow_id: str, now: datetime) -> EscrowRecord:
-        with self._lock:
-            esc = self.escrows[escrow_id]
-            self._release_claim_for_owner(escrow_id)
-            updated = replace(esc, pending_action=None, release_invoice_id=None, release_approval_id=None, goods_receipt_id=None, action_started_at=None)
-            self.escrows[escrow_id] = updated
-            return updated
 
     def finalize_escrow_released(self, *, escrow_id: str, budget_date: date, response_payload: dict[str, Any] | None, now: datetime, trace_id: str | None) -> EscrowRecord:
         with self._lock:

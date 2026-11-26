@@ -38,43 +38,51 @@ def apply_migrations(
 
     with psycopg.connect(conninfo, autocommit=False) as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ledger'
-                    ) THEN
-                        EXECUTE 'CREATE SCHEMA ledger';
-                    END IF;
-                END
-                $$;
-                """
-            )
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ledger.schema_migrations (
-                    version TEXT PRIMARY KEY,
-                    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                );
-                """
-            )
-            conn.commit()
-
-            cur.execute("SELECT version FROM ledger.schema_migrations;")
-            existing = {row[0] for row in cur.fetchall()}
-
-            for sql_path in sql_files:
-                version = sql_path.name
-                if version in existing:
-                    continue
-                cur.execute(sql_path.read_text(encoding="utf-8"))
+            # Serialize concurrent boot migrations across replicas.
+            cur.execute("SELECT pg_advisory_lock(hashtextextended('paymatch.ledger.migrations', 0));")
+            try:
                 cur.execute(
-                    "INSERT INTO ledger.schema_migrations (version) VALUES (%s) ON CONFLICT DO NOTHING;",
-                    (version,),
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ledger'
+                        ) THEN
+                            EXECUTE 'CREATE SCHEMA ledger';
+                        END IF;
+                    END
+                    $$;
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS ledger.schema_migrations (
+                        version TEXT PRIMARY KEY,
+                        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    );
+                    """
                 )
                 conn.commit()
-                applied.append(version)
+
+                cur.execute("SELECT version FROM ledger.schema_migrations;")
+                existing = {row[0] for row in cur.fetchall()}
+
+                for sql_path in sql_files:
+                    version = sql_path.name
+                    if version in existing:
+                        continue
+                    cur.execute(sql_path.read_text(encoding="utf-8"))
+                    cur.execute(
+                        "INSERT INTO ledger.schema_migrations (version) VALUES (%s) ON CONFLICT DO NOTHING;",
+                        (version,),
+                    )
+                    conn.commit()
+                    applied.append(version)
+            finally:
+                cur.execute(
+                    "SELECT pg_advisory_unlock(hashtextextended('paymatch.ledger.migrations', 0));"
+                )
+                conn.commit()
 
     return applied
 

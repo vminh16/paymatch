@@ -947,6 +947,8 @@ def test_channel_selection_bulk_rules_time_window_and_state_machines():
     with pytest.raises(InvalidStateTransitionError):
         require_intent_transition(PaymentIntentStatus.executing, PaymentIntentStatus.expired)
     with pytest.raises(InvalidStateTransitionError):
+        require_intent_transition(PaymentIntentStatus.executing, PaymentIntentStatus.denied)
+    with pytest.raises(InvalidStateTransitionError):
         require_intent_transition(PaymentIntentStatus.settled, PaymentIntentStatus.failed)
 
     require_escrow_transition(EscrowStatus.pending, EscrowStatus.held)

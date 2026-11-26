@@ -792,10 +792,24 @@ def test_b2_poller_blocks_card_and_escrow_replay_after_kill_switch_or_revoked_ap
             KillSwitchSnapshot(kill_switch_id="ksw_ten", scope="tenant", target_id=TENANT_A),
         ),
     )
+    # N1: Poller MUST skip replay, keep `executing`, preserve invoice claim & budget reservation!
     tick = poller.run_once()
-    assert tick.denied_intents == 1
-    assert ledger_store.intents[pi_id].status.value == "denied"
+    assert tick.settled_intents == 0 and tick.failed_intents == 0 and tick.stuck_notified == 0
+    assert ledger_store.intents[pi_id].status.value == "executing"
+    assert INV_POS in ledger_store.invoice_claims
+    budget = ledger_store.get_daily_budget(TENANT_A, clock.today_vn())
+    assert budget.auto_pay_reserved_vnd == 12_000_000
     assert len(rail.card_calls) == 1  # Poller did NOT replay POST /sim/rails/cards!
+
+    # After stuck threshold (24h), poller emits payment.stuck ONCE while keeping executing & claim!
+    clock.advance(hours=25)
+    tick_stuck = poller.run_once()
+    assert tick_stuck.stuck_notified == 1
+    assert ledger_store.intents[pi_id].status.value == "executing"
+    assert INV_POS in ledger_store.invoice_claims
+    assert len(rail.card_calls) == 1
+    assert sum(1 for ev in ledger_store.outbox if ev["type"] == "payment.stuck") == 1
+    assert poller.run_once().stuck_notified == 0
 
     # 2. Pending escrow times out on first POST -> approval revoked BEFORE poller runs!
     read_store.policy_state = replace(read_store.policy_state, kill_switches=())
@@ -813,11 +827,34 @@ def test_b2_poller_blocks_card_and_escrow_replay_after_kill_switch_or_revoked_ap
     assert len(rail.escrow_calls) == 1
 
     # Revoke approval before poller replays!
+    # N2: Poller MUST skip replay, keep `pending` (preserving open-PO uniqueness), and alert after 24h!
     read_store.approvals[APV_ESC_CREATE] = replace(create_apv, status="superseded")
     tick2 = poller.run_once()
-    assert tick2.failed_escrows == 1
-    assert ledger_store.escrows[esc_id].status.value == "failed"
+    assert tick2.held_escrows == 0 and tick2.failed_escrows == 0 and tick2.stuck_notified == 0
+    assert ledger_store.escrows[esc_id].status.value == "pending"
     assert len(rail.escrow_calls) == 1  # Poller did NOT replay POST /sim/rails/escrows!
+
+    # Because escrow stayed `pending`, a second approval on the same PO is still blocked!
+    read_store.approvals[APV_ESC_CREATE_2] = make_escrow_create_approval(
+        po, approval_id=APV_ESC_CREATE_2
+    )
+    r_dup_po = client.post(
+        "/gate/escrows",
+        json={"approval_id": APV_ESC_CREATE_2, "expires_on": "2026-12-10"},
+        headers=_hdr("merchant-api"),
+    )
+    assert r_dup_po.status_code == 422
+
+    # Advancing 24h alerts stuck once on the pending escrow while still never calling rail again!
+    clock.advance(hours=25)
+    tick_esc_stuck = poller.run_once()
+    assert tick_esc_stuck.stuck_notified == 1
+    assert ledger_store.escrows[esc_id].status.value == "pending"
+    assert len(rail.escrow_calls) == 1
+    assert poller.run_once().stuck_notified == 0
+
+    for ev in ledger_store.outbox:
+        validate_outbox_event_against_contract(ev)
 
 
 def test_b3_sim_world_rail_ambiguous_errors_never_finalize_failed_and_b6_risk_fail_closed():

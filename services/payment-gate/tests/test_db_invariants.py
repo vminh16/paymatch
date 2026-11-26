@@ -772,6 +772,57 @@ def test_db_b5_owner_approval_proof_tainted_approval_and_execution_tuple_mismatc
     assert any(gr["code"] == "APPROVAL_STALE" for gr in r_tamper.json()["gate_reasons"])
     assert len(rail.transfer_calls) == calls_before
 
+    # 5. N5: Isolate the 7-tuple compare at :execute!
+    # Keep core.invoices, core.invoice_documents, and core.approvals (intent_hash) 100% VALID so
+    # validate_intent_authorization returns ALLOW, then mutate ONLY ledger.payment_tokens.approval_method.
+    # The isolated 7-tuple check in prepare_execute_intent MUST catch the token mismatch and DENY!
+    apv_tuple = "apv_01M88000050000000000000005"
+    with psycopg.connect(admin_url, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE core.invoice_documents SET sha256 = %s WHERE document_id = %s;",
+            ("2" * 64, f"doc_{INV_COFFEE_2[4:]}"),
+        )
+        conn.execute("UPDATE core.approvals SET status = 'superseded' WHERE approval_id = %s;", (apv_clean,))
+    _seed_invoice_and_approval(
+        admin_url,
+        invoice_id=INV_COFFEE_2,
+        approval_id=apv_tuple,
+        amount_vnd=20_000_000,
+        method="single",
+        status="pending_approval",
+        severity="yellow",
+        number="00001426",
+        doc_sha="2" * 64,
+        approver_user_id=USER_OWNER,
+    )
+    pi_tuple = client.post(
+        "/gate/intents",
+        json={"invoice_id": INV_COFFEE_2, "approval_id": apv_tuple},
+        headers={"X-Service-Key": SERVICE_KEYS["core-worker"]},
+    ).json()["payment_intent_id"]
+
+    # Mutate approval_method on ledger.payment_tokens while approval & intent_hash still match!
+    with psycopg.connect(gate_url, autocommit=True) as gconn:
+        gconn.execute(
+            "UPDATE ledger.payment_tokens SET approval_method = 'bulk' WHERE payment_intent_id = %s;",
+            (pi_tuple,),
+        )
+    calls_before_tuple = len(rail.transfer_calls)
+    r_tuple = client.post(
+        f"/gate/intents/{pi_tuple}:execute",
+        json={},
+        headers={"X-Service-Key": SERVICE_KEYS["core-worker"]},
+    )
+    assert r_tuple.status_code == 422
+    assert any(gr["code"] == "APPROVAL_STALE" for gr in r_tuple.json()["gate_reasons"])
+    assert len(rail.transfer_calls) == calls_before_tuple
+    with psycopg.connect(gate_url, row_factory=dict_row) as gconn:
+        tok = gconn.execute(
+            "SELECT status FROM ledger.payment_tokens WHERE payment_intent_id = %s;",
+            (pi_tuple,),
+        ).fetchone()
+        assert tok is not None and tok["status"] == "revoked"
+
 
 @pytest.mark.db
 def test_db_b3_real_rail_403_409_5xx_keep_executing_claim_and_budget_and_alert_stuck(db_env):

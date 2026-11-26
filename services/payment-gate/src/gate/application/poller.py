@@ -1,22 +1,27 @@
 """Background reconciliation loop for Payment Gate (docs/05-api/gate-api.md §5).
 
-Safety rules (B1, B2, B3):
+Safety rules (B1, B2, B3, N1, N2):
   1. Expire `authorized` intents past 15-minute TTL -> `expired` (reason=AUTHORIZATION_TIMEOUT).
   2. Poll `executing` intents:
      - `bank_transfer`: status-only GET /sim/rails/transfers/{payment_intent_id}.
      - `virtual_card`: if `card_id` recorded -> status-only GET /sim/rails/cards/{card_id}.
        Otherwise (re-POST can create the first rail tx!) -> MUST re-run full evaluation
        (policy, kill switch, approval active, hard block, cross alert) BEFORE re-POSTing!
-       If evaluation fails -> mark intent `denied` without calling rail!
+       If evaluation fails -> NEVER replay and NEVER mark denied/failed (the original
+       timed-out POST may already have captured funds); keep `executing` with its invoice
+       claim and daily budget reservation intact, and emit `payment.stuck` after 24h!
      - NEVER mark `failed` on RailAmbiguousError (403/409/5xx/timeout/bad schema) or 404!
        Keep claim & budget reservation; emit `payment.stuck` once after 24h.
   3. Poll `pending` escrows (re-POST can create first hold!):
      - MUST re-run full escrow creation evaluation BEFORE re-POSTing!
-       If evaluation fails -> mark escrow `failed` without calling rail!
+       If evaluation fails -> NEVER replay and NEVER mark `failed` (the original timed-out
+       POST may already have held funds at the rail); keep `pending` (preserving open-PO
+       uniqueness and approval binding) and alert once after 24h!
      - On RailAmbiguousError -> keep `pending`, alert after 24h.
   4. Poll `held` escrows with `pending_action` ('release' or 'refund'):
      - For 'release': re-run full release evaluation BEFORE re-POSTing `:release`;
-       if evaluation fails -> abort pending_action & release invoice claim without calling rail!
+       if evaluation fails -> skip replay, keep `pending_action='release'` & invoice claim,
+       and alert after 24h!
      - On RailAmbiguousError -> keep claim & pending_action, alert after 24h.
 """
 
@@ -26,18 +31,13 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
-from paymatch_contracts.gate import (
-    Channel,
-    Code as GateReasonCode,
-    GateDecision,
-    Layer as GateReasonLayer,
-)
+from paymatch_contracts.gate import Channel, GateDecision
 
+from gate.application.service import resolve_vendor_and_accounts
 from gate.domain.channel import resolve_payee_account, select_channel
 from gate.domain.hashing import extract_indicators
 from gate.domain.models import (
     EscrowRecord,
-    GateReasonItem,
     PaymentIntentRecord,
     PolicyUnavailableError,
 )
@@ -59,7 +59,6 @@ class PollTickSummary:
     expired_intents: int = 0
     settled_intents: int = 0
     failed_intents: int = 0
-    denied_intents: int = 0
     stuck_notified: int = 0
     held_escrows: int = 0
     failed_escrows: int = 0
@@ -83,47 +82,18 @@ class GateBackgroundPoller:
         self._clock = clock
         self._stuck_threshold = timedelta(seconds=stuck_threshold_seconds)
 
-    def _reevaluate_card_before_replay(
-        self, intent: PaymentIntentRecord, now
-    ) -> tuple[bool, tuple[GateReasonItem, ...]]:
-        """B2: Re-evaluate full policy/approval/risk before re-POSTing POST /sim/rails/cards."""
+    def _reevaluate_card_before_replay(self, intent: PaymentIntentRecord, now) -> bool:
+        """B2 + N10: Re-evaluate full policy/approval/risk before re-POSTing POST /sim/rails/cards."""
         policy = self._read.load_policy_state()
         if not policy.available or policy.platform_limits is None:
-            return False, (
-                GateReasonItem(
-                    code=GateReasonCode.POLICY_UNAVAILABLE,
-                    layer=GateReasonLayer.platform_policy,
-                    detail="Không đọc được policy trước khi replay thẻ ảo (fail-closed).",
-                ),
-            )
+            return False
         if intent.invoice_id is None:
-            return False, (
-                GateReasonItem(
-                    code=GateReasonCode.APPROVAL_STALE,
-                    layer=GateReasonLayer.hard_rule,
-                    detail="Intent thiếu invoice_id.",
-                ),
-            )
+            return False
         invoice = self._read.get_invoice(intent.invoice_id)
         approval = self._read.get_approval(intent.approval_id)
         if invoice is None:
-            return False, (
-                GateReasonItem(
-                    code=GateReasonCode.APPROVAL_STALE,
-                    layer=GateReasonLayer.hard_rule,
-                    detail="Hóa đơn không còn tồn tại.",
-                ),
-            )
-        vendor = (
-            self._read.get_vendor(invoice.tenant_id, invoice.vendor_id)
-            if invoice.vendor_id
-            else self._read.get_vendor_by_tax_id(invoice.tenant_id, invoice.seller_tax_id)
-        )
-        accounts = (
-            self._read.list_vendor_accounts(invoice.tenant_id, vendor.vendor_id)
-            if vendor is not None
-            else ()
-        )
+            return False
+        vendor, accounts = resolve_vendor_and_accounts(self._read, invoice)
         mandate = self._read.get_latest_mandate(invoice.tenant_id)
         channel = select_channel(invoice=invoice, mandate=mandate, held_po_escrow=None)
         payee = resolve_payee_account(
@@ -138,14 +108,8 @@ class GateBackgroundPoller:
         )
         try:
             risk_signals = self._read.check_risk_signals(indicators)
-        except PolicyUnavailableError as exc:
-            return False, (
-                GateReasonItem(
-                    code=GateReasonCode.POLICY_UNAVAILABLE,
-                    layer=GateReasonLayer.platform_policy,
-                    detail=str(exc),
-                ),
-            )
+        except PolicyUnavailableError:
+            return False
         vendor_suspended = (
             self._read.is_vendor_suspended(invoice.tenant_id, vendor.vendor_id)
             if vendor is not None
@@ -181,24 +145,13 @@ class GateBackgroundPoller:
             already_reserved_for_intent=(intent.approval_method == "mandate"),
             approver_is_owner=approver_is_owner,
         )
-        if res.decision != GateDecision.ALLOW or res.intent_hash != intent.intent_hash:
-            reasons = res.reasons or (
-                GateReasonItem(
-                    code=GateReasonCode.APPROVAL_STALE,
-                    layer=GateReasonLayer.hard_rule,
-                    detail="intent_hash thay đổi trước khi replay thẻ ảo.",
-                ),
-            )
-            return False, reasons
-        return True, ()
+        return res.decision == GateDecision.ALLOW and res.intent_hash == intent.intent_hash
 
-    def _reevaluate_pending_escrow_before_replay(
-        self, escrow: EscrowRecord, now
-    ) -> tuple[bool, str | None]:
+    def _reevaluate_pending_escrow_before_replay(self, escrow: EscrowRecord, now) -> bool:
         """B2: Re-evaluate full policy/approval/risk before re-POSTing POST /sim/rails/escrows."""
         policy = self._read.load_policy_state()
         if not policy.available or policy.platform_limits is None:
-            return False, "POLICY_UNAVAILABLE"
+            return False
         approval = self._read.get_approval(escrow.approval_id)
         po = self._read.get_purchase_order(escrow.purchase_order_id)
         vendor = self._read.get_vendor(escrow.tenant_id, po.vendor_id) if po is not None else None
@@ -212,7 +165,7 @@ class GateBackgroundPoller:
         try:
             risk_signals = self._read.check_risk_signals(indicators)
         except PolicyUnavailableError:
-            return False, "POLICY_UNAVAILABLE"
+            return False
         approver_is_owner = bool(
             approval is not None
             and approval.approver_user_id
@@ -231,10 +184,7 @@ class GateBackgroundPoller:
             now=now,
             approver_is_owner=approver_is_owner,
         )
-        if res.decision != GateDecision.ALLOW:
-            code = res.reasons[0].code.value if res.reasons else "GATE_DENIED"
-            return False, code
-        return True, None
+        return res.decision == GateDecision.ALLOW
 
     def _reevaluate_pending_release_before_replay(self, escrow: EscrowRecord, now) -> bool:
         """B2: Re-evaluate full escrow release rules before re-POSTing :release."""
@@ -297,7 +247,6 @@ class GateBackgroundPoller:
         expired_count = len(self._ledger.expire_stale_authorized_intents(now=now))
         settled_count = 0
         failed_count = 0
-        denied_count = 0
         stuck_count = 0
         held_escrows = 0
         failed_escrows = 0
@@ -333,53 +282,59 @@ class GateBackgroundPoller:
                     continue
 
                 if intent.channel == Channel.virtual_card:
+                    card_res = None
                     if rail_tx is not None and rail_tx.rail_ref_id:
                         # Status-only GET when card_id is already known!
                         card_res = self._rail.get_card(rail_tx.rail_ref_id)
                     elif rail_tx is not None and rail_tx.request_payload:
-                        # B2: Re-POST can create the first rail tx -> MUST re-evaluate first!
-                        ok, deny_reasons = self._reevaluate_card_before_replay(intent, now)
-                        if not ok:
-                            self._ledger.finalize_intent_denied_from_executing(
+                        # B2 + N1: Re-POST can create the first rail tx -> MUST re-evaluate first.
+                        # If re-evaluation fails, skip replay and keep `executing` (with claim &
+                        # budget reservation intact) because the initial timed-out POST may already
+                        # have captured funds; fall through to the stuck alert check!
+                        if not self._reevaluate_card_before_replay(intent, now):
+                            logger.warning(
+                                "Skipping virtual_card replay for %s after policy/approval re-eval failed; keeping executing.",
+                                intent.payment_intent_id,
+                            )
+                        else:
+                            p = rail_tx.request_payload
+                            card_res = self._rail.create_card(
+                                idempotency_key=p["idempotency_key"],
+                                from_wallet_id=p["from_wallet_id"],
+                                merchant_id=p["merchant_id"],
+                                amount_vnd=int(p["amount_vnd"]),
+                                single_use=bool(p.get("single_use", True)),
+                            )
+
+                    if card_res is not None:
+                        if card_res.status == "captured":
+                            self._ledger.finalize_intent_settled(
                                 payment_intent_id=intent.payment_intent_id,
-                                reasons=deny_reasons,
+                                rail_txn_id=card_res.card_id or intent.payment_intent_id,
+                                settled_at=now,
+                                response_payload=card_res.raw_response,
                                 now=now,
                                 trace_id=None,
                             )
-                            denied_count += 1
+                            settled_count += 1
                             continue
-                        p = rail_tx.request_payload
-                        card_res = self._rail.create_card(
-                            idempotency_key=p["idempotency_key"],
-                            from_wallet_id=p["from_wallet_id"],
-                            merchant_id=p["merchant_id"],
-                            amount_vnd=int(p["amount_vnd"]),
-                            single_use=bool(p.get("single_use", True)),
-                        )
-                    else:
-                        continue
-
-                    if card_res.status == "captured":
-                        self._ledger.finalize_intent_settled(
-                            payment_intent_id=intent.payment_intent_id,
-                            rail_txn_id=card_res.card_id or intent.payment_intent_id,
-                            settled_at=now,
-                            response_payload=card_res.raw_response,
-                            now=now,
-                            trace_id=None,
-                        )
-                        settled_count += 1
-                    elif card_res.status == "failed":
-                        self._ledger.finalize_intent_failed(
-                            payment_intent_id=intent.payment_intent_id,
-                            rail_txn_id=card_res.card_id,
-                            failure_code=card_res.failure_code or "CARD_FAILED",
-                            response_payload=card_res.raw_response,
-                            now=now,
-                            trace_id=None,
-                        )
-                        failed_count += 1
-                    continue
+                        if card_res.status == "failed":
+                            self._ledger.finalize_intent_failed(
+                                payment_intent_id=intent.payment_intent_id,
+                                rail_txn_id=card_res.card_id,
+                                failure_code=card_res.failure_code or "CARD_FAILED",
+                                response_payload=card_res.raw_response,
+                                now=now,
+                                trace_id=None,
+                            )
+                            failed_count += 1
+                            continue
+                        if card_res.card_id:
+                            self._ledger.record_intent_rail_ref(
+                                payment_intent_id=intent.payment_intent_id,
+                                rail_ref_id=card_res.card_id,
+                                now=now,
+                            )
 
             except (RailAmbiguousError, RailNotFoundError) as exc:
                 # B3: NEVER finalize as failed on ambiguous/403/409/5xx/timeout/404!
@@ -396,20 +351,21 @@ class GateBackgroundPoller:
                 ):
                     stuck_count += 1
 
-        # 3. Reconcile pending escrows (B2: MUST re-evaluate before re-POSTing hold!)
+        # 3. Reconcile pending escrows (B2 + N2: re-evaluate before re-POSTing hold; never fail without rail outcome!)
         for escrow, rail_tx in self._ledger.list_pending_escrows():
             if rail_tx is None or not rail_tx.request_payload:
                 continue
-            ok, fail_code = self._reevaluate_pending_escrow_before_replay(escrow, now)
-            if not ok:
-                self._ledger.finalize_escrow_failed(
-                    escrow_id=escrow.escrow_id,
-                    failure_code=fail_code or "GATE_DENIED",
-                    response_payload=None,
-                    now=now,
-                    trace_id=None,
+            if not self._reevaluate_pending_escrow_before_replay(escrow, now):
+                # N2: The first timed-out POST may already have held funds at the rail.
+                # Skip replay, keep `pending` (preserving open-PO uniqueness & approval binding),
+                # and alert ops once stuck threshold passes.
+                logger.warning(
+                    "Skipping pending escrow replay for %s after policy/approval re-eval failed; keeping pending.",
+                    escrow.escrow_id,
                 )
-                failed_escrows += 1
+                if now - escrow.created_at >= self._stuck_threshold:
+                    if self._ledger.mark_escrow_stuck_notified(escrow_id=escrow.escrow_id, now=now):
+                        stuck_count += 1
                 continue
 
             p = rail_tx.request_payload
@@ -520,7 +476,6 @@ class GateBackgroundPoller:
             expired_intents=expired_count,
             settled_intents=settled_count,
             failed_intents=failed_count,
-            denied_intents=denied_count,
             stuck_notified=stuck_count,
             held_escrows=held_escrows,
             failed_escrows=failed_escrows,

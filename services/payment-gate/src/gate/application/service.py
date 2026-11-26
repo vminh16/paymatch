@@ -50,6 +50,22 @@ class UpstreamTimeoutError(Exception):
     """Raised when a synchronous rail action (release/refund) gets an ambiguous/timeout reply."""
 
 
+def resolve_vendor_and_accounts(
+    read_store: CoreReadStore, invoice: InvoiceSnapshot
+) -> tuple[VendorSnapshot | None, tuple[VendorAccountSnapshot, ...]]:
+    vendor: VendorSnapshot | None = None
+    if invoice.vendor_id:
+        vendor = read_store.get_vendor(invoice.tenant_id, invoice.vendor_id)
+    if vendor is None and invoice.seller_tax_id:
+        vendor = read_store.get_vendor_by_tax_id(invoice.tenant_id, invoice.seller_tax_id)
+    accounts = (
+        read_store.list_vendor_accounts(invoice.tenant_id, vendor.vendor_id)
+        if vendor is not None
+        else ()
+    )
+    return vendor, accounts
+
+
 class PaymentGateService:
     """Application facade for all Payment Gate endpoints."""
 
@@ -77,17 +93,7 @@ class PaymentGateService:
     def _resolve_vendor_and_accounts(
         self, invoice: InvoiceSnapshot
     ) -> tuple[VendorSnapshot | None, tuple[VendorAccountSnapshot, ...]]:
-        vendor: VendorSnapshot | None = None
-        if invoice.vendor_id:
-            vendor = self._read.get_vendor(invoice.tenant_id, invoice.vendor_id)
-        if vendor is None and invoice.seller_tax_id:
-            vendor = self._read.get_vendor_by_tax_id(invoice.tenant_id, invoice.seller_tax_id)
-        accounts = (
-            self._read.list_vendor_accounts(invoice.tenant_id, vendor.vendor_id)
-            if vendor is not None
-            else ()
-        )
-        return vendor, accounts
+        return resolve_vendor_and_accounts(self._read, invoice)
 
     def _check_tenant_match(self, expected_tenant_id: str, provided_tenant_id: str | None) -> None:
         if provided_tenant_id is not None and provided_tenant_id != expected_tenant_id:

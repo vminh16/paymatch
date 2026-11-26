@@ -11,7 +11,6 @@ from gate.domain.models import (
     DailyBudgetSnapshot,
     EscrowRecord,
     EvaluationResult,
-    GateReasonItem,
     PaymentIntentRecord,
 )
 
@@ -73,8 +72,6 @@ class LedgerStore(Protocol):
     def check_required_relations(self) -> bool: ...
 
     def has_settled_ledger_for_invoice(self, invoice_id: str) -> bool: ...
-
-    def has_active_or_settled_claim_for_invoice(self, invoice_id: str) -> bool: ...
 
     def is_approval_tainted(self, approval_id: str) -> bool:
         """True if approval_id already produced a failed, denied, or settled intent (B5)."""
@@ -161,17 +158,6 @@ class LedgerStore(Protocol):
         trace_id: str | None,
     ) -> PaymentIntentRecord: ...
 
-    def finalize_intent_denied_from_executing(
-        self,
-        *,
-        payment_intent_id: str,
-        reasons: tuple[GateReasonItem, ...],
-        now: datetime,
-        trace_id: str | None,
-    ) -> PaymentIntentRecord:
-        """Abort a card intent before re-POST replay when re-evaluation fails (B2)."""
-        ...
-
     def cancel_authorized_intent(
         self,
         *,
@@ -246,10 +232,6 @@ class LedgerStore(Protocol):
     ) -> EscrowActionPrepareOutcome:
         """Atomically lock escrow, claim release_invoice_id across ALL channels (B1),
         persist pending_action='release' + rail_transactions BEFORE calling rail."""
-        ...
-
-    def abort_escrow_release(self, *, escrow_id: str, now: datetime) -> EscrowRecord:
-        """Clear pending_action='release' and release invoice claim before re-POST if re-eval fails (B2)."""
         ...
 
     def finalize_escrow_released(

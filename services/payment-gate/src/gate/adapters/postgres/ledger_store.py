@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import base64
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+
+from gate.adapters.postgres.tx_context import bind_connection, get_bound_connection
 
 from paymatch_contracts.gate import (
     Channel,
@@ -166,6 +169,17 @@ class PostgresLedgerStore:
     def _connect(self) -> psycopg.Connection[dict[str, Any]]:
         return psycopg.connect(self._conninfo, row_factory=dict_row, autocommit=False)
 
+    @contextmanager
+    def _read_cursor(self) -> Iterator[psycopg.Cursor[dict[str, Any]]]:
+        bound = get_bound_connection()
+        if bound is not None:
+            with bound.cursor() as cur:
+                yield cur
+            return
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                yield cur
+
     def _insert_outbox(
         self,
         cur: psycopg.Cursor[dict[str, Any]],
@@ -299,80 +313,67 @@ class PostgresLedgerStore:
             return False
 
     def has_settled_ledger_for_invoice(self, invoice_id: str) -> bool:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT 1
-                    FROM ledger.ledger_entries
-                    WHERE invoice_id = %s
-                      AND entry_type IN ('settled', 'escrow_released')
-                    LIMIT 1;
-                    """,
-                    (invoice_id,),
-                )
-                return cur.fetchone() is not None
-
-    def has_active_or_settled_claim_for_invoice(self, invoice_id: str) -> bool:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM ledger.invoice_claims WHERE invoice_id = %s LIMIT 1;",
-                    (invoice_id,),
-                )
-                return cur.fetchone() is not None
+        with self._read_cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM ledger.ledger_entries
+                WHERE invoice_id = %s
+                  AND entry_type IN ('settled', 'escrow_released')
+                LIMIT 1;
+                """,
+                (invoice_id,),
+            )
+            return cur.fetchone() is not None
 
     def is_approval_tainted(self, approval_id: str) -> bool:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT 1
-                    FROM ledger.payment_intents
-                    WHERE approval_id = %s
-                      AND status IN ('failed', 'denied', 'settled')
-                    LIMIT 1;
-                    """,
-                    (approval_id,),
-                )
-                return cur.fetchone() is not None
+        with self._read_cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM ledger.payment_intents
+                WHERE approval_id = %s
+                  AND status IN ('failed', 'denied', 'settled')
+                LIMIT 1;
+                """,
+                (approval_id,),
+            )
+            return cur.fetchone() is not None
 
     def get_open_escrow_for_po(self, purchase_order_id: str) -> EscrowRecord | None:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT *
-                    FROM ledger.escrows
-                    WHERE purchase_order_id = %s
-                      AND status IN ('pending', 'held')
-                    LIMIT 1;
-                    """,
-                    (purchase_order_id,),
-                )
-                row = cur.fetchone()
-                return _row_to_escrow(row) if row else None
+        with self._read_cursor() as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM ledger.escrows
+                WHERE purchase_order_id = %s
+                  AND status IN ('pending', 'held')
+                LIMIT 1;
+                """,
+                (purchase_order_id,),
+            )
+            row = cur.fetchone()
+            return _row_to_escrow(row) if row else None
 
     def get_daily_budget(self, tenant_id: str, budget_date: date) -> DailyBudgetSnapshot:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT budget_date, auto_pay_used_vnd, auto_pay_reserved_vnd, total_paid_vnd
-                    FROM ledger.daily_budgets
-                    WHERE tenant_id = %s AND budget_date = %s;
-                    """,
-                    (tenant_id, budget_date),
-                )
-                row = cur.fetchone()
-                if row is None:
-                    return DailyBudgetSnapshot(budget_date=budget_date)
-                return DailyBudgetSnapshot(
-                    budget_date=row["budget_date"],
-                    auto_pay_used_vnd=int(row["auto_pay_used_vnd"]),
-                    auto_pay_reserved_vnd=int(row["auto_pay_reserved_vnd"]),
-                    total_paid_vnd=int(row["total_paid_vnd"]),
-                )
+        with self._read_cursor() as cur:
+            cur.execute(
+                """
+                SELECT budget_date, auto_pay_used_vnd, auto_pay_reserved_vnd, total_paid_vnd
+                FROM ledger.daily_budgets
+                WHERE tenant_id = %s AND budget_date = %s;
+                """,
+                (tenant_id, budget_date),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return DailyBudgetSnapshot(budget_date=budget_date)
+            return DailyBudgetSnapshot(
+                budget_date=row["budget_date"],
+                auto_pay_used_vnd=int(row["auto_pay_used_vnd"]),
+                auto_pay_reserved_vnd=int(row["auto_pay_reserved_vnd"]),
+                total_paid_vnd=int(row["total_paid_vnd"]),
+            )
 
     def get_intent(self, payment_intent_id: str) -> PaymentIntentRecord | None:
         with self._connect() as conn:
@@ -493,10 +494,11 @@ class PostgresLedgerStore:
                 )
                 approval_tainted = cur.fetchone() is not None
 
-                # 4. Validate all rules with locked budget, cross-channel claim, and taint state.
-                eval_result = validate_with_locked_budget(
-                    locked_budget, has_other_claim, approval_tainted
-                )
+                # 4. Validate all rules with locked budget, cross-channel claim, and taint state (same conn/snapshot — N9).
+                with bind_connection(conn):
+                    eval_result = validate_with_locked_budget(
+                        locked_budget, has_other_claim, approval_tainted
+                    )
                 if eval_result.decision != GateDecision.ALLOW:
                     denied = self._record_denied_intent_in_tx(
                         cur,
@@ -727,8 +729,9 @@ class PostgresLedgerStore:
                     exec_budget = b_first if dates_ordered[0] == exec_date else b_second
                     already_reserved = False
 
-                # Re-evaluate ALL rules right before calling rail!
-                eval_result, verified = reevaluate(intent, exec_budget, already_reserved)
+                # Re-evaluate ALL rules right before calling rail on the SAME connection/transaction (N9)!
+                with bind_connection(conn):
+                    eval_result, verified = reevaluate(intent, exec_budget, already_reserved)
 
                 # B5: Lock payment_token and verify ENTIRE tuple against BOTH intent AND token!
                 cur.execute(
@@ -1197,86 +1200,6 @@ class PostgresLedgerStore:
                 conn.commit()
                 return _row_to_intent(updated_row)
 
-    def finalize_intent_denied_from_executing(
-        self,
-        *,
-        payment_intent_id: str,
-        reasons: tuple[GateReasonItem, ...],
-        now: datetime,
-        trace_id: str | None,
-    ) -> PaymentIntentRecord:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT * FROM ledger.payment_intents WHERE payment_intent_id = %s FOR UPDATE;",
-                    (payment_intent_id,),
-                )
-                row = cur.fetchone()
-                if row is None:
-                    raise ResourceNotFoundError(f"PaymentIntent '{payment_intent_id}' not found.")
-                intent = _row_to_intent(row)
-                if intent.status != PaymentIntentStatus.executing:
-                    conn.rollback()
-                    return intent
-
-                require_intent_transition(intent.status, PaymentIntentStatus.denied)
-                reasons_json = _serialize_reasons(reasons)
-                cur.execute(
-                    """
-                    UPDATE ledger.payment_intents
-                    SET status = 'denied',
-                        gate_reasons = %s
-                    WHERE payment_intent_id = %s
-                    RETURNING *;
-                    """,
-                    (Jsonb(reasons_json), payment_intent_id),
-                )
-                updated_row = cur.fetchone()
-                assert updated_row is not None
-
-                cur.execute(
-                    "DELETE FROM ledger.invoice_claims WHERE payment_intent_id = %s AND status = 'claimed';",
-                    (payment_intent_id,),
-                )
-                cur.execute(
-                    """
-                    UPDATE ledger.rail_transactions
-                    SET status = 'failed',
-                        failure_code = 'GATE_DENIED_BEFORE_REPLAY',
-                        updated_at = %s
-                    WHERE idempotency_key = %s;
-                    """,
-                    (now, payment_intent_id),
-                )
-                if intent.approval_method == "mandate" and intent.budget_date is not None:
-                    self._lock_daily_budget(
-                        cur, tenant_id=intent.tenant_id, budget_date=intent.budget_date, now=now
-                    )
-                    cur.execute(
-                        """
-                        UPDATE ledger.daily_budgets
-                        SET auto_pay_reserved_vnd = GREATEST(0, auto_pay_reserved_vnd - %s),
-                            updated_at = %s
-                        WHERE tenant_id = %s AND budget_date = %s;
-                        """,
-                        (intent.amount_vnd, now, intent.tenant_id, intent.budget_date),
-                    )
-                if intent.invoice_id is not None:
-                    self._insert_outbox(
-                        cur,
-                        event_type="payment.denied",
-                        occurred_at=now,
-                        tenant_id=intent.tenant_id,
-                        trace_id=trace_id,
-                        data={
-                            "payment_intent_id": payment_intent_id,
-                            "invoice_id": intent.invoice_id,
-                            "gate_reasons": reasons_json,
-                        },
-                    )
-                conn.commit()
-                return _row_to_intent(updated_row)
-
     def cancel_authorized_intent(
         self,
         *,
@@ -1559,7 +1482,8 @@ class PostgresLedgerStore:
                     (purchase_order_id,),
                 )
                 has_open_po = cur.fetchone() is not None
-                eval_res = validate_with_open_po(has_open_po)
+                with bind_connection(conn):
+                    eval_res = validate_with_open_po(has_open_po)
                 if eval_res.decision != GateDecision.ALLOW:
                     conn.rollback()
                     raise GateDeniedError(
@@ -1850,7 +1774,8 @@ class PostgresLedgerStore:
                     )
                     has_claim = cur.fetchone() is not None
 
-                eval_res = reevaluate(escrow, has_claim)
+                with bind_connection(conn):
+                    eval_res = reevaluate(escrow, has_claim)
                 if eval_res.decision != GateDecision.ALLOW:
                     conn.rollback()
                     return EscrowActionPrepareOutcome(
@@ -1920,51 +1845,6 @@ class PostgresLedgerStore:
                     escrow=_row_to_escrow(updated_row),
                     should_call_rail=True,
                 )
-
-    def abort_escrow_release(self, *, escrow_id: str, now: datetime) -> EscrowRecord:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT * FROM ledger.escrows WHERE escrow_id = %s FOR UPDATE;",
-                    (escrow_id,),
-                )
-                row = cur.fetchone()
-                if row is None:
-                    raise ResourceNotFoundError(f"Escrow '{escrow_id}' not found.")
-                escrow = _row_to_escrow(row)
-                if escrow.status != EscrowStatus.held or escrow.pending_action != "release":
-                    conn.rollback()
-                    return escrow
-
-                cur.execute(
-                    """
-                    UPDATE ledger.escrows
-                    SET pending_action = NULL,
-                        release_invoice_id = NULL,
-                        release_approval_id = NULL,
-                        goods_receipt_id = NULL,
-                        action_started_at = NULL
-                    WHERE escrow_id = %s
-                    RETURNING *;
-                    """,
-                    (escrow_id,),
-                )
-                updated_row = cur.fetchone()
-                assert updated_row is not None
-                cur.execute(
-                    "DELETE FROM ledger.invoice_claims WHERE escrow_id = %s AND status = 'claimed';",
-                    (escrow_id,),
-                )
-                cur.execute(
-                    """
-                    UPDATE ledger.rail_transactions
-                    SET status = 'failed', failure_code = 'GATE_DENIED_BEFORE_REPLAY', updated_at = %s
-                    WHERE idempotency_key = %s;
-                    """,
-                    (now, f"rel_{escrow_id}"),
-                )
-                conn.commit()
-                return _row_to_escrow(updated_row)
 
     def finalize_escrow_released(
         self,
