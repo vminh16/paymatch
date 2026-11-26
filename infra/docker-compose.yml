@@ -22,3 +22,22 @@ services:
       CORE_INTERNAL_URL: ${CORE_INTERNAL_URL:-}
       SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
     ports: ["8200:8200"]
+
+  gate:
+    build:
+      context: ..
+      dockerfile: services/payment-gate/Dockerfile
+    depends_on:
+      - postgres
+      - sim-world
+    environment:
+      GATE_PORT: "8100"
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
+      SIM_GATE_SERVICE_KEY: ${SIM_GATE_SERVICE_KEY:-dev-gate-key}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      GATE_MERCHANT_API_KEY: ${GATE_MERCHANT_API_KEY:-dev-gate-merchant-key}
+      GATE_CORE_WORKER_KEY: ${GATE_CORE_WORKER_KEY:-dev-gate-worker-key}
+      GATE_INTERNAL_API_KEY: ${GATE_INTERNAL_API_KEY:-dev-gate-internal-key}
+      GATE_CONSOLE_API_KEY: ${GATE_CONSOLE_API_KEY:-dev-gate-console-key}
+    ports: ["8100:8100"]
