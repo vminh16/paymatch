@@ -316,6 +316,132 @@ def evaluate_tool_call_floors(
     return findings
 
 
+def evaluate_mandatory_prefetch_coverage(
+    *,
+    required_prefetch_by_bot: Mapping[str, Collection[str]],
+    attempt_tool_calls: Iterable[Mapping[str, Any]],
+    skipped_bot_ids: Collection[str] = (),
+) -> list[SystemFindingSpec]:
+    """Ensure every mandatory prefetch tool of every non-skipped required bot succeeded with non-empty output (B3).
+
+    An errored, timed-out, revoked, or empty mandatory prefetch counts as not run (yellow floor).
+    """
+    skipped = set(skipped_bot_ids)
+    tcs_by_bot_tool: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for tc in attempt_tool_calls:
+        key = (str(tc.get("bot_id") or ""), str(tc.get("tool_id") or ""))
+        tcs_by_bot_tool.setdefault(key, []).append(tc)
+
+    findings: list[SystemFindingSpec] = []
+    for bot_id, prefetch_tools in required_prefetch_by_bot.items():
+        if bot_id in skipped:
+            continue
+        failed_timeout: list[str] = []
+        failed_other: list[str] = []
+        for tool_id in prefetch_tools:
+            calls = tcs_by_bot_tool.get((bot_id, tool_id), [])
+            succeeded = any(
+                (c.get("error") is None) and bool(c.get("output"))
+                for c in calls
+            )
+            if succeeded:
+                continue
+            had_timeout = any(
+                isinstance(c.get("error"), Mapping) and c["error"].get("code") == "UPSTREAM_TIMEOUT"
+                for c in calls
+            )
+            if had_timeout:
+                failed_timeout.append(tool_id)
+            else:
+                failed_other.append(tool_id)
+
+        if failed_timeout:
+            findings.append(
+                SystemFindingSpec(
+                    bot_id="system",
+                    severity="yellow",
+                    reason_codes=("BOT_TIMEOUT",),
+                    reason_text=(
+                        f"Công cụ prefetch bắt buộc của bot '{bot_id}' bị quá thời gian: "
+                        f"{', '.join(failed_timeout)}."
+                    ),
+                )
+            )
+        if failed_other:
+            findings.append(
+                SystemFindingSpec(
+                    bot_id="system",
+                    severity="yellow",
+                    reason_codes=("BOT_NOT_RUN",),
+                    reason_text=(
+                        f"Công cụ prefetch bắt buộc của bot '{bot_id}' chưa hoàn tất thành công: "
+                        f"{', '.join(failed_other)}."
+                    ),
+                )
+            )
+    return findings
+
+
+def carry_forward_prior_red_evidence(
+    *,
+    prior_findings: Iterable[Mapping[str, Any]],
+    prior_tool_calls: Iterable[Mapping[str, Any]],
+    current_reason_codes: Collection[str] = (),
+) -> list[SystemFindingSpec]:
+    """Carry forward confirmed red risk evidence from earlier attempts of the same job (B3).
+
+    Previous attempts' OK findings do NOT count toward coverage, but confirmed red evidence
+    (red findings or red tool-output floors) is never erased by a retry.
+    """
+    covered = set(current_reason_codes)
+    red_codes: list[str] = []
+    evidence_by_code: dict[str, list[dict[str, str]]] = {}
+
+    for f in prior_findings:
+        f_codes = list(f.get("reason_codes") or [])
+        f_sev = f.get("severity") or compute_finding_severity(f.get("severity_reported") or "green", f_codes)
+        if f_sev != "red":
+            continue
+        for c in f_codes:
+            rule = REASON_CODE_RULES.get(c)
+            if rule is not None and rule.floor == "red" and c not in covered:
+                if c not in red_codes:
+                    red_codes.append(c)
+
+    for tc in prior_tool_calls:
+        codes = extract_tool_floor_reason_codes([tc])
+        tc_id = tc.get("tool_call_id")
+        ev_item = (
+            {"kind": "tool_call", "ref_id": str(tc_id), "tool_call_id": str(tc_id)}
+            if tc_id
+            else None
+        )
+        for c in codes:
+            rule = REASON_CODE_RULES.get(c)
+            if rule is not None and rule.floor == "red" and c not in covered:
+                if c not in red_codes:
+                    red_codes.append(c)
+                if ev_item is not None:
+                    bucket = evidence_by_code.setdefault(c, [])
+                    if ev_item not in bucket:
+                        bucket.append(ev_item)
+
+    specs: list[SystemFindingSpec] = []
+    for code in red_codes:
+        rule = REASON_CODE_RULES.get(code)
+        label = rule.label_vi if rule is not None else code
+        specs.append(
+            SystemFindingSpec(
+                bot_id="system",
+                severity="red",
+                reason_codes=(code,),
+                reason_text=f"Kế thừa bằng chứng rủi ro đỏ đã xác nhận từ lượt chạy trước: {label}.",
+                evidence=tuple(evidence_by_code.get(code, ())),
+            )
+        )
+    return specs
+
+
 def evaluate_system_checks(
     *,
     invoice_bank_account_numbers: Collection[str],

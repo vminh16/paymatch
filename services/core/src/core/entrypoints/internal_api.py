@@ -17,12 +17,21 @@ from psycopg.types.json import Jsonb
 from core.merchant.application.serializers import fmt_ts
 from core.persistence.db import Database
 from core.persistence.default_bots import SUPERVISOR_TRUSTED_TOOLS, UNTRUSTED_TEXT_TOOLS
+from core.persistence.job_lease import (
+    claim_next_job,
+    lock_active_job_lease,
+    lookup_job_tenant,
+    renew_job_lease,
+    verify_active_job_lease_readonly,
+)
 from core.risk.domain.aggregation import (
     FindingInput,
     aggregate_findings,
+    carry_forward_prior_red_evidence,
     check_required_bots,
     compute_finding_severity,
     determine_post_investigation_status,
+    evaluate_mandatory_prefetch_coverage,
     evaluate_system_checks,
     evaluate_tool_call_floors,
     extract_tool_floor_reason_codes,
@@ -89,41 +98,6 @@ def _is_kill_switch_active(
     return False
 
 
-def _verify_lease(
-    conn: psycopg.Connection,
-    *,
-    job_id: str,
-    worker_id: str,
-    attempt: int,
-    now: datetime,
-    require_running: bool = True,
-) -> dict[str, Any]:
-    job = conn.execute("SELECT * FROM core.jobs WHERE job_id = %s", (job_id,)).fetchone()
-    if job is None:
-        raise ProblemError(404, "NOT_FOUND", "Job not found", f"Không tìm thấy job {job_id}.")
-    if require_running and job["status"] in {"completed", "failed"}:
-        raise ProblemError(
-            409,
-            "INVALID_STATE",
-            "Job already finished",
-            f"Job {job_id} đã kết thúc ở trạng thái {job['status']}.",
-            current_status=job["status"],
-        )
-    if (
-        job["status"] != "running"
-        or job["attempt"] != attempt
-        or job["worker_id"] != worker_id
-        or (job["lease_expires_at"] is not None and job["lease_expires_at"] < now)
-    ):
-        raise ProblemError(
-            409,
-            "LEASE_LOST",
-            "Job lease lost",
-            f"Lease của ({job_id}, attempt={attempt}, worker_id={worker_id}) không còn hiệu lực.",
-        )
-    return job
-
-
 def _ref_in_json(obj: Any, needle: str) -> bool:
     if isinstance(obj, str):
         return obj == needle or needle in obj
@@ -183,6 +157,7 @@ def _build_session_payload(
     job: dict[str, Any],
     keys: Ed25519KeyManager,
     now: datetime,
+    sec_now: datetime | None = None,
     ttl_seconds: int = 120,
 ) -> tuple[dict[str, Any], list[str], list[dict[str, str]]]:
     """Compute supervisor & bot capability grants, required_bot_ids, skipped bots, and context."""
@@ -191,6 +166,7 @@ def _build_session_payload(
     subject = job["subject"]
     invoice_id = subject.get("invoice_id") if task_type == "investigate_invoice" else None
     invoice_type: str | None = None
+    token_now = sec_now or now
 
     if task_type == "investigate_invoice":
         inv = conn.execute(
@@ -233,7 +209,7 @@ def _build_session_payload(
     ]
     assert not (set(sup_tool_ids) & UNTRUSTED_TEXT_TOOLS), "Supervisor must never receive untrusted text tools"
 
-    now_ts = int(now.timestamp())
+    now_ts = int(token_now.timestamp())
     sup_token, sup_exp = keys.issue_capability_token(
         sub="supervisor",
         tenant_id=tid,
@@ -383,34 +359,55 @@ def _complete_investigation_job(
     if inv is None:
         raise ProblemError(404, "NOT_FOUND", "Invoice not found", f"Invoice {invoice_id} not found.")
 
-    # Existing non-superseded findings for this job (and ingest findings for this invoice)
+    # B3: Existing non-superseded findings for THIS attempt ONLY (plus ingest findings for this invoice)
+    current_attempt = int(job["attempt"])
     existing_findings = conn.execute(
         """
         SELECT * FROM core.findings
         WHERE tenant_id = %s AND invoice_id = %s AND superseded = FALSE
-          AND (job_id = %s OR bot_id = 'ingest')
+          AND ((job_id = %s AND attempt = %s) OR bot_id = 'ingest')
         ORDER BY created_at ASC
         """,
-        (tid, invoice_id, job_id),
+        (tid, invoice_id, job_id, current_attempt),
     ).fetchall()
 
     submitted_bot_ids = {f["bot_id"] for f in existing_findings if f["bot_id"] not in {"ingest", "system"}}
     required_bot_ids = list(job.get("required_bot_ids") or [])
     skipped_bot_ids = [s["bot_id"] for s in (job.get("skipped_bots") or [])]
 
-    # If session wasn't explicitly saved on job (edge case), infer required bots from DB
+    # Load active bot manifests for required-bot inference and mandatory prefetch checking (B3, I1)
+    sys_bots = conn.execute(
+        """
+        SELECT d.bot_id, v.manifest, v.prefetch, v.version
+        FROM control.bot_definitions d
+        JOIN control.bot_versions v
+          ON v.bot_id = d.bot_id AND v.tenant_id = d.tenant_id AND v.version = d.active_version
+        WHERE d.scope = 'system' AND d.tenant_id = '' AND d.archived = FALSE
+        """
+    ).fetchall()
     if not required_bot_ids:
-        sys_bots = conn.execute(
-            """
-            SELECT d.bot_id, v.manifest FROM control.bot_definitions d
-            JOIN control.bot_versions v
-              ON v.bot_id = d.bot_id AND v.tenant_id = d.tenant_id AND v.version = d.active_version
-            WHERE d.scope = 'system' AND d.tenant_id = '' AND d.archived = FALSE
-            """
-        ).fetchall()
         for sb in sys_bots:
             if inv["invoice_type"] in (sb["manifest"].get("required_for") or []):
                 required_bot_ids.append(sb["bot_id"])
+
+    prefetch_by_bot: dict[str, list[str]] = {}
+    for sb in sys_bots:
+        if sb["bot_id"] in required_bot_ids:
+            prefetch_by_bot[sb["bot_id"]] = list(sb["prefetch"] or [])
+    # If a submitted finding ran a specific bot_version, use that exact version's prefetch list
+    for f in existing_findings:
+        bid = f["bot_id"]
+        if bid in required_bot_ids:
+            bv = conn.execute(
+                """
+                SELECT prefetch FROM control.bot_versions
+                WHERE bot_id = %s AND version = %s AND (tenant_id = '' OR tenant_id = %s)
+                ORDER BY (tenant_id = %s) DESC LIMIT 1
+                """,
+                (bid, f["bot_version"], tid, tid),
+            ).fetchone()
+            if bv is not None:
+                prefetch_by_bot[bid] = list(bv["prefetch"] or [])
 
     missing_bot_specs = check_required_bots(
         required_bot_ids=required_bot_ids,
@@ -501,7 +498,7 @@ def _complete_investigation_job(
         WHERE tenant_id = %s AND job_id = %s AND attempt = %s
         ORDER BY created_at ASC
         """,
-        (tid, job_id, job["attempt"]),
+        (tid, job_id, current_attempt),
     ).fetchall()
     covered_codes = {
         c for f in existing_findings for c in (f["reason_codes"] or [])
@@ -513,7 +510,50 @@ def _complete_investigation_job(
         existing_reason_codes=covered_codes,
     )
 
-    new_sys_findings = [*missing_bot_specs, *sys_specs, *tool_floor_specs]
+    # B3: Mandatory prefetch success coverage on the current attempt (errored/empty/revoked -> yellow floor)
+    prefetch_cov_specs = evaluate_mandatory_prefetch_coverage(
+        required_prefetch_by_bot=prefetch_by_bot,
+        attempt_tool_calls=attempt_tool_calls,
+        skipped_bot_ids=skipped_bot_ids,
+    )
+
+    # B3: Carry forward confirmed red evidence from earlier attempts of this job
+    prior_red_specs = []
+    if current_attempt > 1:
+        prior_findings = conn.execute(
+            """
+            SELECT severity, severity_reported, reason_codes
+            FROM core.findings
+            WHERE tenant_id = %s AND job_id = %s AND attempt > 0 AND attempt < %s
+            ORDER BY created_at ASC
+            """,
+            (tid, job_id, current_attempt),
+        ).fetchall()
+        prior_tool_calls = conn.execute(
+            """
+            SELECT tool_call_id, bot_id, tool_id, output, error
+            FROM core.tool_calls
+            WHERE tenant_id = %s AND job_id = %s AND attempt < %s
+            ORDER BY created_at ASC
+            """,
+            (tid, job_id, current_attempt),
+        ).fetchall()
+        covered_with_current_floors = covered_codes | {
+            c for sp in tool_floor_specs for c in sp.reason_codes
+        }
+        prior_red_specs = carry_forward_prior_red_evidence(
+            prior_findings=prior_findings,
+            prior_tool_calls=prior_tool_calls,
+            current_reason_codes=covered_with_current_floors,
+        )
+
+    new_sys_findings = [
+        *missing_bot_specs,
+        *sys_specs,
+        *tool_floor_specs,
+        *prefetch_cov_specs,
+        *prior_red_specs,
+    ]
 
     # Aggregate ALL findings monotonically (invariant #5)
     finding_inputs: list[FindingInput] = [
@@ -543,7 +583,10 @@ def _complete_investigation_job(
     pol = conn.execute(
         "SELECT value FROM control.policies WHERE kind = 'platform_limits' AND status = 'active' LIMIT 1"
     ).fetchone()
-    platform_per_inv = int((pol["value"] if pol else {}).get("auto_pay_per_invoice_vnd", 30_000_000))
+    # Nit 2: missing platform_limits policy -> not eligible for auto-pay (0 ceiling)
+    platform_per_inv = (
+        int((pol["value"] or {}).get("auto_pay_per_invoice_vnd", 0)) if pol is not None else 0
+    )
 
     is_suspended = False
     if inv.get("vendor_id"):
@@ -762,6 +805,7 @@ def create_internal_app(
     gate_client: GateClientPort | None = None,
     capability_keys: Ed25519KeyManager | None = None,
     clock: Clock | None = None,
+    security_clock: Clock | None = None,
 ) -> FastAPI:
     cfg = settings or CoreSettings.from_env()
     database = db or Database(cfg.database_url)
@@ -771,6 +815,8 @@ def create_internal_app(
     clk = clock or (
         SimWorldClock(cfg.sim_url, cfg.sim_core_service_key) if cfg.demo_mode else SystemClock()
     )
+    # I2: wall clock for security (JWT iat/exp) and job leases; business clock for schedules/business dates
+    sec_clk = security_clock or SystemClock()
 
     app = FastAPI(title="PayMatch Core Internal API", version="0.1.0")
     install_error_handlers(app)
@@ -781,16 +827,24 @@ def create_internal_app(
     app.state.gate = gate_adapter
     app.state.cap_keys = cap_keys
     app.state.clock = clk
+    app.state.security_clock = sec_clk
 
-    # ---- Auth dependencies (strictly separated, NEVER mixed) ----
+    # ---- Auth dependencies (strictly separated, NEVER mixed; I2 rejects empty configured keys) ----
 
     def require_agent_service_key(
         x_service_key: str | None = Header(default=None, alias="X-Service-Key"),
     ) -> str:
         expected = cfg.internal_agent_service_key
+        if not expected:
+            raise ProblemError(
+                503,
+                "SERVICE_MISCONFIGURED",
+                "Agent service key not configured",
+                "INTERNAL_AGENT_SERVICE_KEY chưa được cấu hình.",
+            )
         if not x_service_key:
             raise ProblemError(401, "UNAUTHENTICATED", "Authentication required", "Thiếu header X-Service-Key.")
-        if expected and not hmac.compare_digest(x_service_key, expected):
+        if not hmac.compare_digest(x_service_key, expected):
             raise ProblemError(403, "FORBIDDEN", "Invalid service key", "X-Service-Key không hợp lệ cho agent-worker.")
         return "agent-worker"
 
@@ -798,9 +852,16 @@ def create_internal_app(
         x_service_key: str | None = Header(default=None, alias="X-Service-Key"),
     ) -> str:
         expected = cfg.internal_sim_webhook_key
+        if not expected:
+            raise ProblemError(
+                503,
+                "SERVICE_MISCONFIGURED",
+                "Webhook service key not configured",
+                "SIM_WEBHOOK_SERVICE_KEY chưa được cấu hình.",
+            )
         if not x_service_key:
             raise ProblemError(401, "UNAUTHENTICATED", "Authentication required", "Thiếu header X-Service-Key.")
-        if expected and not hmac.compare_digest(x_service_key, expected):
+        if not hmac.compare_digest(x_service_key, expected):
             raise ProblemError(403, "FORBIDDEN", "Invalid service key", "X-Service-Key không hợp lệ cho sim-world.")
         return "sim-world"
 
@@ -810,20 +871,62 @@ def create_internal_app(
         if not authorization or not authorization.lower().startswith("bearer "):
             raise ProblemError(401, "UNAUTHENTICATED", "Missing capability token", "Thiếu Bearer capability token.")
         token = authorization[7:].strip()
+        now_ts = int(sec_clk.now().timestamp())
         claims = cap_keys.verify(
             token,
             audience="internal-api",
             issuer="core",
-            now_ts=int(clk.now().timestamp()),
+            now_ts=now_ts,
         )
-        if "iat" in claims and "exp" in claims and (int(claims["exp"]) - int(claims["iat"])) > 120:
+        # I1: strictly validate required capability claims & TTL cap (exp <= now + 120 even if iat absent)
+        if "exp" not in claims or not isinstance(claims["exp"], int):
+            raise ProblemError(401, "UNAUTHENTICATED", "Missing exp claim", "Capability token thiếu exp.")
+        exp_ts = int(claims["exp"])
+        if exp_ts > now_ts + 120:
             raise ProblemError(
                 401,
                 "UNAUTHENTICATED",
                 "Capability token TTL too long",
-                "Capability token vượt quá thời hạn tối đa 120 giây (exp - iat > 120).",
+                "Capability token có exp vượt quá 120 giây so với thời điểm hiện tại.",
             )
+        if "iat" in claims:
+            if not isinstance(claims["iat"], int):
+                raise ProblemError(401, "UNAUTHENTICATED", "Invalid iat claim", "iat phải là số nguyên.")
+            iat_ts = int(claims["iat"])
+            if iat_ts > now_ts + 5:
+                raise ProblemError(401, "UNAUTHENTICATED", "Token not yet valid", "Capability token chưa có hiệu lực.")
+            if (exp_ts - iat_ts) > 120:
+                raise ProblemError(
+                    401,
+                    "UNAUTHENTICATED",
+                    "Capability token TTL too long",
+                    "Capability token vượt quá thời hạn tối đa 120 giây (exp - iat > 120).",
+                )
+        sub = claims.get("sub")
+        bot_ver = claims.get("bot_version")
+        if (
+            not isinstance(sub, str)
+            or not sub
+            or not isinstance(claims.get("tenant_id"), str)
+            or not claims["tenant_id"]
+            or not isinstance(claims.get("job_id"), str)
+            or not claims["job_id"]
+            or not isinstance(claims.get("worker_id"), str)
+            or not claims["worker_id"]
+            or not isinstance(claims.get("attempt"), int)
+            or int(claims["attempt"]) < 1
+            or not isinstance(claims.get("tools"), list)
+        ):
+            raise ProblemError(401, "UNAUTHENTICATED", "Invalid capability claims", "Thiếu claim bắt buộc trong capability token.")
+        if sub == "supervisor" and bot_ver is not None:
+            raise ProblemError(401, "UNAUTHENTICATED", "Invalid supervisor token", "Token supervisor phải có bot_version=null.")
+        if sub != "supervisor" and (not isinstance(bot_ver, int) or bot_ver < 1):
+            raise ProblemError(401, "UNAUTHENTICATED", "Invalid bot token", "Token bot phải có bot_version >= 1.")
         return claims
+
+    def _resolve_job_tenant(job_id: str) -> str:
+        with database.connect() as conn:
+            return lookup_job_tenant(conn, job_id)
 
     # ---- Probes (no auth) ----
 
@@ -844,8 +947,9 @@ def create_internal_app(
         body: internal_models.ClaimJobRequest,
         _caller: str = Depends(require_agent_service_key),
     ) -> Any:
-        now = clk.now()
-        lease_until = now + timedelta(seconds=cfg.job_lease_seconds)
+        # I2: job leases use wall clock (security_clock); B1: narrow SECURITY DEFINER claim function
+        sec_now = sec_clk.now()
+        lease_until = sec_now + timedelta(seconds=cfg.job_lease_seconds)
         allowed_types = (
             [t.value for t in body.task_types]
             if body.task_types
@@ -854,51 +958,16 @@ def create_internal_app(
 
         with database.connect() as conn:
             with conn.transaction():
-                # Reclaim expired leases first, then pick highest priority (question > investigate_invoice > report)
-                row = conn.execute(
-                    """
-                    SELECT j.*
-                    FROM core.jobs j
-                    WHERE j.task_type = ANY(%s)
-                      AND (
-                        j.status = 'queued'
-                        OR (j.status = 'running' AND j.lease_expires_at < %s)
-                      )
-                      AND (
-                        SELECT COUNT(*) FROM core.jobs r
-                        WHERE r.tenant_id = j.tenant_id
-                          AND r.status = 'running'
-                          AND r.lease_expires_at >= %s
-                      ) < %s
-                    ORDER BY
-                      CASE j.task_type
-                        WHEN 'question' THEN 0
-                        WHEN 'investigate_invoice' THEN 1
-                        ELSE 2
-                      END ASC,
-                      j.created_at ASC
-                    FOR UPDATE SKIP LOCKED
-                    LIMIT 1
-                    """,
-                    (allowed_types, now, now, cfg.max_concurrent_jobs_per_tenant),
-                ).fetchone()
-                if row is None:
+                updated = claim_next_job(
+                    conn,
+                    worker_id=body.worker_id,
+                    allowed_types=allowed_types,
+                    lease_until=lease_until,
+                    now=sec_now,
+                    max_concurrent_per_tenant=cfg.max_concurrent_jobs_per_tenant,
+                )
+                if updated is None:
                     return Response(status_code=204)
-
-                updated = conn.execute(
-                    """
-                    UPDATE core.jobs
-                    SET status = 'running',
-                        attempt = attempt + 1,
-                        worker_id = %s,
-                        lease_expires_at = %s,
-                        started_at = COALESCE(started_at, %s),
-                        updated_at = %s
-                    WHERE job_id = %s
-                    RETURNING job_id, task_type, tenant_id, attempt, lease_expires_at, subject
-                    """,
-                    (body.worker_id, lease_until, now, now, row["job_id"]),
-                ).fetchone()
 
         return {
             "job_id": updated["job_id"],
@@ -915,13 +984,27 @@ def create_internal_app(
         body: internal_models.OpenJobSessionRequest,
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, Any]:
-        now = clk.now()
-        with database.connect() as conn:
-            job = _verify_lease(conn, job_id=job_id, worker_id=body.worker_id, attempt=body.attempt, now=now)
-            payload, required_bot_ids, skipped = _build_session_payload(
-                conn, job=job, keys=cap_keys, now=now, ttl_seconds=min(cfg.job_lease_seconds, 120)
-            )
+        biz_now = clk.now()
+        sec_now = sec_clk.now()
+        tid = _resolve_job_tenant(job_id)
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=body.worker_id,
+                    attempt=body.attempt,
+                    now=sec_now,
+                )
+                payload, required_bot_ids, skipped = _build_session_payload(
+                    conn,
+                    job=job,
+                    keys=cap_keys,
+                    now=biz_now,
+                    sec_now=sec_now,
+                    ttl_seconds=min(cfg.job_lease_seconds, 120),
+                )
                 bot_states = [
                     {"bot_id": b["bot_id"], "state": "pending", "severity": None}
                     for b in payload["bots"]
@@ -933,9 +1016,9 @@ def create_internal_app(
                         skipped_bots = %s,
                         bot_states = CASE WHEN jsonb_array_length(bot_states) = 0 THEN %s ELSE bot_states END,
                         updated_at = %s
-                    WHERE job_id = %s
+                    WHERE tenant_id = %s AND job_id = %s
                     """,
-                    (required_bot_ids, Jsonb(skipped), Jsonb(bot_states), now, job_id),
+                    (required_bot_ids, Jsonb(skipped), Jsonb(bot_states), sec_now, tid, job_id),
                 )
         return payload
 
@@ -945,18 +1028,30 @@ def create_internal_app(
         body: internal_models.JobHeartbeatRequest,
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, Any]:
-        now = clk.now()
-        new_lease = now + timedelta(seconds=cfg.job_lease_seconds)
-        with database.connect() as conn:
-            job = _verify_lease(conn, job_id=job_id, worker_id=body.worker_id, attempt=body.attempt, now=now)
+        biz_now = clk.now()
+        sec_now = sec_clk.now()
+        new_lease = sec_now + timedelta(seconds=cfg.job_lease_seconds)
+        tid = _resolve_job_tenant(job_id)
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                conn.execute(
-                    "UPDATE core.jobs SET lease_expires_at = %s, updated_at = %s WHERE job_id = %s",
-                    (new_lease, now, job_id),
+                # B6: atomic guarded UPDATE by job_id + tenant_id + running + worker_id + attempt + lease_expires_at >= sec_now
+                job = renew_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=body.worker_id,
+                    attempt=body.attempt,
+                    now=sec_now,
+                    new_lease=new_lease,
                 )
-            session_payload, _, _ = _build_session_payload(
-                conn, job=job, keys=cap_keys, now=now, ttl_seconds=min(cfg.job_lease_seconds, 120)
-            )
+                session_payload, _, _ = _build_session_payload(
+                    conn,
+                    job=job,
+                    keys=cap_keys,
+                    now=biz_now,
+                    sec_now=sec_now,
+                    ttl_seconds=min(cfg.job_lease_seconds, 120),
+                )
 
         tokens = [
             {
@@ -983,13 +1078,22 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> Response:
         now = clk.now()
+        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
-        with database.connect() as conn:
-            job = _verify_lease(conn, job_id=job_id, worker_id=body.worker_id, attempt=body.attempt, now=now)
-            bot_states = {s["bot_id"]: dict(s) for s in (job.get("bot_states") or [])}
-            bots_called = {c["bot_id"]: dict(c) for c in (job.get("bots_called") or [])}
-
+        tid = _resolve_job_tenant(job_id)
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
+                # B6: lock active job lease inside the SAME transaction as progress writes
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=body.worker_id,
+                    attempt=body.attempt,
+                    now=sec_now,
+                )
+                bot_states = {s["bot_id"]: dict(s) for s in (job.get("bot_states") or [])}
+                bots_called = {c["bot_id"]: dict(c) for c in (job.get("bots_called") or [])}
                 for ev in body.events:
                     ev_type = ev.type.value
                     if ev_type == "answer.delta":
@@ -1106,114 +1210,155 @@ def create_internal_app(
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> dict[str, Any]:
         now = clk.now()
-        # Invariant #1: token bound to exact job & bot (supervisor cannot submit specialist findings)
+        sec_now = sec_clk.now()
+        # Invariant #1: token bound to exact job, bot, and bot_version (I1)
         if claims.get("job_id") != job_id:
             raise ProblemError(403, "FORBIDDEN", "Job mismatch", "Capability token không thuộc job này.")
         if claims.get("sub") == "supervisor" or claims.get("sub") != body.bot_id:
             raise ProblemError(403, "FORBIDDEN", "Bot mismatch", "bot_id phải khớp sub trong capability token.")
-
-        with database.connect() as conn:
-            job = _verify_lease(
-                conn,
-                job_id=job_id,
-                worker_id=claims["worker_id"],
-                attempt=int(claims["attempt"]),
-                now=now,
+        if int(claims.get("bot_version") or 0) != int(body.bot_version):
+            raise ProblemError(
+                403,
+                "FORBIDDEN",
+                "Bot version mismatch",
+                "bot_version phải khớp bot_version đã ký trong capability token.",
             )
-            if job["task_type"] != "investigate_invoice":
-                raise ProblemError(409, "INVALID_STATE", "Wrong task type", "Findings chỉ áp dụng cho investigate_invoice.")
-            if _is_kill_switch_active(conn, tenant_id=job["tenant_id"], bot_id=body.bot_id):
-                raise ProblemError(423, "KILL_SWITCH_ACTIVE", "Kill switch active", "Bot hoặc tenant đang bị chặn.")
 
-            # Fetch all tool calls made by this bot in this attempt
-            tcs = conn.execute(
-                """
-                SELECT tool_call_id, tool_id, output, provenance, error
-                FROM core.tool_calls
-                WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s
-                """,
-                (job["tenant_id"], job_id, int(claims["attempt"]), body.bot_id),
-            ).fetchall()
-            tc_by_id = {tc["tool_call_id"]: tc for tc in tcs}
-            called_tool_ids = {tc["tool_id"] for tc in tcs}
-
-            # Check prefetch tools were called
-            bot_ver = conn.execute(
-                """
-                SELECT prefetch FROM control.bot_versions
-                WHERE bot_id = %s AND version = %s AND (tenant_id = '' OR tenant_id = %s)
-                ORDER BY (tenant_id = %s) DESC LIMIT 1
-                """,
-                (body.bot_id, body.bot_version, job["tenant_id"], job["tenant_id"]),
-            ).fetchone()
-            required_prefetch = [
-                p for p in (bot_ver["prefetch"] if bot_ver else []) if p in (claims.get("tools") or [])
-            ]
-            # Prefetch exemption (1f69ce8): skip ONLY if reason_codes contains ONLY BOT_TIMEOUT / BOT_INVALID_OUTPUT AND evidence is empty
-            submitted_codes = [c.value for c in body.reason_codes]
-            is_prefetch_exempt = (
-                len(submitted_codes) > 0
-                and set(submitted_codes) <= {"BOT_TIMEOUT", "BOT_INVALID_OUTPUT"}
-                and len(body.evidence) == 0
-            )
-            missing_prefetch = [p for p in required_prefetch if p not in called_tool_ids]
-            if missing_prefetch and not is_prefetch_exempt:
-                raise ProblemError(
-                    400,
-                    "VALIDATION_FAILED",
-                    "Missing prefetch tools",
-                    f"Bot '{body.bot_id}' chưa gọi đủ tool prefetch: {missing_prefetch}.",
-                    errors=[{"field": "prefetch", "code": "missing", "detail": ", ".join(missing_prefetch)}],
-                )
-
-            # Validate every evidence item: tool_call_id belongs to (job_id, attempt, bot_id) & ref_id in output
-            for idx, ev in enumerate(body.evidence):
-                if not _EVIDENCE_REF_RE.fullmatch(ev.ref_id):
-                    raise ProblemError(
-                        400,
-                        "VALIDATION_FAILED",
-                        "Invalid evidence ref_id",
-                        f"evidence[{idx}].ref_id không đúng mẫu ID.",
-                    )
-                tc = tc_by_id.get(ev.tool_call_id)
-                if tc is None:
-                    raise ProblemError(
-                        400,
-                        "VALIDATION_FAILED",
-                        "Invalid evidence tool_call_id",
-                        f"evidence[{idx}].tool_call_id '{ev.tool_call_id}' không thuộc (job, attempt, bot) này.",
-                        errors=[{"field": f"evidence[{idx}].tool_call_id", "code": "not_found"}],
-                    )
-                if ev.ref_id != ev.tool_call_id and not _ref_in_json(tc["output"], ev.ref_id):
-                    raise ProblemError(
-                        400,
-                        "VALIDATION_FAILED",
-                        "Evidence ref_id not in tool output",
-                        f"evidence[{idx}].ref_id '{ev.ref_id}' không xuất hiện trong output của '{ev.tool_call_id}'.",
-                        errors=[{"field": f"evidence[{idx}].ref_id", "code": "not_in_output"}],
-                    )
-
-            # Apply tool-output floor (internal-api.md §3) and reason-code floor/ceiling (agent-runtime.md §5a)
-            tool_floor_codes = extract_tool_floor_reason_codes(tcs)
-            merged_codes = normalize_reason_codes([*submitted_codes, *tool_floor_codes])
-            final_sev = compute_finding_severity(body.severity_reported.value, merged_codes)
-
-            # Enforce provenance: if any tool call was untrusted or bot reported untrusted -> untrusted
-            provenance = body.provenance.value
-            if any(tc["provenance"] == "untrusted" for tc in tcs):
-                provenance = "untrusted"
-
-            finding_id = new_id("fnd")
-            evidence_dicts = [e.model_dump(mode="json") for e in body.evidence]
+        tid = claims["tenant_id"]
+        attempt = int(claims["attempt"])
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # Supersede earlier finding from the same bot in this job (keeping history)
+                # B6: lock active job lease inside the SAME transaction as finding persistence
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=claims["worker_id"],
+                    attempt=attempt,
+                    now=sec_now,
+                )
+                if job["task_type"] != "investigate_invoice":
+                    raise ProblemError(409, "INVALID_STATE", "Wrong task type", "Findings chỉ áp dụng cho investigate_invoice.")
+                if _is_kill_switch_active(conn, tenant_id=tid, bot_id=body.bot_id):
+                    raise ProblemError(423, "KILL_SWITCH_ACTIVE", "Kill switch active", "Bot hoặc tenant đang bị chặn.")
+
+                # Fetch all tool calls made by this bot in this attempt
+                tcs = conn.execute(
+                    """
+                    SELECT tool_call_id, tool_id, output, provenance, error
+                    FROM core.tool_calls
+                    WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s
+                    """,
+                    (tid, job_id, attempt, body.bot_id),
+                ).fetchall()
+                tc_by_id = {tc["tool_call_id"]: tc for tc in tcs}
+                called_tool_ids = {tc["tool_id"] for tc in tcs}
+
+                # I1: Resolve exact signed bot_version manifest; fail closed if unknown
+                bot_ver = conn.execute(
+                    """
+                    SELECT prefetch FROM control.bot_versions
+                    WHERE bot_id = %s AND version = %s AND (tenant_id = '' OR tenant_id = %s)
+                    ORDER BY (tenant_id = %s) DESC LIMIT 1
+                    """,
+                    (body.bot_id, body.bot_version, tid, tid),
+                ).fetchone()
+                if bot_ver is None:
+                    raise ProblemError(
+                        400,
+                        "VALIDATION_FAILED",
+                        "Unknown bot version",
+                        f"Không tìm thấy manifest cho bot '{body.bot_id}' phiên bản {body.bot_version}.",
+                    )
+
+                # I1 & B3: Do NOT intersect mandatory prefetch with token tools; treat revoked/errored/empty as fail-closed
+                required_prefetch = list(bot_ver["prefetch"] or [])
+                granted_set = set(claims.get("tools") or [])
+                submitted_codes = [c.value for c in body.reason_codes]
+                is_prefetch_exempt = (
+                    len(submitted_codes) > 0
+                    and set(submitted_codes) <= {"BOT_TIMEOUT", "BOT_INVALID_OUTPUT"}
+                    and len(body.evidence) == 0
+                )
+                ungranted_prefetch = [p for p in required_prefetch if p not in granted_set]
+                missing_prefetch = [
+                    p for p in required_prefetch if p not in called_tool_ids and p not in ungranted_prefetch
+                ]
+                if missing_prefetch and not is_prefetch_exempt:
+                    raise ProblemError(
+                        400,
+                        "VALIDATION_FAILED",
+                        "Missing prefetch tools",
+                        f"Bot '{body.bot_id}' chưa gọi đủ tool prefetch: {missing_prefetch}.",
+                        errors=[{"field": "prefetch", "code": "missing", "detail": ", ".join(missing_prefetch)}],
+                    )
+
+                # B3: Any revoked, errored, or empty mandatory prefetch forces at least yellow floor
+                prefetch_fail_codes: list[str] = []
+                if ungranted_prefetch:
+                    prefetch_fail_codes.append("BOT_DISABLED")
+                for p in required_prefetch:
+                    if p in ungranted_prefetch or p in missing_prefetch:
+                        continue
+                    p_calls = [tc for tc in tcs if tc["tool_id"] == p]
+                    succeeded = any((tc["error"] is None) and bool(tc["output"]) for tc in p_calls)
+                    if not succeeded:
+                        had_timeout = any(
+                            isinstance(tc.get("error"), dict) and tc["error"].get("code") == "UPSTREAM_TIMEOUT"
+                            for tc in p_calls
+                        )
+                        prefetch_fail_codes.append("BOT_TIMEOUT" if had_timeout else "BOT_NOT_RUN")
+
+                # Validate every evidence item: tool_call_id belongs to (job_id, attempt, bot_id) & ref_id in output
+                for idx, ev in enumerate(body.evidence):
+                    if not _EVIDENCE_REF_RE.fullmatch(ev.ref_id):
+                        raise ProblemError(
+                            400,
+                            "VALIDATION_FAILED",
+                            "Invalid evidence ref_id",
+                            f"evidence[{idx}].ref_id không đúng mẫu ID.",
+                        )
+                    tc = tc_by_id.get(ev.tool_call_id)
+                    if tc is None:
+                        raise ProblemError(
+                            400,
+                            "VALIDATION_FAILED",
+                            "Invalid evidence tool_call_id",
+                            f"evidence[{idx}].tool_call_id '{ev.tool_call_id}' không thuộc (job, attempt, bot) này.",
+                            errors=[{"field": f"evidence[{idx}].tool_call_id", "code": "not_found"}],
+                        )
+                    if ev.ref_id != ev.tool_call_id and not _ref_in_json(tc["output"], ev.ref_id):
+                        raise ProblemError(
+                            400,
+                            "VALIDATION_FAILED",
+                            "Evidence ref_id not in tool output",
+                            f"evidence[{idx}].ref_id '{ev.ref_id}' không xuất hiện trong output của '{ev.tool_call_id}'.",
+                            errors=[{"field": f"evidence[{idx}].ref_id", "code": "not_in_output"}],
+                        )
+
+                # Apply tool-output floor (internal-api.md §3), prefetch failure floor (B3), and reason-code floor/ceiling
+                tool_floor_codes = extract_tool_floor_reason_codes(tcs)
+                merged_codes = normalize_reason_codes(
+                    [*submitted_codes, *tool_floor_codes, *prefetch_fail_codes]
+                )
+                final_sev = compute_finding_severity(body.severity_reported.value, merged_codes)
+
+                # Enforce provenance: if any tool call was untrusted or bot reported untrusted -> untrusted
+                provenance = body.provenance.value
+                if any(tc["provenance"] == "untrusted" for tc in tcs):
+                    provenance = "untrusted"
+
+                finding_id = new_id("fnd")
+                evidence_dicts = [e.model_dump(mode="json") for e in body.evidence]
+
+                # Supersede earlier finding from the same bot in THIS attempt (keeping history)
                 conn.execute(
                     """
                     UPDATE core.findings
                     SET superseded = TRUE
-                    WHERE tenant_id = %s AND job_id = %s AND bot_id = %s AND superseded = FALSE
+                    WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s AND superseded = FALSE
                     """,
-                    (job["tenant_id"], job_id, body.bot_id),
+                    (tid, job_id, attempt, body.bot_id),
                 )
                 conn.execute(
                     """
@@ -1230,10 +1375,10 @@ def create_internal_app(
                     """,
                     (
                         finding_id,
-                        job["tenant_id"],
+                        tid,
                         job_id,
                         job["invoice_id"],
-                        int(claims["attempt"]),
+                        attempt,
                         body.bot_id,
                         body.bot_version,
                         body.skill_version,
@@ -1266,54 +1411,59 @@ def create_internal_app(
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> dict[str, Any]:
         now = clk.now()
+        sec_now = sec_clk.now()
         if claims.get("job_id") != job_id:
             raise ProblemError(403, "FORBIDDEN", "Job mismatch", "Capability token không thuộc job này.")
         if claims.get("sub") == "supervisor" or claims.get("sub") != body.bot_id:
             raise ProblemError(403, "FORBIDDEN", "Bot mismatch", "bot_id phải khớp sub trong capability token.")
 
-        with database.connect() as conn:
-            job = _verify_lease(
-                conn,
-                job_id=job_id,
-                worker_id=claims["worker_id"],
-                attempt=int(claims["attempt"]),
-                now=now,
-            )
-            if job["task_type"] not in {"question", "report"}:
-                raise ProblemError(409, "INVALID_STATE", "Wrong task type", "bot-answers chỉ áp dụng cho question/report.")
-            tcs = conn.execute(
-                """
-                SELECT tool_call_id, output, provenance FROM core.tool_calls
-                WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s
-                """,
-                (job["tenant_id"], job_id, int(claims["attempt"]), body.bot_id),
-            ).fetchall()
-            tc_by_id = {tc["tool_call_id"]: tc for tc in tcs}
-
-            verified_facts = []
-            for f in body.facts:
-                tc = tc_by_id.get(f.tool_call_id)
-                if tc is None:
-                    continue
-                if isinstance(f.value, str):
-                    # B3: string values are accepted ONLY when cited tool_call & field are provenance='trusted'
-                    ok = tc["provenance"] == "trusted" and _value_in_json(
-                        tc["output"], f.value, trusted_only=True
-                    )
-                else:
-                    ok = _value_in_json(tc["output"], f.value, trusted_only=False)
-                if ok:
-                    verified_facts.append(
-                        {
-                            "key": f.key.value,
-                            "value": f.value,
-                            "tool_call_id": f.tool_call_id,
-                            "verified": True,
-                        }
-                    )
-
-            rc_list = [c.value for c in body.reason_codes]
+        tid = claims["tenant_id"]
+        attempt = int(claims["attempt"])
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
+                # B6: atomic lease lock in same transaction as bot_answers write
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=claims["worker_id"],
+                    attempt=attempt,
+                    now=sec_now,
+                )
+                if job["task_type"] not in {"question", "report"}:
+                    raise ProblemError(409, "INVALID_STATE", "Wrong task type", "bot-answers chỉ áp dụng cho question/report.")
+                tcs = conn.execute(
+                    """
+                    SELECT tool_call_id, tool_id, output, provenance FROM core.tool_calls
+                    WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s
+                    """,
+                    (tid, job_id, attempt, body.bot_id),
+                ).fetchall()
+                tc_by_id = {tc["tool_call_id"]: tc for tc in tcs}
+
+                verified_facts = []
+                for f in body.facts:
+                    tc = tc_by_id.get(f.tool_call_id)
+                    if tc is None:
+                        continue
+                    if isinstance(f.value, str):
+                        # B3: string values are accepted ONLY when cited tool_call & field are provenance='trusted'
+                        ok = tc["provenance"] == "trusted" and _value_in_json(
+                            tc["output"], f.value, trusted_only=True
+                        )
+                    else:
+                        ok = _value_in_json(tc["output"], f.value, trusted_only=False)
+                    if ok:
+                        verified_facts.append(
+                            {
+                                "key": f.key.value,
+                                "value": f.value,
+                                "tool_call_id": f.tool_call_id,
+                                "verified": True,
+                            }
+                        )
+
+                rc_list = [c.value for c in body.reason_codes]
                 conn.execute(
                     """
                     INSERT INTO core.bot_answers (bot_answer_id, tenant_id, job_id, attempt, bot_id, facts, reason_codes, created_at)
@@ -1321,9 +1471,9 @@ def create_internal_app(
                     """,
                     (
                         new_id("ban"),
-                        job["tenant_id"],
+                        tid,
                         job_id,
-                        int(claims["attempt"]),
+                        attempt,
                         body.bot_id,
                         Jsonb(verified_facts),
                         rc_list,
@@ -1347,47 +1497,57 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, Any]:
         now = clk.now()
+        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
-        with database.connect() as conn:
-            job = _verify_lease(conn, job_id=job_id, worker_id=body.worker_id, attempt=body.attempt, now=now)
-            if job["task_type"] == "investigate_invoice":
-                if not isinstance(body.result, internal_models.CompleteInvestigateResult):
-                    raise ProblemError(
-                        400, "VALIDATION_FAILED", "Expected brief result", "investigate_invoice cần result.brief."
-                    )
-                brief_dict = body.result.brief.model_dump(mode="json")
-                return _complete_investigation_job(
-                    conn, job=job, brief_submission=brief_dict, now=now, trace_id=trace_id
-                )
-
-            # question / report completion
-            if not isinstance(body.result, internal_models.CompleteAnswerResult):
-                raise ProblemError(
-                    400, "VALIDATION_FAILED", "Expected answer result", "question/report cần result.answer."
-                )
-            ans = body.result.answer
-            tcs = conn.execute(
-                "SELECT tool_call_id, output FROM core.tool_calls WHERE tenant_id = %s AND job_id = %s AND attempt = %s",
-                (job["tenant_id"], job_id, body.attempt),
-            ).fetchall()
-            tc_by_id = {tc["tool_call_id"]: tc["output"] for tc in tcs}
-            unverified: list[str] = []
-            for cit in ans.citations:
-                out = tc_by_id.get(cit.tool_call_id)
-                for val in cit.values:
-                    if out is None or not _value_in_json(out, val):
-                        unverified.append(val)
+        tid = _resolve_job_tenant(job_id)
+        with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                conn.execute(
-                    "UPDATE core.jobs SET status = 'completed', completed_at = %s, updated_at = %s WHERE job_id = %s",
-                    (now, now, job_id),
+                # B6: lock active job lease inside the SAME transaction as completion!
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=body.worker_id,
+                    attempt=body.attempt,
+                    now=sec_now,
                 )
-            msg_id = job["subject"].get("message_id") or new_id("cmg")
-            return {
-                "status": "completed",
-                "message_id": msg_id,
-                "unverified_values": unverified,
-            }
+                if job["task_type"] == "investigate_invoice":
+                    if not isinstance(body.result, internal_models.CompleteInvestigateResult):
+                        raise ProblemError(
+                            400, "VALIDATION_FAILED", "Expected brief result", "investigate_invoice cần result.brief."
+                        )
+                    brief_dict = body.result.brief.model_dump(mode="json")
+                    return _complete_investigation_job(
+                        conn, job=job, brief_submission=brief_dict, now=now, trace_id=trace_id
+                    )
+
+                # question / report completion
+                if not isinstance(body.result, internal_models.CompleteAnswerResult):
+                    raise ProblemError(
+                        400, "VALIDATION_FAILED", "Expected answer result", "question/report cần result.answer."
+                    )
+                ans = body.result.answer
+                tcs = conn.execute(
+                    "SELECT tool_call_id, output FROM core.tool_calls WHERE tenant_id = %s AND job_id = %s AND attempt = %s",
+                    (tid, job_id, body.attempt),
+                ).fetchall()
+                tc_by_id = {tc["tool_call_id"]: tc["output"] for tc in tcs}
+                unverified: list[str] = []
+                for cit in ans.citations:
+                    out = tc_by_id.get(cit.tool_call_id)
+                    for val in cit.values:
+                        if out is None or not _value_in_json(out, val):
+                            unverified.append(val)
+                conn.execute(
+                    "UPDATE core.jobs SET status = 'completed', completed_at = %s, updated_at = %s WHERE tenant_id = %s AND job_id = %s",
+                    (now, now, tid, job_id),
+                )
+                msg_id = job["subject"].get("message_id") or new_id("cmg")
+                return {
+                    "status": "completed",
+                    "message_id": msg_id,
+                    "unverified_values": unverified,
+                }
 
     @app.post("/internal/jobs/{job_id}:fail")
     def fail_job(
@@ -1397,44 +1557,52 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, bool]:
         now = clk.now()
+        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
-        with database.connect() as conn:
-            job = _verify_lease(conn, job_id=job_id, worker_id=body.worker_id, attempt=body.attempt, now=now)
-            err_payload = {"error_code": body.error_code, "detail": body.detail}
-            if job["attempt"] < 2:
-                with conn.transaction():
+        tid = _resolve_job_tenant(job_id)
+        with database.connect(role="merchant", tenant_id=tid) as conn:
+            with conn.transaction():
+                # B6: lock active job lease inside the SAME transaction as fail/retry!
+                job = lock_active_job_lease(
+                    conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=body.worker_id,
+                    attempt=body.attempt,
+                    now=sec_now,
+                )
+                err_payload = {"error_code": body.error_code, "detail": body.detail}
+                if job["attempt"] < 2:
                     conn.execute(
                         """
                         UPDATE core.jobs
                         SET status = 'queued', worker_id = NULL, lease_expires_at = NULL,
                             last_error = %s, updated_at = %s
-                        WHERE job_id = %s
+                        WHERE tenant_id = %s AND job_id = %s
                         """,
-                        (Jsonb(err_payload), now, job_id),
+                        (Jsonb(err_payload), now, tid, job_id),
                     )
-                return {"will_retry": True}
+                    return {"will_retry": True}
 
-            # Exhausted retries: investigate_invoice completes without brief (missing bots -> yellow BOT_NOT_RUN)
-            if job["task_type"] == "investigate_invoice":
-                with conn.transaction():
+                # Exhausted retries: investigate_invoice completes without brief (missing bots -> yellow BOT_NOT_RUN; tool floors -> red)
+                if job["task_type"] == "investigate_invoice":
                     conn.execute(
-                        "UPDATE core.jobs SET last_error = %s, updated_at = %s WHERE job_id = %s",
-                        (Jsonb(err_payload), now, job_id),
+                        "UPDATE core.jobs SET last_error = %s, updated_at = %s WHERE tenant_id = %s AND job_id = %s",
+                        (Jsonb(err_payload), now, tid, job_id),
                     )
-                _complete_investigation_job(
-                    conn, job=job, brief_submission=None, now=now, trace_id=trace_id
-                )
-            else:
-                with conn.transaction():
+                    _complete_investigation_job(
+                        conn, job=job, brief_submission=None, now=now, trace_id=trace_id
+                    )
+                else:
                     conn.execute(
                         """
                         UPDATE core.jobs
                         SET status = 'failed', last_error = %s, completed_at = %s, updated_at = %s
-                        WHERE job_id = %s
+                        WHERE tenant_id = %s AND job_id = %s
                         """,
-                        (Jsonb(err_payload), now, now, job_id),
+                        (Jsonb(err_payload), now, now, tid, job_id),
                     )
-            return {"will_retry": False}
+                return {"will_retry": False}
 
     # ---- Model configs (ServiceKeyAuth) ----
 
@@ -1458,20 +1626,22 @@ def create_internal_app(
             for r in rows
         ]
 
-    # ---- Tools (CapabilityBearerAuth) ----
+    # ---- Tools (CapabilityBearerAuth, B1 tenant RLS + B6 lease fencing) ----
 
     @app.get("/internal/tools")
     def list_granted_tools(
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> list[dict[str, Any]]:
-        now = clk.now()
-        with database.connect() as conn:
-            _verify_lease(
+        sec_now = sec_clk.now()
+        tid = claims["tenant_id"]
+        with database.connect(role="merchant", tenant_id=tid) as conn:
+            verify_active_job_lease_readonly(
                 conn,
                 job_id=claims["job_id"],
+                tenant_id=tid,
                 worker_id=claims["worker_id"],
                 attempt=int(claims["attempt"]),
-                now=now,
+                now=sec_now,
             )
         return [
             V1_TOOL_SPECS[t].to_definition()
@@ -1485,7 +1655,7 @@ def create_internal_app(
         body: internal_models.ToolInvokeRequest,
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> dict[str, Any]:
-        now = clk.now()
+        sec_now = sec_clk.now()
         # Invariant #1: tool MUST be in capability token's granted tools list -> 403 TOOL_NOT_GRANTED
         granted = claims.get("tools") or []
         if tool_id not in granted:
@@ -1504,18 +1674,24 @@ def create_internal_app(
                 f"Điều phối không bao giờ được gọi tool untrusted '{tool_id}'.",
             )
 
-        with database.connect() as conn:
-            _verify_lease(
+        tid = claims["tenant_id"]
+        attempt = int(claims["attempt"])
+        worker_id = claims["worker_id"]
+        job_id = claims["job_id"]
+        bot_id = claims["sub"]
+
+        with database.connect(role="merchant", tenant_id=tid) as conn:
+            verify_active_job_lease_readonly(
                 conn,
-                job_id=claims["job_id"],
-                worker_id=claims["worker_id"],
-                attempt=int(claims["attempt"]),
-                now=now,
+                job_id=job_id,
+                tenant_id=tid,
+                worker_id=worker_id,
+                attempt=attempt,
+                now=sec_now,
             )
-            bot_id = claims["sub"]
             if _is_kill_switch_active(
                 conn,
-                tenant_id=claims["tenant_id"],
+                tenant_id=tid,
                 bot_id=None if bot_id == "supervisor" else bot_id,
                 tool_id=tool_id,
             ):
@@ -1527,13 +1703,24 @@ def create_internal_app(
                 )
 
             ctx = ToolContext(
-                tenant_id=claims["tenant_id"],
-                job_id=claims["job_id"],
-                attempt=int(claims["attempt"]),
+                tenant_id=tid,
+                job_id=job_id,
+                attempt=attempt,
                 bot_id=bot_id,
                 invoice_id=claims.get("invoice_id"),
                 store_ids=claims.get("store_ids"),
             )
+
+            def _fence_lease(write_conn: psycopg.Connection) -> None:
+                lock_active_job_lease(
+                    write_conn,
+                    job_id=job_id,
+                    tenant_id=tid,
+                    worker_id=worker_id,
+                    attempt=attempt,
+                    now=sec_clk.now(),
+                )
+
             return invoke_tool(
                 conn,
                 tool_id=tool_id,
@@ -1542,9 +1729,10 @@ def create_internal_app(
                 sim_world=sim_adapter,
                 gate_client=gate_adapter,
                 clock=clk,
+                lease_guard=_fence_lease,
             )
 
-    # ---- Rails webhook from sim-world (ServiceKeyAuth) ----
+    # ---- Rails webhook from sim-world (ServiceKeyAuth, B1 narrow SECURITY DEFINER) ----
 
     @app.post("/internal/webhooks/rails", status_code=204)
     def receive_rails_webhook(
@@ -1557,47 +1745,40 @@ def create_internal_app(
         data_dict = body.data.model_dump(mode="json")
         ev_type = body.type
 
+        outbox_evt_id: str | None = None
+        outbox_data: dict[str, Any] | None = None
+        if ev_type == "card.authorization_declined":
+            card_hash = hash_card_id_indicator(data_dict["card_id"])
+            merchant_hash = hash_merchant_id_indicator(data_dict["merchant_id"])
+            opaque_ref = "srf_" + hashlib.sha256(body.event_id.encode("utf-8")).hexdigest()[:16]
+            outbox_evt_id = new_id("evt")
+            outbox_data = {
+                "indicators": [
+                    {"kind": "card_id", "value_hash": card_hash},
+                    {"kind": "merchant_id", "value_hash": merchant_hash},
+                ],
+                "reason_codes": ["OFFICIAL_FRAUD_LIST"],
+                "source": "rail",
+                "source_ref": opaque_ref,
+            }
+
         with database.connect() as conn:
             with conn.transaction():
-                inserted = conn.execute(
+                conn.execute(
                     """
-                    INSERT INTO core.webhook_events (event_id, event_type, occurred_at, data, received_at)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (event_id) DO NOTHING
-                    RETURNING event_id
+                    SELECT core.receive_rails_webhook_event(%s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (body.event_id, ev_type, body.occurred_at, Jsonb(data_dict), now),
-                ).fetchone()
-                if inserted is None:
-                    # Idempotent replay
-                    return Response(status_code=204)
-
-                if ev_type == "card.authorization_declined":
-                    card_hash = hash_card_id_indicator(data_dict["card_id"])
-                    merchant_hash = hash_merchant_id_indicator(data_dict["merchant_id"])
-                    opaque_ref = "srf_" + hashlib.sha256(body.event_id.encode("utf-8")).hexdigest()[:16]
-                    conn.execute(
-                        """
-                        INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
-                        VALUES (%s, 'indicator.flagged', 1, %s, NULL, %s, %s)
-                        """,
-                        (
-                            new_id("evt"),
-                            now,
-                            trace_id,
-                            Jsonb(
-                                {
-                                    "indicators": [
-                                        {"kind": "card_id", "value_hash": card_hash},
-                                        {"kind": "merchant_id", "value_hash": merchant_hash},
-                                    ],
-                                    "reason_codes": ["OFFICIAL_FRAUD_LIST"],
-                                    "source": "rail",
-                                    "source_ref": opaque_ref,
-                                }
-                            ),
-                        ),
-                    )
+                    (
+                        body.event_id,
+                        ev_type,
+                        body.occurred_at,
+                        Jsonb(data_dict),
+                        now,
+                        outbox_evt_id,
+                        trace_id,
+                        Jsonb(outbox_data) if outbox_data is not None else None,
+                    ),
+                )
         return Response(status_code=204)
 
     return app

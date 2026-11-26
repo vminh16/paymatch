@@ -12,7 +12,7 @@ from psycopg.types.json import Jsonb
 
 from core.entrypoints.internal_api import create_internal_app
 from core.ingest.application.ingest_invoice import IngestCommand, ingest_invoice
-from core.persistence.db import Database
+from core.persistence.db import Database, dsn_for_role
 from core.shared.clock import FixedClock
 from core.shared.config import CoreSettings
 from core.shared.hashing import hash_tax_id_indicator, intent_hash_invoice
@@ -147,20 +147,26 @@ def _make_client(
     sim: FakeSimWorld | None = None,
     gate: FakeGate | None = None,
     cap_keys: Ed25519KeyManager | None = None,
+    security_clock: FixedClock | None = None,
+    agent_key: str = AGENT_KEY,
+    webhook_key: str = WEBHOOK_KEY,
 ) -> tuple[TestClient, Ed25519KeyManager]:
+    # B1: internal-api tests always connect using the non-superuser internal_api login role!
+    role_db = Database(dsn_for_role(db.dsn, "internal_api", "internal_api_dev"))
     keys = cap_keys or Ed25519KeyManager()
     cfg = CoreSettings(
-        database_url=db.dsn,
-        internal_agent_service_key=AGENT_KEY,
-        internal_sim_webhook_key=WEBHOOK_KEY,
+        database_url=role_db.dsn,
+        internal_agent_service_key=agent_key,
+        internal_sim_webhook_key=webhook_key,
     )
     app = create_internal_app(
         cfg,
-        db=db,
+        db=role_db,
         sim_world=sim or FakeSimWorld(),
         gate_client=gate or FakeGate(),
         capability_keys=keys,
         clock=clock,
+        security_clock=security_clock or clock,
     )
     return TestClient(app), keys
 
@@ -1019,3 +1025,344 @@ def test_tool_output_floor_at_complete_and_fail_exhausted_across_all_tool_calls(
         "INVOICE_NOT_FOUND_ON_PORTAL",
     ):
         assert expected_code in inv3_row["reason_codes"], f"Missing {expected_code} in {inv3_row['reason_codes']}"
+
+
+@pytest.mark.db
+def test_b3_current_attempt_coverage_errored_prefetch_and_prior_red_carry_forward(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B3: errored mandatory prefetch forces yellow; prior attempt OK does not count toward retry coverage;
+    prior attempt confirmed red evidence carries forward as a system Finding.
+    """
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    # --- Part A: errored mandatory prefetch (einvoice_portal timeout) cannot yield green OK ---
+    inv_a, job_a = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+    client_timeout, _ = _make_client(seeded_db, fixed_clock, sim=FakeSimWorld(timeout_portal=True))
+    c_a = client_timeout.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c_a["job_id"] == job_a
+    sess_a = client_timeout.post(
+        f"/internal/jobs/{job_a}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    for b in sess_a["bots"]:
+        bhdr = {"Authorization": f"Bearer {b['capability_token']}"}
+        for pf in b["prefetch"]:
+            inp = {"tax_id": "0999010001"} if pf in {"tax_id_lookup", "tax_risk_list"} else {}
+            r = client_timeout.post(f"/internal/tools/{pf}:invoke", json={"input": inp}, headers=bhdr)
+            assert r.status_code == 200
+        f_resp = client_timeout.post(
+            f"/internal/jobs/{job_a}/findings",
+            json={
+                "bot_id": b["bot_id"],
+                "bot_version": b["bot_version"],
+                "skill_version": 1,
+                "prompt_hash": "sha256:ok",
+                "severity_reported": "green",
+                "reason_codes": ["OK"],
+                "reason": "Bot claims OK despite timeout",
+                "evidence": [],
+                "provenance": "trusted",
+            },
+            headers=bhdr,
+        )
+        assert f_resp.status_code == 201
+        if b["bot_id"] == "tax":
+            assert f_resp.json()["severity"] == "yellow"
+            assert "BOT_TIMEOUT" in f_resp.json()["reason_codes"]
+
+    comp_a = client_timeout.post(
+        f"/internal/jobs/{job_a}:complete",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "result": {"brief": {"lines": ["Timeout cổng HĐĐT."], "cited_evidence": [], "model": "m", "prompt_hash": "p"}},
+        },
+        headers=agent_hdr,
+    )
+    assert comp_a.status_code == 200
+    assert comp_a.json()["final_severity"] == "yellow"
+    assert comp_a.json()["invoice_status"] == "pending_approval"
+
+    # --- Part B: Attempt 1 has procurement OK + fraud-control SIMO red; Attempt 2 omits both ->
+    # procurement OK from attempt 1 does NOT count (BOT_NOT_RUN), AND SIMO red carries forward -> red/blocked! ---
+    inv_b, job_b = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001430.xml", fixed_clock)
+    client_simo, _ = _make_client(seeded_db, fixed_clock, sim=FakeSimWorld(simo_listed=True))
+    c_b1 = client_simo.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c_b1["job_id"] == job_b and c_b1["attempt"] == 1
+    sess_b1 = client_simo.post(
+        f"/internal/jobs/{job_b}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    # Run procurement OK on attempt 1
+    proc_b1 = next(b for b in sess_b1["bots"] if b["bot_id"] == "procurement")
+    phdr1 = {"Authorization": f"Bearer {proc_b1['capability_token']}"}
+    for pf in proc_b1["prefetch"]:
+        client_simo.post(f"/internal/tools/{pf}:invoke", json={"input": {}}, headers=phdr1)
+    client_simo.post(
+        f"/internal/jobs/{job_b}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": proc_b1["bot_version"],
+            "skill_version": 1,
+            "prompt_hash": "sha256:p1",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "OK attempt 1",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=phdr1,
+    )
+    # Run fraud-control official_fraud_list (listed=True -> red) on attempt 1
+    fraud_b1 = next(b for b in sess_b1["bots"] if b["bot_id"] == "fraud-control")
+    client_simo.post(
+        "/internal/tools/official_fraud_list:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {fraud_b1['capability_token']}"},
+    )
+    # Fail attempt 1 -> retry
+    fail_b1 = client_simo.post(
+        f"/internal/jobs/{job_b}:fail",
+        json={"worker_id": "w1", "attempt": 1, "error_code": "TRANSIENT", "detail": "retry"},
+        headers=agent_hdr,
+    )
+    assert fail_b1.status_code == 200 and fail_b1.json()["will_retry"] is True
+
+    # Attempt 2 runs with a clean SIMO stub and completes WITHOUT running procurement or fraud-control
+    client_clean, _ = _make_client(seeded_db, fixed_clock, sim=FakeSimWorld(simo_listed=False))
+    c_b2 = client_clean.post("/internal/jobs:claim", json={"worker_id": "w2"}, headers=agent_hdr).json()
+    assert c_b2["job_id"] == job_b and c_b2["attempt"] == 2
+    client_clean.post(
+        f"/internal/jobs/{job_b}/session",
+        json={"worker_id": "w2", "attempt": 2},
+        headers=agent_hdr,
+    )
+    comp_b2 = client_clean.post(
+        f"/internal/jobs/{job_b}:complete",
+        json={
+            "worker_id": "w2",
+            "attempt": 2,
+            "result": {"brief": {"lines": ["Lượt 2."], "cited_evidence": [], "model": "m", "prompt_hash": "p"}},
+        },
+        headers=agent_hdr,
+    )
+    assert comp_b2.status_code == 200
+    assert comp_b2.json()["final_severity"] == "red"
+    assert comp_b2.json()["invoice_status"] == "blocked"
+    with seeded_db.connect() as conn:
+        inv_b_row = conn.execute(
+            "SELECT severity, status, reason_codes FROM core.invoices WHERE invoice_id = %s",
+            (inv_b,),
+        ).fetchone()
+        proc_not_run = conn.execute(
+            """
+            SELECT 1 FROM core.findings
+            WHERE job_id = %s AND attempt = 2 AND bot_id = 'procurement' AND 'BOT_NOT_RUN' = ANY(reason_codes)
+            """,
+            (job_b,),
+        ).fetchone()
+    assert "OFFICIAL_FRAUD_LIST" in inv_b_row["reason_codes"]
+    assert proc_not_run is not None
+
+
+@pytest.mark.db
+def test_b6_two_connection_deterministic_lease_handoff_fencing(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B6: deterministic two-connection handoff — Worker 1 pauses during a tool call while Worker 2 reclaims
+    expired lease; Worker 1's tool_call, heartbeat, progress, finding, and complete ALL fail with 409 LEASE_LOST.
+    """
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+    _, job_id = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+
+    sec_clock = FixedClock(fixed_clock.now())
+    handoff_done = {"ran": False}
+
+    class HandoffSim(FakeSimWorld):
+        def get_wallet_balance(self, *, wallet_id: str):
+            # Simulate Worker 1 stalling past lease expiry while Worker 2 reclaims the job on a second connection!
+            if not handoff_done["ran"]:
+                handoff_done["ran"] = True
+                sec_clock.advance(timedelta(seconds=180))
+                c2, _ = _make_client(seeded_db, fixed_clock, security_clock=sec_clock)
+                reclaimed = c2.post("/internal/jobs:claim", json={"worker_id": "w2"}, headers=agent_hdr)
+                assert reclaimed.status_code == 200
+                assert reclaimed.json()["attempt"] == 2
+            return super().get_wallet_balance(wallet_id=wallet_id)
+
+    client1, _ = _make_client(seeded_db, fixed_clock, sim=HandoffSim(), security_clock=sec_clock)
+    c1 = client1.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c1["job_id"] == job_id and c1["attempt"] == 1
+    sess1 = client1.post(
+        f"/internal/jobs/{job_id}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    tr_tok1 = next(b["capability_token"] for b in sess1["bots"] if b["bot_id"] == "treasury")
+
+    # Worker 1 starts account_balance:invoke BEFORE expiry, stalls during upstream HTTP, Worker 2 claims attempt 2;
+    # Worker 1's write MUST be fenced atomically -> 409 LEASE_LOST and ZERO tool_calls persisted for attempt 1!
+    tc_resp = client1.post(
+        "/internal/tools/account_balance:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {tr_tok1}"},
+    )
+    assert tc_resp.status_code == 409
+    assert tc_resp.json()["code"] == "LEASE_LOST"
+
+    with seeded_db.connect() as conn:
+        a1_tcs = conn.execute(
+            "SELECT * FROM core.tool_calls WHERE job_id = %s AND attempt = 1", (job_id,)
+        ).fetchall()
+        job_row = conn.execute(
+            "SELECT worker_id, attempt, lease_expires_at FROM core.jobs WHERE job_id = %s", (job_id,)
+        ).fetchone()
+    assert a1_tcs == []
+    assert job_row["worker_id"] == "w2" and job_row["attempt"] == 2
+    w2_lease_before = job_row["lease_expires_at"]
+
+    # Worker 1's stale heartbeat, progress, and complete ALL fail with 409 LEASE_LOST and leave w2 untouched
+    hb1 = client1.post(
+        f"/internal/jobs/{job_id}/heartbeat",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    )
+    assert hb1.status_code == 409 and hb1.json()["code"] == "LEASE_LOST"
+
+    prog1 = client1.post(
+        f"/internal/jobs/{job_id}/progress",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "events": [{"type": "supervisor.step", "step": 1, "at": "2026-11-26T09:00:01+07:00"}],
+        },
+        headers=agent_hdr,
+    )
+    assert prog1.status_code == 409 and prog1.json()["code"] == "LEASE_LOST"
+
+    comp1 = client1.post(
+        f"/internal/jobs/{job_id}:complete",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "result": {"brief": {"lines": ["Stale"], "cited_evidence": [], "model": "m", "prompt_hash": "p"}},
+        },
+        headers=agent_hdr,
+    )
+    assert comp1.status_code == 409 and comp1.json()["code"] == "LEASE_LOST"
+
+    with seeded_db.connect() as conn:
+        job_after = conn.execute(
+            "SELECT worker_id, attempt, status, lease_expires_at FROM core.jobs WHERE job_id = %s",
+            (job_id,),
+        ).fetchone()
+    assert job_after["worker_id"] == "w2"
+    assert job_after["attempt"] == 2
+    assert job_after["status"] == "running"
+    assert job_after["lease_expires_at"] == w2_lease_before
+
+
+@pytest.mark.db
+def test_i1_i2_bot_version_revoked_prefetch_jwt_ttl_and_empty_service_keys(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """I1 & I2: reject empty configured service keys; enforce exp <= now + 120 without iat;
+    bind bot_version to token; revoked mandatory prefetch fails closed; sim clock advance does not break JWTs.
+    """
+    # I2: empty configured service keys MUST fail closed (503 SERVICE_MISCONFIGURED), never accept arbitrary keys
+    c_nokey, _ = _make_client(seeded_db, fixed_clock, agent_key="", webhook_key="")
+    r_nokey = c_nokey.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers={"X-Service-Key": "anything"})
+    assert r_nokey.status_code == 503
+
+    # I2: advancing business clock +30 days ahead of wall/security clock still works cleanly for JWT & leases!
+    biz_future = FixedClock(fixed_clock.now() + timedelta(days=30))
+    sec_clock = FixedClock(fixed_clock.now())
+    _, job_id = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", biz_future)
+    client, keys = _make_client(seeded_db, biz_future, security_clock=sec_clock)
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    claimed = client.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert claimed["job_id"] == job_id
+    sess = client.post(
+        f"/internal/jobs/{job_id}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+
+    # I1: forged token with exp = now + 300 and NO iat MUST be rejected (401)
+    now_ts = int(sec_clock.now().timestamp())
+    overlong_tok = keys.sign(
+        {
+            "iss": "core",
+            "aud": "internal-api",
+            "sub": "procurement",
+            "tenant_id": TENANT_A,
+            "job_id": job_id,
+            "invoice_id": None,
+            "attempt": 1,
+            "worker_id": "w1",
+            "bot_version": 1,
+            "tools": ["invoices"],
+            "exp": now_ts + 300,
+            "jti": new_id("jti"),
+        }
+    )
+    r_over = client.get("/internal/tools", headers={"Authorization": f"Bearer {overlong_tok}"})
+    assert r_over.status_code == 401
+
+    # I1: bot_version mismatch (body=2 vs token=1) MUST be rejected (403)
+    proc_tok = next(b["capability_token"] for b in sess["bots"] if b["bot_id"] == "procurement")
+    phdr = {"Authorization": f"Bearer {proc_tok}"}
+    r_ver = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 2,
+            "skill_version": 1,
+            "prompt_hash": "sha256:x",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "wrong version",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=phdr,
+    )
+    assert r_ver.status_code == 403
+
+    # I1: revoking a mandatory prefetch tool (`vendor_contracts`) fails closed (cannot yield green OK!)
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE control.tool_grants SET enabled = FALSE WHERE tenant_id = %s AND tool_id = 'vendor_contracts'",
+                (TENANT_A,),
+            )
+    sess_revoked = client.post(
+        f"/internal/jobs/{job_id}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    proc_tok2 = next(b["capability_token"] for b in sess_revoked["bots"] if b["bot_id"] == "procurement")
+    phdr2 = {"Authorization": f"Bearer {proc_tok2}"}
+    client.post("/internal/tools/invoices:invoke", json={"input": {}}, headers=phdr2)
+    r_rev = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:rev",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "Revoked prefetch must fail closed",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=phdr2,
+    )
+    assert r_rev.status_code == 201
+    assert r_rev.json()["severity"] == "yellow"
+    assert "BOT_DISABLED" in r_rev.json()["reason_codes"]

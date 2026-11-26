@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -130,6 +131,7 @@ def invoke_tool(
     sim_world: SimWorldToolPort,
     gate_client: GateClientPort,
     clock: Clock | None = None,
+    lease_guard: Callable[[psycopg.Connection], None] | None = None,
 ) -> dict[str, Any]:
     """Validate input, execute read-only tool handler, record tool_calls row, and return ToolResult."""
     spec = V1_TOOL_SPECS.get(tool_id)
@@ -175,6 +177,8 @@ def invoke_tool(
         error_obj = {"code": exc.code, "detail": exc.detail}
 
     with conn.transaction():
+        if lease_guard is not None:
+            lease_guard(conn)
         conn.execute(
             """
             INSERT INTO core.tool_calls (
