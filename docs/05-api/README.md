@@ -89,9 +89,9 @@ Gate **đọc thẳng** DB schema `core`, `control`, `risk` (chỉ-đọc) để
 | web-console → console-api | JWT nhân viên (SSO; demo: sim `/identity`), claim `staff_roles` | `Authorization: Bearer <staff_jwt>` |
 | CSKH tra bằng chứng | thêm mã ticket | `X-Ticket-Id` |
 | service → service | khóa service theo cặp (v1), mTLS (lộ trình) | `X-Service-Key` |
-| agent-worker → `/internal/tools/*`, `/internal/jobs/{id}/findings` | **capability token** của đúng một bot trong đúng một job | `Authorization: Bearer <capability_token>` |
+| agent-worker → `/internal/tools/*`, `/internal/jobs/{id}/findings`, `/internal/jobs/{id}/bot-answers` | **capability token** của điều phối hoặc đúng một bot trong đúng một attempt của job | `Authorization: Bearer <capability_token>` |
 
-`action_hash` tính theo RFC 8785 + sha256, công thức ở [schemas.md §4](schemas.md#4-duyệt-và-chi); một hàm duy nhất trong `paymatch_contracts` (và bản TypeScript sinh cùng test vector). Với duyệt chi, `payload_hash` phủ `intent_hash` và `verification`, nên một `auth_proof` không dùng lại được cho hóa đơn khác, số tiền khác hay lời khai xác minh khác.
+`action_hash` tính theo RFC 8785 + sha256, công thức ở [schemas.md §4](schemas.md#4-duyệt-và-chi); cài đặt chuẩn dùng chung trong `paymatch_hashing` (`packages/paymatch-hashing`, và bản TypeScript dùng chung `contracts/test-vectors/hashing.json`). Với duyệt chi, `payload_hash` phủ `intent_hash` và `verification`, nên một `auth_proof` không dùng lại được cho hóa đơn khác, số tiền khác hay lời khai xác minh khác.
 
 ## 5. Lỗi
 

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/purchase-order.schema.json",
+  "title": "PurchaseOrder",
+  "description": "Đơn đặt hàng (PO) của tenant gửi nhà cung cấp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "purchase_order_id",
+    "vendor_id",
+    "store_id",
+    "lines",
+    "total_vnd",
+    "status",
+    "created_by",
+    "created_at"
+  ],
+  "properties": {
+    "purchase_order_id": {
+      "type": "string",
+      "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_id": {
+      "type": "string",
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "store_id": {
+      "type": "string",
+      "pattern": "^sto_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "title": "PurchaseOrderLine",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sku",
+          "quantity",
+          "unit_price"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "$ref": "./decimal.schema.json"
+          },
+          "unit_price": {
+            "$ref": "./decimal.schema.json"
+          }
+        }
+      }
+    },
+    "total_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "received",
+        "closed",
+        "cancelled"
+      ]
+    },
+    "created_by": {
+      "type": "string",
+      "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

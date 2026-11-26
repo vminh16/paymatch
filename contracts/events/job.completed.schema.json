@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/job.completed.schema.json",
+  "title": "JobCompletedEvent",
+  "description": "Job của agent-runtime đã hoàn tất tại internal-api.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "job.completed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "JobCompletedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "task_type"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "task_type": {
+          "$ref": "../schemas/task-type.schema.json"
+        },
+        "invoice_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "final_severity": {
+          "anyOf": [
+            {
+              "$ref": "../schemas/severity.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_codes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "../schemas/reason-code.schema.json"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8832YSWRQKE66NHG99GV63G",
+      "type": "job.completed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:25:42+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "job_id": "job_01M882G20CAMSQWE8SVGP02RHD",
+        "task_type": "investigate_invoice",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "final_severity": "yellow",
+        "reason_codes": [
+          "PACK_SIZE_CHANGED",
+          "PRICE_ABOVE_CONTRACT"
+        ]
+      }
+    }
+  ]
+}

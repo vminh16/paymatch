@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/invoice.status_changed.schema.json",
+  "title": "InvoiceStatusChangedEvent",
+  "description": "Trạng thái hóa đơn thay đổi bằng compare-and-set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "invoice.status_changed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "InvoiceStatusChangedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invoice_id",
+        "from",
+        "to",
+        "severity"
+      ],
+      "properties": {
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "from": {
+          "$ref": "../schemas/invoice-status.schema.json"
+        },
+        "to": {
+          "$ref": "../schemas/invoice-status.schema.json"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "$ref": "../schemas/severity.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M88735Z592J5D7376AV733CG",
+      "type": "invoice.status_changed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:25:42+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "from": "investigating",
+        "to": "pending_approval",
+        "severity": "yellow"
+      }
+    }
+  ]
+}

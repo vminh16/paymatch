@@ -12,6 +12,7 @@ from . import evidence_ref_schema, untrusted_text_schema
 class Brief(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     brief_id: Annotated[str, Field(pattern='^brf_[0-9A-HJKMNP-TV-Z]{26}$')]
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]

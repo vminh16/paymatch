@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/payment.denied.schema.json",
+  "title": "PaymentDeniedEvent",
+  "description": "Payment Gate từ chối tạo hoặc thực thi PaymentIntent do vi phạm luật cứng, policy hoặc mandate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "payment.denied"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "PaymentDeniedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payment_intent_id",
+        "invoice_id",
+        "gate_reasons"
+      ],
+      "properties": {
+        "payment_intent_id": {
+          "type": "string",
+          "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "gate_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../schemas/gate-reason.schema.json"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810RR5BCDEFGHJKMNPQRST",
+      "type": "payment.denied",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:57:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "payment_intent_id": "pi_01M88H11Y0WR367CGNZZH603T5",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "gate_reasons": [
+          {
+            "code": "CROSS_ALERT_UNVERIFIED",
+            "layer": "hard_rule",
+            "detail": "Hóa đơn khớp cảnh báo chéo nhưng bản ghi duyệt chưa có xác minh gọi lại SĐT lưu sẵn."
+          }
+        ]
+      }
+    }
+  ]
+}

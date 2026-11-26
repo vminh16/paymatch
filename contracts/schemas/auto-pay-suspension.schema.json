@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/auto-pay-suspension.schema.json",
+  "title": "AutoPaySuspension",
+  "description": "Bản ghi tạm loại nhà cung cấp khỏi danh sách tự chi theo QT-03.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "vendor_id",
+    "reason_codes",
+    "source_invoice_id",
+    "suspended_at",
+    "lifted_at",
+    "lifted_by"
+  ],
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "source_invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "suspended_at": {
+      "$ref": "./timestamp.schema.json"
+    },
+    "lifted_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lifted_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+    }
+  }
+}

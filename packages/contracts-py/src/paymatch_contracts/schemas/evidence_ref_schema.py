@@ -23,6 +23,7 @@ class Kind(StrEnum):
 class EvidenceRef(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     kind: Kind
     ref_id: Annotated[

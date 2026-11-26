@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/vendor_account.changed.schema.json",
+  "title": "VendorAccountChangedEvent",
+  "description": "Tài khoản nhà cung cấp được duyệt thêm mới hoặc đổi trạng thái (F12, F7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "vendor_account.changed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "VendorAccountChangedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendor_id",
+        "vendor_account_id",
+        "status",
+        "retired_account_id"
+      ],
+      "properties": {
+        "vendor_id": {
+          "type": "string",
+          "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "vendor_account_id": {
+          "type": "string",
+          "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "status": {
+          "$ref": "../schemas/vendor-account-status.schema.json"
+        },
+        "retired_account_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810FF6BCDEFGHJKMNPQRST",
+      "type": "vendor_account.changed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T09:05:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "vendor_id": "ven_01M889PXQCH8DZNQQAHM3HBRH4",
+        "vendor_account_id": "vac_01M885170DEVTBBKXKDK90DBAS",
+        "status": "verified",
+        "retired_account_id": null
+      }
+    }
+  ]
+}

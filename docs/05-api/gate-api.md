@@ -2,7 +2,7 @@
 
 Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. File OpenAPI: `contracts/openapi/gate.yaml`. Luật và state machine ở [payment-gate.md](../02-architecture/payment-gate.md).
 
-Mọi endpoint cần `X-Service-Key`, khóa riêng cho từng bên gọi. Endpoint ngoài bảng → `403`. `agent-worker` không có khóa Gate.
+Mọi endpoint nghiệp vụ cần `X-Service-Key`, khóa riêng cho từng bên gọi; endpoint nghiệp vụ ngoài cột của bên gọi trong bảng dưới → `403`. Riêng probe sống/sẵn sàng `GET /gate/healthz` và `GET /gate/readyz` không cần khóa (theo [README.md §1](README.md#1-tiến-trình-và-cổng)). `agent-worker` không có khóa Gate.
 
 | Endpoint | merchant-api | core-worker | internal-api (tool) | console-api |
 |---|---|---|---|---|
@@ -14,13 +14,13 @@ Mọi endpoint cần `X-Service-Key`, khóa riêng cho từng bên gọi. Endpoi
 | `POST /gate/escrows/{id}:release`, `:refund` | | ✓ | | |
 | `GET /gate/escrows/{id}` | ✓ | ✓ | | |
 
-**Gate không tin dữ liệu trong request.** Request chỉ mang id. Gate tự đọc hóa đơn, approval, TK NCC, mandate, policy, kill switch, cảnh báo chéo, hard block từ DB (`core`, `control`, `risk`, chỉ-đọc), **suy ra tenant từ hóa đơn/PO** (request có `tenant_id` khác → `403 TENANT_MISMATCH`), rồi tự tính `intent_hash` theo [schemas.md §4](schemas.md#4-duyệt-và-chi).
+**Gate không tin dữ liệu trong request.** Request chỉ mang id (cùng `tenant_id?` tùy chọn để đối chiếu chéo). Gate tự đọc hóa đơn, approval, TK NCC, mandate, policy, kill switch, cảnh báo chéo, hard block từ DB (`core`, `control`, `risk`, chỉ-đọc), **suy ra tenant từ hóa đơn/PO** (request có `tenant_id` khác → `403 TENANT_MISMATCH`), rồi tự tính `intent_hash` theo [schemas.md §4](schemas.md#4-duyệt-và-chi).
 
 ## 1. Đánh giá thử
 
 | Method | Path | Body → Kết quả |
 |---|---|---|
-| POST | `/gate/evaluate` | `{invoice_id}` hoặc (xem trước cọc) `{purchase_order_id, vendor_account_id, amount_vnd}` → `200 {decision: ALLOW \| REQUIRE_APPROVAL \| DENY, allowed_methods: [single \| bulk], verification_required, intent_hash, payee_account_id, amount_vnd, channel, reasons: [GateReason], evaluated_at}`. Không tác dụng phụ. **Kênh do Gate chọn**: hóa đơn có PO đang có escrow `held` → `escrow`; không thì theo `mandate.channel_rules`, mặc định `bank_transfer`. `Finding.proposed_channel` của treasury chỉ để hiển thị |
+| POST | `/gate/evaluate` | `{invoice_id, tenant_id?}` hoặc (xem trước cọc) `{purchase_order_id, vendor_account_id, amount_vnd, tenant_id?}` → `200 {decision: ALLOW \| REQUIRE_APPROVAL \| DENY, allowed_methods: [single \| bulk], verification_required, intent_hash, payee_account_id: string \| null, amount_vnd, channel, reasons: [GateReason], evaluated_at}` (`payee_account_id` chỉ `null` khi `decision = DENY` và NCC chưa có TK trong registry). Không tác dụng phụ. **Kênh do Gate chọn**: hóa đơn có PO đang có escrow `held` → `escrow`; không thì theo `mandate.channel_rules`, mặc định `bank_transfer`. `Finding.proposed_channel` của treasury chỉ để hiển thị |
 
 ## 2. Payment intent
 
@@ -30,7 +30,7 @@ Mọi endpoint cần `X-Service-Key`, khóa riêng cho từng bên gọi. Endpoi
 | POST | `/gate/intents/{payment_intent_id}:execute` | `{}` → `200 PaymentIntent` với `settled` \| `failed` \| `executing`. Ngay trước khi gọi rail, Gate **đánh giá lại toàn bộ** từ DB (cảnh báo chéo, hard block, kill switch, trạng thái hóa đơn, approval còn `active`); trượt → intent `denied`, phát `payment.denied`, trả `422 GATE_DENIED`. Đang `executing` → trả trạng thái, không gọi rail lần hai |
 | POST | `/gate/intents/{payment_intent_id}:cancel` | `{reason: CROSS_ALERT \| INVOICE_REINVESTIGATED \| OWNER_CANCELLED}` → `PaymentIntent (expired)`, trả ngân sách ngày. Chỉ khi `authorized`; `executing` → `409 INVALID_STATE` (lần đánh giá lại trong `:execute` là chốt chặn cuối) |
 | GET | `/gate/intents/{payment_intent_id}` | `PaymentIntent` |
-| GET | `/gate/intents` | lọc `invoice_id`, `status` → trang `PaymentIntent` (tenant suy từ khóa service + bên gọi truyền `tenant_id`, Gate chỉ trả intent của tenant đó) |
+| GET | `/gate/intents` | `?tenant_id=` (bắt buộc), lọc `invoice_id`, `status` → trang `PaymentIntent` (khóa service xác định bên gọi `merchant-api`/`core-worker`; bên gọi bắt buộc truyền `tenant_id`, Gate chỉ trả intent của tenant đó) |
 
 Ràng buộc DB: **duy nhất một intent ở `authorized/executing/settled` cho mỗi hóa đơn** (partial unique index); **duy nhất một `ledger_entries` loại `settled` cho mỗi hóa đơn**. Intent `failed/denied/expired` không chặn lần chi sau, nhưng lần sau cần approval mới (core đã đặt approval cũ `superseded`).
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/bot-status.schema.json",
+  "title": "BotStatus",
+  "description": "Trạng thái vòng đời của một phiên bản bot.",
+  "type": "string",
+  "enum": [
+    "draft",
+    "pending_review",
+    "active",
+    "disabled",
+    "archived"
+  ]
+}

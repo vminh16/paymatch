@@ -19,6 +19,7 @@ type CitedLine = Annotated[str, Field(pattern='^lin_[0-9A-HJKMNP-TV-Z]{26}$')]
 class AdjustmentRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     adjustment_request_id: Annotated[str, Field(pattern='^adj_[0-9A-HJKMNP-TV-Z]{26}$')]
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]

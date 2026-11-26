@@ -2,7 +2,7 @@
 
 Trạng thái: **v0.3 (26/11/2026)**: agent điều phối ReAct theo loại việc; đã sửa theo review. File OpenAPI: `contracts/openapi/core-internal.yaml`. Chỉ mạng service. Không dùng header `Idempotency-Key`; khóa nghiệp vụ là `(job_id, attempt, bot_id)`.
 
-Hai loại xác thực, **không bao giờ trộn**:
+Hai loại xác thực cho endpoint nghiệp vụ, **không bao giờ trộn** (riêng probe sống/sẵn sàng `GET /internal/healthz` và `GET /internal/readyz` không yêu cầu xác thực, `security: []`):
 
 | Nhóm | Header | Ai |
 |---|---|---|
@@ -33,10 +33,10 @@ agent-worker                                    internal-api (core)
 
 | Method | Path | Body → Kết quả |
 |---|---|---|
-| POST | `/internal/jobs:claim` | `{worker_id, task_types?: [..]}` → `200 {job_id, task_type, tenant_id, attempt, lease_expires_at, subject: {invoice_id} \| {conversation_id, message_id} \| {report_kind, period}}` hoặc `204`. `SKIP LOCKED`; `question` ưu tiên trước; giới hạn đồng thời theo tenant |
-| POST | `/internal/jobs/{job_id}/session` | `{worker_id, attempt}` → `{budget: {seconds, max_steps}, supervisor: {capability_token, token_exp, tools: [ToolDefinition]}, bots: [{bot_id, bot_version, description, manifest, skills, prefetch, capability_token, token_exp}], required_bot_ids: [..], skipped: [{bot_id, reason: KILL_SWITCH \| DISABLED}], context}`. `bots` = bot active của tenant có `task_types` chứa loại việc này (điều tra: thêm lọc trigger theo loại hóa đơn), trừ kill switch. `context`: điều tra → `{invoice_id, invoice_type}` (không có chữ untrusted); hỏi đáp → `{messages: [{role, text_trusted}]}` (câu hỏi của người dùng, các câu trả lời trước), `user: {role, store_ids}`. Gọi lại trong cùng attempt → cùng nội dung, token mới |
+| POST | `/internal/jobs:claim` | `{worker_id, task_types?: [..]}` → `200 {job_id, task_type, tenant_id, attempt, lease_expires_at, subject: {invoice_id} \| {conversation_id, message_id} \| {report_id}}` hoặc `204`. `SKIP LOCKED`; `question` ưu tiên trước; giới hạn đồng thời theo tenant |
+| POST | `/internal/jobs/{job_id}/session` | `{worker_id, attempt}` → `{budget: {seconds, max_steps}, supervisor: {capability_token, token_exp, tools: [ToolDefinition]}, bots: [{bot_id, bot_version, description, manifest, skills, prefetch, capability_token, token_exp}], required_bot_ids: [..], skipped: [{bot_id, reason: KILL_SWITCH \| DISABLED}], context}`. `bots` = bot active của tenant có `task_types` chứa loại việc này (điều tra: thêm lọc trigger theo loại hóa đơn), trừ kill switch. `context`: điều tra → `{invoice_id, invoice_type}` (không có chữ untrusted); hỏi đáp → `{messages: [{role, text_trusted}], user: {role, store_ids}}` (câu hỏi của người dùng, các câu trả lời trước); báo cáo → `{report_id, kind, from, to, user: {role, store_ids}}`. Gọi lại trong cùng attempt → cùng nội dung, token mới |
 | POST | `/internal/jobs/{job_id}/heartbeat` | `{worker_id, attempt}` → `{lease_expires_at, tokens: [{holder: supervisor \| <bot_id>, capability_token, token_exp}]}` |
-| POST | `/internal/jobs/{job_id}/progress` | `{worker_id, attempt, events: [{type: supervisor.step \| bot.started \| bot.tool_called \| bot.finished \| bot.failed \| answer.delta, bot_id?, tool_id?, text_delta?, at}]}` → `204`. `answer.delta` chỉ dùng cho hỏi đáp (luồng chữ của câu trả lời, hiển thị như untrusted) |
+| POST | `/internal/jobs/{job_id}/progress` | `{worker_id, attempt, events: [{type: supervisor.step \| bot.started \| bot.tool_called \| bot.finished \| bot.failed \| answer.delta, step?, bot_id?, tool_id?, severity?, reason_code?, text_delta?, at}]}` → `204`. `answer.delta` chỉ dùng cho hỏi đáp (luồng chữ của câu trả lời, hiển thị như untrusted) |
 | POST | `/internal/jobs/{job_id}/findings` | token bot (chỉ `investigate_invoice`); body `FindingSubmission` → `201 FindingForSupervisor {finding_id, bot_id, severity, reason_codes, evidence}` (đã áp mức sàn, **đã bỏ `reason`**). Kiểm: `bot_id` = `sub` của token; mọi `evidence[].tool_call_id` thuộc cùng job, attempt, bot; `ref_id` đúng mẫu và có trong output tool_call; đã gọi đủ `prefetch`; `reason` ≤ 1000 ký tự. Một bot được gọi nhiều lần trong job → Finding sau thay Finding trước (giữ lịch sử). Job đã xong → `409 INVALID_STATE` |
 | POST | `/internal/jobs/{job_id}/bot-answers` | token bot (`question`, `report`); body `{bot_id, facts: [{key, value: string \| number, tool_call_id}], reason_codes: [ReasonCode]}` → `201 BotAnswer` (core kiểm mỗi `value` có trong output của `tool_call_id`, gỡ fact không khớp) |
 | POST | `/internal/jobs/{job_id}:complete` | `{worker_id, attempt, result}` → `200 {status, …}`. `result` theo loại việc: **điều tra** `{brief: {lines ≤ 5 × 200 ký tự, cited_evidence, model, prompt_hash}}` → core: thêm vàng `BOT_NOT_RUN` cho bot bắt buộc chưa có Finding, `BOT_DISABLED` cho bot bắt buộc trong `skipped`; chạy kiểm tra hệ thống (§4); gộp màu; ghi trạng thái hóa đơn bằng CAS từ `investigating` ([bảng](merchant-api.md#2-hóa-đơn)); trả `{final_severity, invoice_status}`. **Hỏi đáp / báo cáo** `{answer: {text, citations: [{tool_call_id, values: [string]}], tables?: [{columns, rows, tool_call_id}], proposed_actions: [ProposedAction]}}` → core kiểm trích dẫn (con số không có trong tool_call được trích → gỡ, gắn cờ `unverified`), kiểm `proposed_actions` là loại hợp lệ và thuộc tenant/quán của người hỏi; lưu thành tin nhắn trả lời |
@@ -49,8 +49,8 @@ Token **điều phối** không bao giờ có tool trả chữ `untrusted` (`inb
 
 | Method | Path | Body → Kết quả |
 |---|---|---|
-| GET | `/internal/tools` | token bot → `[ToolDefinition]` của tool trong token |
-| POST | `/internal/tools/{tool_id}:invoke` | token bot; `{input}` → `200 ToolResult`. Kiểm lại kill switch (tenant, bot, tool) ở **mỗi** lần gọi → `423 KILL_SWITCH_ACTIVE`. Input sai schema → `400`. Nguồn dữ liệu lỗi → `200` với `ToolResult.error` (bot ghi vàng) |
+| GET | `/internal/tools` | capability token (điều phối hoặc bot) → `[ToolDefinition]` của tool trong token |
+| POST | `/internal/tools/{tool_id}:invoke` | capability token (điều phối hoặc bot); `{input}` → `200 ToolResult`. Kiểm lại kill switch (tenant, bot, tool) ở **mỗi** lần gọi → `423 KILL_SWITCH_ACTIVE`. Input sai schema → `400`. Nguồn dữ liệu lỗi → `200` với `ToolResult.error` (bot ghi vàng) |
 
 Tool chỉ-đọc, chỉ dữ liệu của `tenant_id` trong token, và với dữ liệu gắn hóa đơn thì chỉ của `invoice_id` trong token hoặc NCC của nó. Mọi lần gọi ghi `tool_calls` (input, output, provenance, attempt).
 

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/model-config.schema.json",
+  "title": "ModelConfig",
+  "description": "Cấu hình model chính/dự phòng và ngân sách token theo mục đích chạy agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "purpose",
+    "primary_model",
+    "fallback_model",
+    "max_tokens",
+    "timeout_s",
+    "etag"
+  ],
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "bot",
+        "brief"
+      ]
+    },
+    "primary_model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fallback_model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_tokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timeout_s": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "etag": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

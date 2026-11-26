@@ -35,6 +35,7 @@ class Layer(StrEnum):
 class GateReason(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     code: Code
     layer: Layer

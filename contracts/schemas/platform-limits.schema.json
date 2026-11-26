@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/platform-limits.schema.json",
+  "title": "PlatformLimits",
+  "description": "Trần tự chi của nền tảng MoMo (D9, QT-01).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "auto_pay_per_invoice_vnd",
+    "auto_pay_per_day_vnd",
+    "updated_at"
+  ],
+  "properties": {
+    "auto_pay_per_invoice_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "auto_pay_per_day_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "updated_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

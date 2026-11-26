@@ -14,6 +14,7 @@ type InvoiceId = Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
 class Notification(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     notification_id: Annotated[str, Field(pattern='^ntf_[0-9A-HJKMNP-TV-Z]{26}$')]
     kind: notification_kind_schema.NotificationKind

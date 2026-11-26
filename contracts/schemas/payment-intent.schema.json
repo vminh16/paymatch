@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/payment-intent.schema.json",
+  "title": "PaymentIntent",
+  "description": "Lệnh chi hai pha do Payment Gate quản lý trên ledger.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payment_intent_id",
+    "tenant_id",
+    "invoice_id",
+    "purchase_order_id",
+    "intent_hash",
+    "approval_id",
+    "payee_account_id",
+    "channel",
+    "amount_vnd",
+    "status",
+    "gate_reasons",
+    "rail",
+    "transfer_memo",
+    "authorized_at",
+    "executed_at",
+    "settled_at",
+    "expires_at",
+    "created_at"
+  ],
+  "properties": {
+    "payment_intent_id": {
+      "type": "string",
+      "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "purchase_order_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "intent_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "payee_account_id": {
+      "type": "string",
+      "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "channel": {
+      "$ref": "./channel.schema.json"
+    },
+    "amount_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "status": {
+      "$ref": "./payment-intent-status.schema.json"
+    },
+    "gate_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "./gate-reason.schema.json"
+      }
+    },
+    "rail": {
+      "title": "PaymentIntentRail",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rail_txn_id",
+        "failure_code"
+      ],
+      "properties": {
+        "rail_txn_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failure_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "transfer_memo": {
+      "type": "string",
+      "description": "Nội dung chuyển khoản chuẩn 'MST · ký hiệu · số' (D2)."
+    },
+    "authorized_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "executed_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "settled_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

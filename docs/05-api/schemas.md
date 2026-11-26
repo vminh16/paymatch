@@ -143,13 +143,21 @@ Brief:                                # tờ trình 5 dòng của chief-accounta
 ```yaml
 ApprovalMethod: single | bulk | mandate
 
-# Cách tính hash (core, Gate, client dùng chung một hàm trong paymatch_contracts)
-#   canonical = JSON Canonicalization Scheme (RFC 8785); hash = sha256, hex chữ thường
+# Cách tính hash (core, Gate, client dùng chung gói chuẩn `paymatch_hashing` ở packages/paymatch-hashing;
+#   vector kiểm thử chuẩn tại contracts/test-vectors/hashing.json)
+#   canonical = JSON Canonicalization Scheme (RFC 8785, không dùng số thực float); hash = sha256 UTF-8, hex chữ thường
 #   intent_hash (hóa đơn) = H({"v":1,"kind":"invoice","invoice_id","document_sha256","payee_account_id","amount_vnd","channel"})
+#                           (payee_account_id = null chỉ khi Gate DENY và NCC chưa có TK trong registry)
 #   intent_hash (cọc)     = H({"v":1,"kind":"escrow","purchase_order_id","payee_account_id","amount_vnd","channel":"escrow"})
 #   payload_hash (duyệt)  = H({"intent_hash", "verification": Verification | null})
-#   payload_hash (batch)  = H({"preview_id", "items": [[invoice_id, intent_hash], …] sắp theo invoice_id})
+#                           (khi verification != null, đối tượng luôn đủ 4 khóa {"called_phone_on_file","result","note","at"};
+#                            nếu vắng note thì chuẩn hóa thành "note": null; approval-preview tính sẵn với verification = null,
+#                            còn khi có verification thì client/core tính lại với Verification đã nhập)
+#   payload_hash (batch)  = H({"preview_id", "items": [[invoice_id, intent_hash], …] sắp tăng dần theo invoice_id (UTF-16 code unit)})
 #   action_hash           = H({"v":1,"action","resource_id","payload_hash"})
+#                           (action snake_case: approve_invoice | approve_batch | create_escrow | sign_mandate
+#                            | create_vendor | change_vendor_phone | approve_vendor_verification
+#                            | activate_vendor_contract | lift_auto_pay_suspension | approve_bot)
 
 ApprovalPreview:                      # GET /m/invoices/{id}/approval-preview
   invoice_id
@@ -308,11 +316,13 @@ ToolResult:
 
 CapabilityTokenClaims:                # JWT ký bởi core (EdDSA), chỉ internal-api kiểm
   iss: core, aud: internal-api
-  sub: "<bot_id>"                     # đúng một bot
-  tenant_id, job_id, invoice_id
+  sub: "supervisor" | "<bot_id>"      # khớp holder ở /heartbeat
+  tenant_id, job_id
+  invoice_id: string | null           # null với job question / report
   attempt: integer, worker_id: string  # token của attempt cũ bị từ chối
-  bot_version: integer
+  bot_version: integer | null         # null khi sub = supervisor
   tools: [tool_id]
+  store_ids?: [string] | null         # giới hạn quán cho hội thoại/báo cáo của store_manager
   exp: <= now + 120 s (gia hạn qua heartbeat)
   jti
 ```

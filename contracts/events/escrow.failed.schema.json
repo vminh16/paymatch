@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/escrow.failed.schema.json",
+  "title": "EscrowFailedEvent",
+  "description": "Tạo khoản cọc tạm giữ thất bại tại rail.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "escrow.failed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "EscrowFailedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "escrow_id",
+        "failure_code"
+      ],
+      "properties": {
+        "escrow_id": {
+          "type": "string",
+          "pattern": "^esc_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "failure_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_invoice_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810YY1BCDEFGHJKMNPQRST",
+      "type": "escrow.failed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T09:16:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "escrow_id": "esc_01M88A6SAP3R27VDQ55VAKCF0P",
+        "failure_code": "INSUFFICIENT_FUNDS",
+        "source_invoice_id": "inv_01M883YAYXMNBVDV7CSN4MH4C4"
+      }
+    }
+  ]
+}

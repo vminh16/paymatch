@@ -42,6 +42,7 @@ class Code(StrEnum):
 class ProblemErrorItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     field: str
     code: str
@@ -51,6 +52,7 @@ class ProblemErrorItem(BaseModel):
 class Problem(BaseModel):
     model_config = ConfigDict(
         extra='allow',
+        populate_by_name=True,
     )
     type: AnyUrl
     title: str

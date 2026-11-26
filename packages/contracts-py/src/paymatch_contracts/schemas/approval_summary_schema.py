@@ -19,6 +19,7 @@ class Status(StrEnum):
 class ApprovalSummary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     approval_id: Annotated[str, Field(pattern='^apv_[0-9A-HJKMNP-TV-Z]{26}$')]
     method: approval_method_schema.ApprovalMethod

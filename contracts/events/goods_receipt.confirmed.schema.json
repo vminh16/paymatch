@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/goods_receipt.confirmed.schema.json",
+  "title": "GoodsReceiptConfirmedEvent",
+  "description": "Quản lý quán xác nhận phiếu nhập hàng (GRN) cho PO.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "goods_receipt.confirmed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "GoodsReceiptConfirmedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goods_receipt_id",
+        "purchase_order_id"
+      ],
+      "properties": {
+        "goods_receipt_id": {
+          "type": "string",
+          "pattern": "^grn_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "purchase_order_id": {
+          "type": "string",
+          "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810EE5BCDEFGHJKMNPQRST",
+      "type": "goods_receipt.confirmed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-25T14:30:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "goods_receipt_id": "grn_01M884Y1K8SBPJVXXPDS01Q7PV",
+        "purchase_order_id": "po_01M886NDCXNRHK9AN74YJSFB5A"
+      }
+    }
+  ]
+}

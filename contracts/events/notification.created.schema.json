@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/notification.created.schema.json",
+  "title": "NotificationCreatedEvent",
+  "description": "Thông báo mới cho người dùng merchant được tạo và đẩy qua SSE tenant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "notification.created"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "NotificationCreatedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "notification_id",
+        "kind",
+        "user_ids"
+      ],
+      "properties": {
+        "notification_id": {
+          "type": "string",
+          "pattern": "^ntf_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "kind": {
+          "$ref": "../schemas/notification-kind.schema.json"
+        },
+        "user_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M885C0TP8ES25YXZ61C356AR",
+      "type": "notification.created",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:36:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "notification_id": "ntf_01M882CX6Y9ZHBRXEWV1T2WJ2T",
+        "kind": "verification_needed",
+        "user_ids": [
+          "usr_01M885AXP309SER6BAC46N5FJT"
+        ]
+      }
+    }
+  ]
+}

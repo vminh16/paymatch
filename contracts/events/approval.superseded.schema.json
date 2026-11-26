@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/approval.superseded.schema.json",
+  "title": "ApprovalSupersededEvent",
+  "description": "Bản ghi Approval đang active bị thay thế (superseded) do job mới, cảnh báo hệ thống, lỗi chi hoặc hủy chi.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "approval.superseded"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "ApprovalSupersededData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "invoice_id",
+        "purchase_order_id",
+        "method"
+      ],
+      "properties": {
+        "approval_id": {
+          "type": "string",
+          "pattern": "^apv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "invoice_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "purchase_order_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "method": {
+          "$ref": "../schemas/approval-method.schema.json"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "NEW_JOB",
+            "NEW_SYSTEM_FINDING",
+            "PAYMENT_FAILED",
+            "PAYMENT_DENIED",
+            "OWNER_CANCELLED",
+            null
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810DD4BCDEFGHJKMNPQRST",
+      "type": "approval.superseded",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:56:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "approval_id": "apv_01M883BRJ9DP97B91S0CMK8PZJ",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "purchase_order_id": null,
+        "method": "single",
+        "reason": "NEW_SYSTEM_FINDING"
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. File OpenAPI: `contracts/openapi/core-merchant.yaml`.
 
-Mọi endpoint cần `Authorization: Bearer <session_jwt>` (trừ `POST /m/auth/session`). Tenant lấy từ token, **không bao giờ** từ đường dẫn hay body. Cột **Vai**: O = owner, A = accountant, S = store_manager. S chỉ thấy hóa đơn, PO, phiếu nhập, sự kiện có `store_id` thuộc quán được gán; hóa đơn chưa gắn quán (`store_id = null`) S không thấy. **Step-up** = body phải có `auth_proof` hợp lệ cho đúng `action_hash` (cách tính ở [schemas.md §4](schemas.md#4-duyệt-và-chi)).
+Mọi endpoint nghiệp vụ cần `Authorization: Bearer <session_jwt>` (trừ `POST /m/auth/session`, cùng hai probe không xác thực `GET /m/healthz`, `GET /m/readyz`). Tenant lấy từ token, **không bao giờ** từ đường dẫn hay body. Cột **Vai**: O = owner, A = accountant, S = store_manager. S chỉ thấy hóa đơn, PO, phiếu nhập, sự kiện có `store_id` thuộc quán được gán; hóa đơn chưa gắn quán (`store_id = null`) S không thấy. **Step-up** = body phải có `auth_proof` hợp lệ cho đúng `action_hash` (cách tính ở [schemas.md §4](schemas.md#4-duyệt-và-chi)).
 
 ## 1. Phiên và xác thực mạnh
 
@@ -53,7 +53,7 @@ Luồng step-up (một lần cho mỗi hành động nhạy cảm):
 | Method | Path | Vai | Kết quả |
 |---|---|---|---|
 | GET | `/m/jobs/{job_id}` | O A | `Job` |
-| GET | `/m/jobs/{job_id}/events` | O A | **SSE**. Sự kiện: `bot.started`, `bot.tool_called`, `bot.finished`, `bot.failed`, `job.completed`. Hỗ trợ `Last-Event-ID`. Đóng luồng sau `job.completed`. Chi tiết ở [events.md §3](events.md#3-sse) |
+| GET | `/m/jobs/{job_id}/events` | O A | **SSE**. Sự kiện: `supervisor.step`, `bot.started`, `bot.tool_called`, `bot.finished`, `bot.failed`, `answer.delta` (chỉ hỏi đáp), `job.completed`. Hỗ trợ `Last-Event-ID`. Đóng luồng sau `job.completed`. Chi tiết ở [events.md §3](events.md#3-sse) |
 | GET | `/m/events` | O A S | **SSE** mức tenant: `invoice.status_changed`, `notification.created`, `payment.updated`. Cho hàng chờ tự cập nhật |
 
 ## 3a. Hỏi đáp với trợ lý (v1)

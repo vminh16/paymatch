@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/vendor-account-status.schema.json",
+  "title": "VendorAccountStatus",
+  "description": "Trạng thái tài khoản nhận tiền của nhà cung cấp trong danh bạ.",
+  "type": "string",
+  "enum": [
+    "verified",
+    "escrow_only",
+    "retired"
+  ]
+}

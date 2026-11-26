@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/indicator-kind.schema.json",
+  "title": "IndicatorKind",
+  "description": "Loại chỉ báo rủi ro trên Risk Intelligence Plane.",
+  "type": "string",
+  "enum": [
+    "account_hash",
+    "tax_id",
+    "phone",
+    "card_id",
+    "merchant_id"
+  ]
+}

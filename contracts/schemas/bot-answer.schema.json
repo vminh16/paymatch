@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/bot-answer.schema.json",
+  "title": "BotAnswer",
+  "description": "Kết quả có cấu trúc của bot chuyên môn cho job hỏi đáp hoặc báo cáo, đã được core đối chiếu với output của tool_call_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bot_id",
+    "facts",
+    "reason_codes"
+  ],
+  "properties": {
+    "bot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "title": "BotAnswerFact",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value",
+          "tool_call_id",
+          "verified"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "tool_call_id": {
+            "type": "string",
+            "pattern": "^tcl_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,1393 @@
+openapi: 3.1.0
+info:
+  title: PayMatch Payment Gate API
+  version: 0.1.0
+  description: |
+    Hợp đồng API Payment Gate (`/gate/*`, cổng 8100, chỉ mạng service) theo `docs/05-api/gate-api.md`
+    và `docs/02-architecture/payment-gate.md`.
+
+    **Ranh giới tin cậy:**
+    - Payment Gate là tiến trình duy nhất ghi `ledger` và gọi `/sim/rails/*`.
+    - Mọi endpoint nghiệp vụ bắt buộc `X-Service-Key` riêng cho từng bên gọi (`merchant-api`, `core-worker`,
+      `internal-api`, `console-api`); gọi endpoint ngoài ma trận quyền của bên gọi trả `403 FORBIDDEN`.
+      `agent-worker` không bao giờ có khóa Gate.
+    - Riêng probe sống/sẵn sàng `GET /gate/healthz` và `GET /gate/readyz` không yêu cầu khóa (`security: []`).
+    - Gate **không tin dữ liệu số tiền hay tài khoản trong request**: request chỉ truyền ID; Gate tự đọc
+      `core`, `control`, `risk` (chỉ-đọc) để suy ra tenant (lệch `tenant_id` → `403 TENANT_MISMATCH`),
+      kiểm tra 3 lớp luật (luật cứng, policy nền tảng + kill switch, mandate) và tự tính lại `intent_hash`
+      theo RFC 8785 + SHA-256 (`docs/05-api/schemas.md §4`).
+
+servers:
+  - url: http://localhost:8100
+    description: Local payment-gate server (tiền tố đường dẫn /gate)
+
+security:
+  - ServiceKeyAuth: []
+
+tags:
+  - name: System
+    description: Probe kiểm tra tiến trình sống và sẵn sàng
+  - name: Evaluate
+    description: Đánh giá thử điều kiện chi và chọn kênh thanh toán không tác dụng phụ
+  - name: Budgets
+    description: Tra cứu ngân sách tự chi và tổng chi theo ngày của tenant
+  - name: Intents
+    description: Quản lý vòng đời PaymentIntent hai pha (authorized → executing → settled/failed/expired/denied)
+  - name: Escrows
+    description: Quản lý cọc tạm giữ gắn đơn đặt hàng PO cho nhà cung cấp mới (F7)
+
+paths:
+  /gate/healthz:
+    get:
+      operationId: healthz
+      summary: Liveness probe
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Tiến trình gate đang sống
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                alive:
+                  summary: Gate alive
+                  value:
+                    status: ok
+
+  /gate/readyz:
+    get:
+      operationId: readyz
+      summary: Readiness probe (đã nối DB ledger/core/control/risk)
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Tiến trình gate sẵn sàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+              examples:
+                ready:
+                  summary: Gate ready
+                  value:
+                    status: ready
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /gate/evaluate:
+    post:
+      operationId: evaluatePaymentPolicy
+      summary: Đánh giá thử 3 lớp luật và chọn kênh thanh toán (không tác dụng phụ)
+      description: |
+        Bên gọi được phép: `merchant-api` (approval-preview, escrow-preview), `core-worker` (kiểm tự chi F2),
+        `internal-api` (tool `payment_policy_preview`).
+        - Đánh giá hóa đơn: truyền `{invoice_id, tenant_id?}`.
+        - Đánh giá cọc tạm giữ (F7): truyền `{purchase_order_id, vendor_account_id, amount_vnd, tenant_id?}`.
+        - Kênh do Gate tự chọn: hóa đơn có PO đang có escrow `held` → `escrow`; ngược lại theo `mandate.channel_rules`,
+          mặc định `bank_transfer`.
+      tags: [Evaluate]
+      parameters:
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateRequest'
+            examples:
+              evaluate_invoice_cups:
+                summary: Đánh giá hóa đơn BRD_03 Cốc nhựa (vàng)
+                value:
+                  invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+              evaluate_invoice_coffee_autopay:
+                summary: Đánh giá hóa đơn BRD_01 Cà phê hạt (xanh, đủ điều kiện tự chi)
+                value:
+                  invoice_id: inv_01M8808XXD8017SJ9NTGTNC48Y
+                  tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+              evaluate_escrow_po:
+                summary: Xem trước tạo cọc tạm giữ gắn PO (F7)
+                value:
+                  purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                  vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                  amount_vnd: 8800000
+      responses:
+        '200':
+          description: Kết quả đánh giá `ALLOW` | `REQUIRE_APPROVAL` | `DENY` kèm `intent_hash` và `reasons`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateResponse'
+              examples:
+                allow_coffee_autopay:
+                  summary: BRD_01 Cà phê hạt 26,5tr — ALLOW theo mandate tự chi
+                  value:
+                    decision: ALLOW
+                    allowed_methods:
+                      - single
+                      - bulk
+                    verification_required: false
+                    intent_hash: 900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f
+                    payee_account_id: vac_01M885170DEVTBBKXKDK90DBAS
+                    amount_vnd: 26500000
+                    channel: bank_transfer
+                    reasons: []
+                    evaluated_at: '2026-11-26T08:06:00+07:00'
+                require_approval_cups:
+                  summary: BRD_03 Cốc nhựa 22,4tr — REQUIRE_APPROVAL (single)
+                  value:
+                    decision: REQUIRE_APPROVAL
+                    allowed_methods:
+                      - single
+                    verification_required: false
+                    intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                    payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 22400000
+                    channel: bank_transfer
+                    reasons:
+                      - code: VENDOR_NOT_IN_AUTO_PAY
+                        layer: mandate
+                        detail: Hóa đơn có cảnh báo vàng (PACK_SIZE_CHANGED, PRICE_ABOVE_CONTRACT) và NCC không thuộc danh sách tự chi.
+                    evaluated_at: '2026-11-26T08:30:00+07:00'
+                deny_syrup_blocked:
+                  summary: BRD_04 Si-rô NCC mới (đỏ) — DENY, payee_account_id = null
+                  value:
+                    decision: DENY
+                    allowed_methods: []
+                    verification_required: false
+                    intent_hash: 814d5db7aed90fb642a1e0c67e3df005fd5e3b6d34662a8238479d2cf9e85f7d
+                    payee_account_id: null
+                    amount_vnd: 8800000
+                    channel: bank_transfer
+                    reasons:
+                      - code: BLOCKED_INVOICE
+                        layer: hard_rule
+                        detail: Hóa đơn đang ở trạng thái blocked (mức đỏ) nên không bao giờ được chi trực tiếp.
+                      - code: PAYEE_NOT_VERIFIED
+                        layer: hard_rule
+                        detail: Người bán (MST 0999090001) chưa có tài khoản đã xác minh trong vendor registry.
+                    evaluated_at: '2026-11-26T08:40:00+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /gate/budgets/{tenant_id}/{date}:
+    get:
+      operationId: getDailyBudget
+      summary: Đọc ngân sách tự chi và tổng chi trong ngày của tenant
+      description: |
+        Bên gọi được phép: `core-worker`, `internal-api` (tool `spending_limits`).
+        `auto_pay_limit_vnd` = `min(mandate.limits.per_day_vnd, platform_limits.auto_pay_per_day_vnd)`.
+      tags: [Budgets]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+          example: ten_01M88D3C06B97Y4G0S9W8BVKNG
+        - name: date
+          in: path
+          required: true
+          schema:
+            $ref: '../schemas/local-date.schema.json'
+          example: '2026-11-26'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Trạng thái ngân sách ngày của tenant
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyBudgetResponse'
+              examples:
+                morning_after_coffee_and_pos:
+                  summary: Chuỗi Lá Xanh sáng 26/11 sau khi tự chi cà phê 26,5tr và phần mềm 12tr
+                  value:
+                    date: '2026-11-26'
+                    auto_pay_used_vnd: 38500000
+                    auto_pay_reserved_vnd: 0
+                    auto_pay_limit_vnd: 50000000
+                    total_paid_vnd: 38500000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gate/intents:
+    post:
+      operationId: createPaymentIntent
+      summary: Tạo PaymentIntent pha 1 (authorized, giữ chỗ ngân sách ngày)
+      description: |
+        Bên gọi được phép: **chỉ `core-worker`**.
+        - Gate tự đọc hóa đơn, approval (`status = active`, `job_id` = job hoàn tất mới nhất, `intent_hash` khớp,
+          `channel != escrow`), danh bạ NCC, mandate hiện hành và kill switch/policy.
+        - Đã tồn tại intent ở `authorized` / `executing` / `settled` cho cùng hóa đơn → trả `200` với intent đó (idempotent).
+        - Bị từ chối → lưu intent ở trạng thái `denied` để truy vết, phát `payment.denied` vào `ledger.outbox`,
+          và trả `422 GATE_DENIED` kèm `gate_reasons[]` và `payment_intent`.
+      tags: [Intents]
+      parameters:
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentIntentRequest'
+            examples:
+              authorize_cups_payment:
+                summary: Tạo PaymentIntent cho hóa đơn BRD_03 sau khi Chủ chuỗi duyệt
+                value:
+                  invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                  approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+      responses:
+        '201':
+          description: Đã tạo `PaymentIntent` mới ở trạng thái `authorized`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/payment-intent.schema.json'
+              examples:
+                authorized_cups:
+                  summary: Intent của BRD_03 ở trạng thái authorized
+                  value:
+                    payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                    purchase_order_id: null
+                    intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                    approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                    payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    channel: bank_transfer
+                    amount_vnd: 22400000
+                    status: authorized
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: null
+                      failure_code: null
+                    transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                    authorized_at: '2026-11-26T08:32:00+07:00'
+                    executed_at: null
+                    settled_at: null
+                    expires_at: '2026-11-26T08:47:00+07:00'
+                    created_at: '2026-11-26T08:32:00+07:00'
+        '200':
+          description: Đã có `PaymentIntent` đang mở/đã tất toán cho hóa đơn này (idempotent)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/payment-intent.schema.json'
+              examples:
+                existing_settled_coffee:
+                  summary: Hóa đơn BRD_01 đã có intent settled
+                  value:
+                    payment_intent_id: pi_01M88557BXGABQA8KPG2382VH5
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M8808XXD8017SJ9NTGTNC48Y
+                    purchase_order_id: null
+                    intent_hash: 900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f
+                    approval_id: apv_01M885AXP309SER6BAC46N5FJT
+                    payee_account_id: vac_01M885170DEVTBBKXKDK90DBAS
+                    channel: bank_transfer
+                    amount_vnd: 26500000
+                    status: settled
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: rtx_01M88H11Y0WR367CGNZZH603T5
+                      failure_code: null
+                    transfer_memo: '0999010001 · 1C26TTN · 00001425'
+                    authorized_at: '2026-11-26T08:06:05+07:00'
+                    executed_at: '2026-11-26T08:06:08+07:00'
+                    settled_at: '2026-11-26T08:06:12+07:00'
+                    expires_at: '2026-11-26T08:21:05+07:00'
+                    created_at: '2026-11-26T08:06:05+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/GateDenied'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+    get:
+      operationId: listPaymentIntents
+      summary: Danh sách PaymentIntent phân trang theo tenant
+      description: |
+        Bên gọi được phép: `merchant-api`, `core-worker`.
+        Bắt buộc truyền `tenant_id`; Gate kiểm quyền bên gọi và chỉ trả các intent thuộc `tenant_id` đó.
+      tags: [Intents]
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+          example: ten_01M88D3C06B97Y4G0S9W8BVKNG
+        - name: invoice_id
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^inv_[0-9A-HJKMNP-TV-Z]{26}$'
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '../schemas/payment-intent-status.schema.json'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Trang danh sách `PaymentIntent`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentPage'
+              examples:
+                settled_intents:
+                  summary: Hai lệnh tự chi đã settled buổi sáng 26/11
+                  value:
+                    items:
+                      - payment_intent_id: pi_01M88557BXGABQA8KPG2382VH5
+                        tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                        invoice_id: inv_01M8808XXD8017SJ9NTGTNC48Y
+                        purchase_order_id: null
+                        intent_hash: 900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f
+                        approval_id: apv_01M885AXP309SER6BAC46N5FJT
+                        payee_account_id: vac_01M885170DEVTBBKXKDK90DBAS
+                        channel: bank_transfer
+                        amount_vnd: 26500000
+                        status: settled
+                        gate_reasons: []
+                        rail:
+                          rail_txn_id: rtx_01M88H11Y0WR367CGNZZH603T5
+                          failure_code: null
+                        transfer_memo: '0999010001 · 1C26TTN · 00001425'
+                        authorized_at: '2026-11-26T08:06:05+07:00'
+                        executed_at: '2026-11-26T08:06:08+07:00'
+                        settled_at: '2026-11-26T08:06:12+07:00'
+                        expires_at: '2026-11-26T08:21:05+07:00'
+                        created_at: '2026-11-26T08:06:05+07:00'
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /gate/intents/{payment_intent_id}:
+    get:
+      operationId: getPaymentIntent
+      summary: Chi tiết một PaymentIntent
+      description: |
+        Bên gọi được phép: `merchant-api`, `core-worker`, và `console-api` (bắt buộc kèm `X-Ticket-Id` từ handler tra bằng chứng F6).
+      tags: [Intents]
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+        - name: X-Ticket-Id
+          in: header
+          required: false
+          description: Bắt buộc khi người gọi là `console-api` (thiếu → `403 TICKET_REQUIRED`).
+          schema:
+            type: string
+            minLength: 1
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Chi tiết `PaymentIntent`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/payment-intent.schema.json'
+              examples:
+                settled_coffee:
+                  summary: Intent settled của BRD_01
+                  value:
+                    payment_intent_id: pi_01M88557BXGABQA8KPG2382VH5
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M8808XXD8017SJ9NTGTNC48Y
+                    purchase_order_id: null
+                    intent_hash: 900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f
+                    approval_id: apv_01M885AXP309SER6BAC46N5FJT
+                    payee_account_id: vac_01M885170DEVTBBKXKDK90DBAS
+                    channel: bank_transfer
+                    amount_vnd: 26500000
+                    status: settled
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: rtx_01M88H11Y0WR367CGNZZH603T5
+                      failure_code: null
+                    transfer_memo: '0999010001 · 1C26TTN · 00001425'
+                    authorized_at: '2026-11-26T08:06:05+07:00'
+                    executed_at: '2026-11-26T08:06:08+07:00'
+                    settled_at: '2026-11-26T08:06:12+07:00'
+                    expires_at: '2026-11-26T08:21:05+07:00'
+                    created_at: '2026-11-26T08:06:05+07:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gate/intents/{payment_intent_id}:execute:
+    post:
+      operationId: executePaymentIntent
+      summary: Thực thi PaymentIntent pha 2 (đánh giá lại toàn bộ rồi gọi rail)
+      description: |
+        Bên gọi được phép: **chỉ `core-worker`**.
+        - Ngay trước khi gọi `/sim/rails/*`, Gate đánh giá lại toàn bộ từ DB (cảnh báo chéo mới, hard block,
+          kill switch, trạng thái hóa đơn, approval còn `active`). Trượt → chuyển intent sang `denied`,
+          phát `payment.denied`, trả `422 GATE_DENIED`.
+        - Nếu intent đang ở `executing` → trả trạng thái hiện tại, không gọi rail lần hai.
+        - Nếu rail timeout sau 5 s → intent giữ `executing`, trả `200` với `status = executing` (vòng nền của Gate sẽ đối chiếu).
+      tags: [Intents]
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutePaymentIntentRequest'
+            examples:
+              execute_default:
+                summary: Gọi thực thi pha 2
+                value: {}
+      responses:
+        '200':
+          description: Kết quả thực thi (`settled` | `failed` | `executing`)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/payment-intent.schema.json'
+              examples:
+                settled_cups:
+                  summary: Chuyển khoản thành công trên rail
+                  value:
+                    payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                    purchase_order_id: null
+                    intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                    approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                    payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    channel: bank_transfer
+                    amount_vnd: 22400000
+                    status: settled
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: rtx_01M8867BQMQG52GZYDE75JHF2V
+                      failure_code: null
+                    transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                    authorized_at: '2026-11-26T08:32:00+07:00'
+                    executed_at: '2026-11-26T08:32:02+07:00'
+                    settled_at: '2026-11-26T08:32:03+07:00'
+                    expires_at: '2026-11-26T08:47:00+07:00'
+                    created_at: '2026-11-26T08:32:00+07:00'
+                failed_insufficient_funds:
+                  summary: Rail từ chối vì không đủ số dư ví
+                  value:
+                    payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                    purchase_order_id: null
+                    intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                    approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                    payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    channel: bank_transfer
+                    amount_vnd: 22400000
+                    status: failed
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: rtx_01M8867BQMQG52GZYDE75JHF2V
+                      failure_code: INSUFFICIENT_FUNDS
+                    transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                    authorized_at: '2026-11-26T08:32:00+07:00'
+                    executed_at: '2026-11-26T08:32:02+07:00'
+                    settled_at: null
+                    expires_at: '2026-11-26T08:47:00+07:00'
+                    created_at: '2026-11-26T08:32:00+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/GateDenied'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  /gate/intents/{payment_intent_id}:cancel:
+    post:
+      operationId: cancelPaymentIntent
+      summary: Hủy PaymentIntent đang ở trạng thái authorized và hoàn chỗ ngân sách ngày
+      description: |
+        Bên gọi được phép: **chỉ `core-worker`**.
+        Chỉ hợp lệ khi intent đang ở `authorized` (chuyển sang `expired` và phát `payment.expired`);
+        nếu đang ở `executing` hoặc đã kết thúc → `409 INVALID_STATE`.
+      tags: [Intents]
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPaymentIntentRequest'
+            examples:
+              cancel_on_cross_alert:
+                summary: Hủy do phát hành cảnh báo chéo F3
+                value:
+                  reason: CROSS_ALERT
+      responses:
+        '200':
+          description: Intent chuyển sang `expired`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/payment-intent.schema.json'
+              examples:
+                expired_by_cross_alert:
+                  summary: Intent đã hủy về trạng thái expired
+                  value:
+                    payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                    purchase_order_id: null
+                    intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                    approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                    payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    channel: bank_transfer
+                    amount_vnd: 22400000
+                    status: expired
+                    gate_reasons: []
+                    rail:
+                      rail_txn_id: null
+                      failure_code: null
+                    transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                    authorized_at: '2026-11-26T08:32:00+07:00'
+                    executed_at: null
+                    settled_at: null
+                    expires_at: '2026-11-26T08:47:00+07:00'
+                    created_at: '2026-11-26T08:32:00+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gate/escrows:
+    post:
+      operationId: createEscrow
+      summary: Tạo khoản cọc tạm giữ từ Approval của Chủ chuỗi (F7)
+      description: |
+        Bên gọi được phép: **chỉ `merchant-api`**.
+        Gate tự đọc PO, TK nhận (`verified` hoặc `escrow_only` thuộc NCC của PO), số tiền (`<= PO.total_vnd`)
+        và `source_invoice_id` từ bản ghi `Approval`. Mỗi PO tối đa một escrow đang mở.
+      tags: [Escrows]
+      parameters:
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscrowRequest'
+            examples:
+              create_syrup_escrow:
+                summary: Tạo cọc 8,8tr cho đơn hàng PO si-rô (F7)
+                value:
+                  approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                  expires_on: '2026-12-10'
+      responses:
+        '201':
+          description: Đã tạo `Escrow` ở trạng thái `held` (hoặc `pending` nếu rail chưa phản hồi sau 5 s)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/escrow.schema.json'
+              examples:
+                held_escrow:
+                  summary: Cọc tạm giữ ở trạng thái held
+                  value:
+                    escrow_id: esc_01M88A6SAP3R27VDQ55VAKCF0P
+                    purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                    vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 8800000
+                    status: held
+                    source_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    release_invoice_id: null
+                    goods_receipt_id: null
+                    expires_on: '2026-12-10'
+                    created_at: '2026-11-26T09:15:00+07:00'
+                    released_at: null
+                    refunded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/GateDenied'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  /gate/escrows/{escrow_id}:
+    get:
+      operationId: getEscrow
+      summary: Chi tiết một khoản cọc tạm giữ
+      description: Bên gọi được phép — `merchant-api`, `core-worker`.
+      tags: [Escrows]
+      parameters:
+        - $ref: '#/components/parameters/EscrowId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Chi tiết `Escrow`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/escrow.schema.json'
+              examples:
+                held_escrow:
+                  summary: Cọc đang được giữ trên rail
+                  value:
+                    escrow_id: esc_01M88A6SAP3R27VDQ55VAKCF0P
+                    purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                    vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 8800000
+                    status: held
+                    source_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    release_invoice_id: null
+                    goods_receipt_id: null
+                    expires_on: '2026-12-10'
+                    created_at: '2026-11-26T09:15:00+07:00'
+                    released_at: null
+                    refunded_at: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gate/escrows/{escrow_id}:release:
+    post:
+      operationId: releaseEscrow
+      summary: Giải ngân cọc tạm giữ khi đủ phiếu nhập hàng và hóa đơn giải ngân đã duyệt (F7)
+      description: |
+        Bên gọi được phép: **chỉ `core-worker`**.
+        Gate kiểm tra: `goods_receipt_id` thuộc đúng PO của cọc; `approval_id` là bản ghi `active` với `channel = escrow`
+        của hóa đơn giải ngân cùng NCC gắn PO và tổng tiền `<= amount_vnd` của cọc.
+      tags: [Escrows]
+      parameters:
+        - $ref: '#/components/parameters/EscrowId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseEscrowRequest'
+            examples:
+              release_with_grn:
+                summary: Giải ngân cọc khi đã có GRN và approval hóa đơn giao hàng
+                value:
+                  approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                  goods_receipt_id: grn_01M88AR4Z4F0HA2R6KPFXBFX7S
+      responses:
+        '200':
+          description: Đã giải ngân cọc (`released`)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/escrow.schema.json'
+              examples:
+                released_escrow:
+                  summary: Cọc đã giải ngân cho NCC
+                  value:
+                    escrow_id: esc_01M88A6SAP3R27VDQ55VAKCF0P
+                    purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                    vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 8800000
+                    status: released
+                    source_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    release_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    goods_receipt_id: grn_01M88AR4Z4F0HA2R6KPFXBFX7S
+                    expires_on: '2026-12-10'
+                    created_at: '2026-11-26T09:15:00+07:00'
+                    released_at: '2026-11-28T14:20:00+07:00'
+                    refunded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/GateDenied'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  /gate/escrows/{escrow_id}:refund:
+    post:
+      operationId: refundEscrow
+      summary: Hoàn cọc tạm giữ về ví tenant do quá hạn hoặc hủy PO (F7)
+      description: Bên gọi được phép — **chỉ `core-worker`**.
+      tags: [Escrows]
+      parameters:
+        - $ref: '#/components/parameters/EscrowId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundEscrowRequest'
+            examples:
+              refund_expired:
+                summary: Hoàn cọc do quá hạn giao hàng
+                value:
+                  reason: EXPIRED
+      responses:
+        '200':
+          description: Đã hoàn cọc (`refunded`)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/escrow.schema.json'
+              examples:
+                refunded_escrow:
+                  summary: Cọc đã hoàn về ví chuỗi
+                  value:
+                    escrow_id: esc_01M88A6SAP3R27VDQ55VAKCF0P
+                    purchase_order_id: po_01M886F6SP0ZHE2X89GQ1TRJSP
+                    vendor_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                    amount_vnd: 8800000
+                    status: refunded
+                    source_invoice_id: inv_01M883YAYXMNBVDV7CSN4MH4C4
+                    release_invoice_id: null
+                    goods_receipt_id: null
+                    expires_on: '2026-12-10'
+                    created_at: '2026-11-26T09:15:00+07:00'
+                    released_at: null
+                    refunded_at: '2026-12-11T08:00:00+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: Khóa dịch vụ riêng cho từng bên gọi (`merchant-api`, `core-worker`, `internal-api`, `console-api`).
+
+  parameters:
+    PaymentIntentId:
+      name: payment_intent_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^pi_[0-9A-HJKMNP-TV-Z]{26}$'
+      example: pi_01M88557BXGABQA8KPG2382VH5
+    EscrowId:
+      name: escrow_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^esc_[0-9A-HJKMNP-TV-Z]{26}$'
+      example: esc_01M88A6SAP3R27VDQ55VAKCF0P
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context header (`00-<trace_id>-<span_id>-<flags>`).
+      schema:
+        type: string
+      example: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+    Limit:
+      name: limit
+      in: query
+      description: Số bản ghi tối đa trên một trang (mặc định 50, tối đa 200).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      description: Con trỏ phân trang lấy từ `next_cursor` của trang trước.
+      schema:
+        type: string
+
+  headers:
+    X-Request-Id:
+      description: Mã định danh request để đối chiếu log và truy vết.
+      schema:
+        type: string
+      example: req_01M88GATE00000000000000001
+
+  responses:
+    BadRequest:
+      description: Sai schema hoặc dữ liệu đầu vào không hợp lệ (`400 VALIDATION_FAILED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            validation_failed:
+              summary: Lỗi dữ liệu đầu vào
+              value:
+                type: https://paymatch.dev/problems/validation-failed
+                title: Validation failed
+                status: 400
+                code: VALIDATION_FAILED
+                detail: Dữ liệu đầu vào không hợp lệ.
+    Unauthorized:
+      description: Thiếu hoặc sai khóa `X-Service-Key` (`401 UNAUTHENTICATED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            unauthenticated:
+              summary: Thiếu hoặc sai X-Service-Key
+              value:
+                type: https://paymatch.dev/problems/unauthenticated
+                title: Authentication required
+                status: 401
+                code: UNAUTHENTICATED
+                detail: Thiếu hoặc không hợp lệ X-Service-Key.
+    Forbidden:
+      description: Bên gọi không được phép gọi endpoint này (`403 FORBIDDEN`), thiếu `X-Ticket-Id` (`TICKET_REQUIRED`), hoặc lệch tenant (`TENANT_MISMATCH`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            caller_forbidden:
+              summary: Bên gọi ngoài ma trận quyền của Gate
+              value:
+                type: https://paymatch.dev/problems/forbidden
+                title: Caller not permitted for endpoint
+                status: 403
+                code: FORBIDDEN
+                detail: Khóa dịch vụ hiện tại không có quyền gọi endpoint này trên Payment Gate.
+            tenant_mismatch:
+              summary: tenant_id trong request không khớp với hóa đơn/PO trong DB
+              value:
+                type: https://paymatch.dev/problems/tenant-mismatch
+                title: Tenant mismatch
+                status: 403
+                code: TENANT_MISMATCH
+                detail: tenant_id truyền vào khác với tenant sở hữu hóa đơn/PO.
+    NotFound:
+      description: Không tìm thấy tài nguyên (`404 NOT_FOUND`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            not_found:
+              summary: Không tìm thấy PaymentIntent hoặc Escrow
+              value:
+                type: https://paymatch.dev/problems/not-found
+                title: Resource not found
+                status: 404
+                code: NOT_FOUND
+                detail: Không tìm thấy bản ghi được yêu cầu.
+    Conflict:
+      description: Hành động không hợp lệ ở trạng thái hiện tại (`409 INVALID_STATE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            cannot_cancel_executing:
+              summary: Không thể hủy intent đang executing
+              value:
+                type: https://paymatch.dev/problems/invalid-state
+                title: Invalid intent state
+                status: 409
+                code: INVALID_STATE
+                detail: Không thể hủy PaymentIntent khi đang ở trạng thái executing.
+    GateDenied:
+      description: Payment Gate từ chối (`422 GATE_DENIED`, kèm `gate_reasons[]` và `payment_intent` trạng thái `denied` khi có)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/GateDeniedProblem'
+          examples:
+            cross_alert_unverified:
+              summary: Từ chối lúc execute vì cảnh báo chéo chưa xác minh gọi lại
+              value:
+                type: https://paymatch.dev/problems/gate-denied
+                title: Payment Gate denied execution
+                status: 422
+                code: GATE_DENIED
+                detail: Hóa đơn khớp cảnh báo chéo nhưng bản ghi duyệt chưa ghi nhận xác minh gọi lại.
+                instance: /gate/intents/pi_01M8867BQMQG52GZYDE75JHF2V:execute
+                gate_reasons:
+                  - code: CROSS_ALERT_UNVERIFIED
+                    layer: hard_rule
+                    detail: Hóa đơn khớp cảnh báo chéo nhưng approval chưa có xác minh gọi lại SĐT lưu sẵn.
+                payment_intent:
+                  payment_intent_id: pi_01M8867BQMQG52GZYDE75JHF2V
+                  tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                  invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                  purchase_order_id: null
+                  intent_hash: 7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb
+                  approval_id: apv_01M883BRJ9DP97B91S0CMK8PZJ
+                  payee_account_id: vac_01M883RZCB3B6Y8WG7WQVC1BBY
+                  channel: bank_transfer
+                  amount_vnd: 22400000
+                  status: denied
+                  gate_reasons:
+                    - code: CROSS_ALERT_UNVERIFIED
+                      layer: hard_rule
+                      detail: Hóa đơn khớp cảnh báo chéo nhưng approval chưa có xác minh gọi lại SĐT lưu sẵn.
+                  rail:
+                    rail_txn_id: null
+                    failure_code: null
+                  transfer_memo: '0999010003 · 1C26TNX · 00000744'
+                  authorized_at: '2026-11-26T08:32:00+07:00'
+                  executed_at: null
+                  settled_at: null
+                  expires_at: '2026-11-26T08:47:00+07:00'
+                  created_at: '2026-11-26T08:32:00+07:00'
+    Locked:
+      description: Bị kill switch chặn (`423 KILL_SWITCH_ACTIVE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            kill_switch_active:
+              summary: Kill switch đang kích hoạt
+              value:
+                type: https://paymatch.dev/problems/kill-switch-active
+                title: Kill switch active
+                status: 423
+                code: KILL_SWITCH_ACTIVE
+                detail: Thao tác chi bị khóa do kill switch đang bật.
+                gate_reasons:
+                  - code: KILL_SWITCH
+                    layer: platform_policy
+                    detail: Kill switch phạm vi auto_pay_global đang bật.
+    ServiceUnavailable:
+      description: Không đọc được DB policy/ledger (fail-closed) hoặc phụ thuộc không sẵn sàng (`503 UPSTREAM_UNAVAILABLE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/problem.schema.json'
+          examples:
+            policy_unavailable:
+              summary: Không đọc được bảng policy (fail-closed)
+              value:
+                type: https://paymatch.dev/problems/upstream-unavailable
+                title: Policy store unavailable
+                status: 503
+                code: UPSTREAM_UNAVAILABLE
+                detail: Không đọc được cấu hình policy/kill switch; Payment Gate từ chối theo nguyên tắc fail-closed.
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+
+    ReadyResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ready
+
+    GateDecision:
+      title: GateDecision
+      type: string
+      enum:
+        - ALLOW
+        - REQUIRE_APPROVAL
+        - DENY
+
+    PaymentIntentStateMachineStatus:
+      $ref: '../schemas/payment-intent-status.schema.json'
+
+    EscrowStateMachineStatus:
+      $ref: '../schemas/escrow-status.schema.json'
+
+    EvaluateInvoiceRequest:
+      title: EvaluateInvoiceRequest
+      type: object
+      additionalProperties: false
+      required: [invoice_id]
+      properties:
+        invoice_id:
+          type: string
+          pattern: '^inv_[0-9A-HJKMNP-TV-Z]{26}$'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    EvaluateEscrowRequest:
+      title: EvaluateEscrowRequest
+      type: object
+      additionalProperties: false
+      required: [purchase_order_id, vendor_account_id, amount_vnd]
+      properties:
+        purchase_order_id:
+          type: string
+          pattern: '^po_[0-9A-HJKMNP-TV-Z]{26}$'
+        vendor_account_id:
+          type: string
+          pattern: '^vac_[0-9A-HJKMNP-TV-Z]{26}$'
+        amount_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    EvaluateRequest:
+      title: EvaluateRequest
+      oneOf:
+        - $ref: '#/components/schemas/EvaluateInvoiceRequest'
+        - $ref: '#/components/schemas/EvaluateEscrowRequest'
+
+    EvaluateResponse:
+      title: EvaluateResponse
+      type: object
+      additionalProperties: false
+      required:
+        - decision
+        - allowed_methods
+        - verification_required
+        - intent_hash
+        - payee_account_id
+        - amount_vnd
+        - channel
+        - reasons
+        - evaluated_at
+      properties:
+        decision:
+          $ref: '#/components/schemas/GateDecision'
+        allowed_methods:
+          type: array
+          items:
+            type: string
+            enum: [single, bulk]
+        verification_required:
+          type: boolean
+        intent_hash:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        payee_account_id:
+          type: [string, 'null']
+          pattern: '^vac_[0-9A-HJKMNP-TV-Z]{26}$'
+          description: Null chỉ khi `decision = DENY` và người bán chưa có tài khoản trong vendor registry.
+        amount_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+        channel:
+          $ref: '../schemas/channel.schema.json'
+        reasons:
+          type: array
+          description: >
+            Danh sách mã lý do của Payment Gate (`BLOCKED_INVOICE`, `PAYEE_NOT_VERIFIED`,
+            `ABOVE_PER_INVOICE_LIMIT`, `ABOVE_DAILY_LIMIT`, `CROSS_ALERT_UNVERIFIED`,
+            `OFFICIAL_FRAUD_LIST`, `KILL_SWITCH`, `POLICY_UNAVAILABLE`, `CHANNEL_NOT_ALLOWED`,
+            `ALREADY_PAID`, `OUTSIDE_TIME_WINDOW`, `MANDATE_NOT_AUTO_PAY`,
+            `VENDOR_NOT_IN_AUTO_PAY`, `VENDOR_SUSPENDED`, `APPROVAL_MISSING`, `APPROVAL_STALE`).
+          items:
+            $ref: '../schemas/gate-reason.schema.json'
+        evaluated_at:
+          $ref: '../schemas/timestamp.schema.json'
+
+    DailyBudgetResponse:
+      title: DailyBudgetResponse
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - auto_pay_used_vnd
+        - auto_pay_reserved_vnd
+        - auto_pay_limit_vnd
+        - total_paid_vnd
+      properties:
+        date:
+          $ref: '../schemas/local-date.schema.json'
+        auto_pay_used_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+        auto_pay_reserved_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+        auto_pay_limit_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+        total_paid_vnd:
+          $ref: '../schemas/money-vnd.schema.json'
+
+    CreatePaymentIntentRequest:
+      title: CreatePaymentIntentRequest
+      type: object
+      additionalProperties: false
+      required: [invoice_id, approval_id]
+      properties:
+        invoice_id:
+          type: string
+          pattern: '^inv_[0-9A-HJKMNP-TV-Z]{26}$'
+        approval_id:
+          type: string
+          pattern: '^apv_[0-9A-HJKMNP-TV-Z]{26}$'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    ExecutePaymentIntentRequest:
+      title: ExecutePaymentIntentRequest
+      type: object
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    CancelPaymentIntentReason:
+      title: CancelPaymentIntentReason
+      type: string
+      enum:
+        - CROSS_ALERT
+        - INVOICE_REINVESTIGATED
+        - OWNER_CANCELLED
+
+    CancelPaymentIntentRequest:
+      title: CancelPaymentIntentRequest
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          $ref: '#/components/schemas/CancelPaymentIntentReason'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    PaymentIntentPage:
+      title: PaymentIntentPage
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '../schemas/payment-intent.schema.json'
+        next_cursor:
+          type: [string, 'null']
+
+    CreateEscrowRequest:
+      title: CreateEscrowRequest
+      type: object
+      additionalProperties: false
+      required: [approval_id, expires_on]
+      properties:
+        approval_id:
+          type: string
+          pattern: '^apv_[0-9A-HJKMNP-TV-Z]{26}$'
+        expires_on:
+          $ref: '../schemas/local-date.schema.json'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    ReleaseEscrowRequest:
+      title: ReleaseEscrowRequest
+      type: object
+      additionalProperties: false
+      required: [approval_id, goods_receipt_id]
+      properties:
+        approval_id:
+          type: string
+          pattern: '^apv_[0-9A-HJKMNP-TV-Z]{26}$'
+        goods_receipt_id:
+          type: string
+          pattern: '^grn_[0-9A-HJKMNP-TV-Z]{26}$'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    RefundEscrowReason:
+      title: RefundEscrowReason
+      type: string
+      enum:
+        - EXPIRED
+        - ORDER_CANCELLED
+
+    RefundEscrowRequest:
+      title: RefundEscrowRequest
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          $ref: '#/components/schemas/RefundEscrowReason'
+        tenant_id:
+          type: [string, 'null']
+          pattern: '^ten_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    GateDeniedProblem:
+      title: GateDeniedProblem
+      description: RFC 9457 Problem Details cho lỗi `422 GATE_DENIED`, kèm `gate_reasons[]` bắt buộc và `payment_intent` trạng thái `denied` (nếu có).
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, gate_reasons]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          const: 422
+        code:
+          type: string
+          const: GATE_DENIED
+        detail:
+          type: string
+        instance:
+          type: string
+        gate_reasons:
+          type: array
+          minItems: 1
+          items:
+            $ref: '../schemas/gate-reason.schema.json'
+        payment_intent:
+          anyOf:
+            - $ref: '../schemas/payment-intent.schema.json'
+            - type: 'null'
