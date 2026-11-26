@@ -23,6 +23,7 @@ from .safety import (
     BOT_OWNED_REASON_CODES,
     RED_CODE_BACKING_TOOLS,
     RED_REASON_CODES,
+    SAFE_SUPERVISOR_ERROR_CODES,
     SUPERVISOR_FORBIDDEN_TOOLS,
     assemble_bot_system_prompt,
     build_error_finding_submission,
@@ -40,7 +41,9 @@ from .safety import (
     parse_bot_finding_output,
     parse_json_object,
     parse_supervisor_brief_output,
+    project_supervisor_tool_output,
     sanitize_finding_for_supervisor,
+    sanitize_supervisor_error_code,
     validate_brief_grounding,
 )
 
@@ -51,6 +54,7 @@ __all__ = [
     "HEARTBEAT_INTERVAL_S",
     "RED_CODE_BACKING_TOOLS",
     "RED_REASON_CODES",
+    "SAFE_SUPERVISOR_ERROR_CODES",
     "SUPERVISOR_FORBIDDEN_TOOLS",
     "TOOL_INVOKE_MAX_RETRIES_5XX",
     "TOOL_INVOKE_TIMEOUT_S",
@@ -80,6 +84,8 @@ __all__ = [
     "parse_bot_finding_output",
     "parse_json_object",
     "parse_supervisor_brief_output",
+    "project_supervisor_tool_output",
     "sanitize_finding_for_supervisor",
+    "sanitize_supervisor_error_code",
     "validate_brief_grounding",
 ]

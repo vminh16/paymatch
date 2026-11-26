@@ -44,7 +44,7 @@ _STEP_LIMIT_MARKER = "need more steps"
 
 
 class _BotStepLimitError(RuntimeError):
-    """Raised when a specialist bot exceeds its exact configured model turn budget."""
+    """Raised when a specialist bot exceeds its exact configured tool-step budget."""
 
 
 def _now_utc() -> datetime:
@@ -99,13 +99,13 @@ class BotRunner:
 
     Security invariants upheld here:
     - Bot never receives any `ask_*` tool (no route between bots).
-    - Advertises ONLY the intersection of `bot.manifest.tools` and granted tools from `GET /internal/tools`.
+    - Advertises and prefetches ONLY within the intersection of `bot.manifest.tools` and granted tools.
+    - Denied mandatory prefetch submits exempt fail-closed `BOT_INVALID_OUTPUT` (empty evidence).
     - Local denial (calling an unadvertised tool) is recorded as a tool error and forces a yellow floor.
-    - Bot uses ONLY its own capability token from `token_store.get(bot.bot_id)`.
-    - Budget enforced: exact `max_steps` model turns and `timeout_s` deadline (default 6 steps / 20s).
-    - Timeout before prefetch completes -> fail-closed yellow `BOT_TIMEOUT` Finding with empty `evidence=[]`.
-    - Invalid JSON/schema -> retry once -> still invalid -> yellow Finding with `BOT_INVALID_OUTPUT`.
-    - Tool 403 / 423 / error -> surfaced as ToolResult error -> yellow floor enforced.
+    - Budget enforced: `max_steps` TOOL steps + 1 final synthesis turn, and `timeout_s` deadline.
+    - Positive `official_fraud_list` (`listed=true`) forces red `OFFICIAL_FRAUD_LIST` on EVERY exit path.
+    - Timeout before prefetch completes -> fail-closed `BOT_TIMEOUT` Finding with empty `evidence=[]`.
+    - Invalid JSON/schema -> retry once -> still invalid -> `BOT_INVALID_OUTPUT` Finding.
     - Submits `FindingSubmission` to core and returns ONLY `FindingForSupervisor` (no `reason`).
     """
 
@@ -194,7 +194,7 @@ class BotRunner:
             raise
         except (TimeoutError, GraphRecursionError, _BotStepLimitError) as exc:
             # Per contract 1f69ce8: when deadline hits before required prefetch finishes,
-            # submit fail-closed BOT_TIMEOUT with empty evidence=[] so core exempts it from prefetch.
+            # submit fail-closed BOT_TIMEOUT with empty evidence=[] (unless SIMO floor applies).
             submission = build_error_finding_submission(
                 bot_id=bot.bot_id,
                 bot_version=bot.bot_version,
@@ -251,9 +251,37 @@ class BotRunner:
         ]
         advertised_ids = {d.tool_id for d in advertised_defs}
 
-        # 2. Prefetch required tools declared by session / skill before first LLM turn
+        # 2. Apply manifest ∩ grant filter to prefetch as well (I4):
+        # if any mandatory prefetch tool is outside manifest ∩ grant, submit exempt
+        # fail-closed BOT_INVALID_OUTPUT (empty evidence) instead of failing the job.
+        required_prefetch = _resolve_prefetch_list(bot)
+        denied_prefetch = [tid for tid in required_prefetch if tid not in advertised_ids]
+        if denied_prefetch:
+            await self._emit(
+                JobProgressEventItem(
+                    type=ProgressEventType.bot_failed,
+                    bot_id=bot.bot_id,
+                    reason_code=ReasonCode.BOT_INVALID_OUTPUT,
+                    at=_now_utc(),
+                )
+            )
+            return build_error_finding_submission(
+                bot_id=bot.bot_id,
+                bot_version=bot.bot_version,
+                skill_version=skill_version,
+                prompt_hash=prompt_hash,
+                reason_code=ReasonCode.BOT_INVALID_OUTPUT,
+                reason=(
+                    f"Bot {bot.bot_id} bị từ chối quyền cho tool prefetch bắt buộc: "
+                    f"{', '.join(denied_prefetch)}."
+                ),
+                tool_calls=recorded_calls,
+                include_evidence=False,
+            )
+
         prefetch_blocks: list[str] = []
-        for tid in _resolve_prefetch_list(bot):
+        for tid in required_prefetch:
+            before_len = len(recorded_calls)
             block = await invoke_internal_tool_safe(
                 api=self._api,
                 token_store=self._token_store,
@@ -263,10 +291,34 @@ class BotRunner:
                 recorded_calls=recorded_calls,
                 on_tool_called=on_tool_called,
             )
+            # If a mandatory prefetch tool returned an HTTP 403/423/5xx (no recorded tool_call_id),
+            # core won't have a tool_call for it -> submit exempt fail-closed BOT_INVALID_OUTPUT.
+            if len(recorded_calls) > before_len and recorded_calls[-1].tool_call_id is None:
+                err_code = recorded_calls[-1].error_code or "TOOL_ERROR"
+                await self._emit(
+                    JobProgressEventItem(
+                        type=ProgressEventType.bot_failed,
+                        bot_id=bot.bot_id,
+                        reason_code=ReasonCode.BOT_INVALID_OUTPUT,
+                        at=_now_utc(),
+                    )
+                )
+                return build_error_finding_submission(
+                    bot_id=bot.bot_id,
+                    bot_version=bot.bot_version,
+                    skill_version=skill_version,
+                    prompt_hash=prompt_hash,
+                    reason_code=ReasonCode.BOT_INVALID_OUTPUT,
+                    reason=f"Prefetch bắt buộc {tid} thất bại ({err_code}).",
+                    tool_calls=recorded_calls,
+                    include_evidence=False,
+                )
             prefetch_blocks.append(block)
         prefetch_state["completed"] = True
 
-        # 3. Build LangGraph prebuilt ReAct subgraph for this specialist bot
+        # 3. Build LangGraph prebuilt ReAct subgraph for this specialist bot.
+        # Budget per docs/03-agents/agent-runtime.md §6: `max_steps` = tool steps, leaving
+        # ONE final synthesis model turn after the last allowed tool step (I5).
         lc_tools = build_internal_tools(
             api=self._api,
             token_store=self._token_store,
@@ -275,13 +327,16 @@ class BotRunner:
             recorded_calls=recorded_calls,
             on_tool_called=on_tool_called,
         )
-        turn_counter = {"count": 0}
+        tool_steps_used = {"count": 0}
 
-        async def _bot_pre_model_hook(state: dict[str, Any]) -> dict[str, Any]:
-            del state
-            if turn_counter["count"] >= self._max_steps:
-                raise _BotStepLimitError(f"Bot {bot.bot_id} reached max_steps={self._max_steps}")
-            turn_counter["count"] += 1
+        async def _bot_post_model_hook(state: dict[str, Any]) -> dict[str, Any]:
+            msgs = state.get("messages", [])
+            if msgs and isinstance(msgs[-1], AIMessage) and msgs[-1].tool_calls:
+                if tool_steps_used["count"] >= self._max_steps:
+                    raise _BotStepLimitError(
+                        f"Bot {bot.bot_id} exceeded max_steps={self._max_steps} tool steps"
+                    )
+                tool_steps_used["count"] += 1
             return {}
 
         chat_model = PortChatModel(self._llm)
@@ -289,11 +344,10 @@ class BotRunner:
             model=chat_model,
             tools=lc_tools,
             prompt=SystemMessage(content=system_prompt),
-            pre_model_hook=_bot_pre_model_hook,
+            post_model_hook=_bot_post_model_hook,
             name=bot.bot_id,
         )
 
-        # Build initial user message with structured query + prefetched data blocks
         query_json = json.dumps(
             query.model_dump(mode="json", exclude_none=True),
             ensure_ascii=False,
@@ -305,9 +359,8 @@ class BotRunner:
             user_parts.extend(prefetch_blocks)
         user_message = "\n\n".join(user_parts)
 
-        # Give LangGraph enough graph steps (pre_model_hook + agent + tools = 3 per turn)
-        # so our explicit turn_counter enforces the exact max_steps limit.
-        recursion_limit = max(10, 4 * self._max_steps + 4)
+        # Allow enough LangGraph steps (agent + post_model_hook + tools per tool step + final synthesis)
+        recursion_limit = max(12, 4 * (self._max_steps + 1) + 4)
         result_state = await agent.ainvoke(
             {"messages": [HumanMessage(content=user_message)]},
             config={"recursion_limit": recursion_limit},
@@ -316,7 +369,6 @@ class BotRunner:
         _record_local_tool_denials(messages, advertised_ids, recorded_calls)
         raw_text = _extract_last_ai_text(messages)
 
-        # Detect LangGraph RemainingSteps exhaustion
         if _STEP_LIMIT_MARKER in raw_text.lower():
             raise _BotStepLimitError(f"Bot {bot.bot_id} exhausted max_steps={self._max_steps}")
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 from paymatch_contracts.internal import (
@@ -33,6 +33,7 @@ from paymatch_contracts.schemas.bot_answer_schema import BotAnswer
 from paymatch_contracts.schemas.finding_submission_schema import FindingSubmission
 from paymatch_contracts.schemas.model_config_schema import ModelConfig
 from paymatch_contracts.schemas.tool_result_schema import ToolResult
+from pydantic import BaseModel, ValidationError
 
 from agent_runtime.domain.budgets import TOOL_INVOKE_MAX_RETRIES_5XX, TOOL_INVOKE_TIMEOUT_S
 from agent_runtime.session.port import (
@@ -43,6 +44,8 @@ from agent_runtime.session.port import (
     TokenExpiredError,
     ToolNotGrantedError,
 )
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
 
 
 def _normalize_origin(base_url: str) -> str:
@@ -78,11 +81,34 @@ def _parse_error(response: httpx.Response) -> InternalApiError:
     return InternalApiError(status, code, detail)
 
 
+def _parse_json_body(response: httpx.Response, endpoint: str) -> Any:
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise InternalApiError(
+            502, "UPSTREAM_UNAVAILABLE", f"Invalid JSON in 200 response from {endpoint}: {exc}"
+        ) from exc
+
+
+def _validate_model(response: httpx.Response, model_cls: type[_ModelT], endpoint: str) -> _ModelT:
+    data = _parse_json_body(response, endpoint)
+    try:
+        return model_cls.model_validate(data)
+    except ValidationError as exc:
+        raise InternalApiError(
+            502,
+            "UPSTREAM_UNAVAILABLE",
+            f"Schema-invalid response from {endpoint}: {exc}",
+        ) from exc
+
+
 class HttpInternalApiClient:
     """Async httpx client for core internal-api.
 
     Strictly separates ServiceKeyAuth (`X-Service-Key`) from CapabilityBearerAuth
     (`Authorization: Bearer <token>`): never mixes the two on any request.
+    Normalizes schema-invalid 200 responses into `InternalApiError` so worker/heartbeat
+    lifecycle boundaries handle them cleanly instead of crashing the poll loop.
     """
 
     def __init__(
@@ -141,7 +167,7 @@ class HttpInternalApiClient:
             return None
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return ClaimedJobResponse.model_validate(resp.json())
+        return _validate_model(resp, ClaimedJobResponse, "/internal/jobs:claim")
 
     async def open_session(
         self,
@@ -157,7 +183,7 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return JobSessionResponse.model_validate(resp.json())
+        return _validate_model(resp, JobSessionResponse, f"/internal/jobs/{job_id}/session")
 
     async def heartbeat(
         self,
@@ -173,7 +199,7 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return JobHeartbeatResponse.model_validate(resp.json())
+        return _validate_model(resp, JobHeartbeatResponse, f"/internal/jobs/{job_id}/heartbeat")
 
     async def report_progress(
         self,
@@ -206,7 +232,7 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 201:
             raise _parse_error(resp)
-        return FindingForSupervisor.model_validate(resp.json())
+        return _validate_model(resp, FindingForSupervisor, f"/internal/jobs/{job_id}/findings")
 
     async def submit_bot_answer(
         self,
@@ -221,7 +247,7 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 201:
             raise _parse_error(resp)
-        return BotAnswer.model_validate(resp.json())
+        return _validate_model(resp, BotAnswer, f"/internal/jobs/{job_id}/bot-answers")
 
     async def complete_job(
         self,
@@ -238,10 +264,17 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        data = resp.json()
-        if "final_severity" in data:
-            return CompleteInvestigateResponse.model_validate(data)
-        return CompleteAnswerResponse.model_validate(data)
+        data = _parse_json_body(resp, f"/internal/jobs/{job_id}:complete")
+        if not isinstance(data, dict):
+            raise InternalApiError(502, "UPSTREAM_UNAVAILABLE", "Expected JSON object on :complete")
+        try:
+            if "final_severity" in data:
+                return CompleteInvestigateResponse.model_validate(data)
+            return CompleteAnswerResponse.model_validate(data)
+        except ValidationError as exc:
+            raise InternalApiError(
+                502, "UPSTREAM_UNAVAILABLE", f"Schema-invalid :complete response: {exc}"
+            ) from exc
 
     async def fail_job(
         self,
@@ -264,7 +297,7 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return FailJobResponse.model_validate(resp.json())
+        return _validate_model(resp, FailJobResponse, f"/internal/jobs/{job_id}:fail")
 
     async def list_model_configs(self) -> list[ModelConfig]:
         resp = await self._client.get(
@@ -273,7 +306,15 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return [ModelConfig.model_validate(item) for item in resp.json()]
+        raw = _parse_json_body(resp, "/internal/model-configs")
+        if not isinstance(raw, list):
+            raise InternalApiError(502, "UPSTREAM_UNAVAILABLE", "Expected list on /model-configs")
+        try:
+            return [ModelConfig.model_validate(item) for item in raw]
+        except ValidationError as exc:
+            raise InternalApiError(
+                502, "UPSTREAM_UNAVAILABLE", f"Schema-invalid /model-configs: {exc}"
+            ) from exc
 
     async def list_tools(self, capability_token: str) -> list[ToolDefinition]:
         resp = await self._client.get(
@@ -282,7 +323,15 @@ class HttpInternalApiClient:
         )
         if resp.status_code != 200:
             raise _parse_error(resp)
-        return [ToolDefinition.model_validate(item) for item in resp.json()]
+        raw = _parse_json_body(resp, "/internal/tools")
+        if not isinstance(raw, list):
+            raise InternalApiError(502, "UPSTREAM_UNAVAILABLE", "Expected list on /internal/tools")
+        try:
+            return [ToolDefinition.model_validate(item) for item in raw]
+        except ValidationError as exc:
+            raise InternalApiError(
+                502, "UPSTREAM_UNAVAILABLE", f"Schema-invalid /internal/tools: {exc}"
+            ) from exc
 
     async def invoke_tool(
         self,
@@ -307,7 +356,7 @@ class HttpInternalApiClient:
                     continue
                 raise InternalApiError(504, "UPSTREAM_TIMEOUT", str(exc)) from exc
             if resp.status_code == 200:
-                return ToolResult.model_validate(resp.json())
+                return _validate_model(resp, ToolResult, f"/internal/tools/{tool_id}:invoke")
             if 500 <= resp.status_code <= 599 and idx + 1 < attempts:
                 last_error = _parse_error(resp)
                 continue

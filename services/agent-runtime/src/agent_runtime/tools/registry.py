@@ -9,7 +9,11 @@ from langchain_core.tools import StructuredTool
 from paymatch_contracts.internal import Provenance, ToolDefinition
 
 from agent_runtime.domain.models import RecordedToolCall
-from agent_runtime.domain.safety import format_tool_result_block
+from agent_runtime.domain.safety import (
+    format_tool_result_block,
+    project_supervisor_tool_output,
+    sanitize_supervisor_error_code,
+)
 from agent_runtime.session.port import (
     InternalApiClient,
     InternalApiError,
@@ -25,13 +29,14 @@ _RESERVED_REDIRECT_ARGS: frozenset[str] = frozenset({"_tid", "tool_id"})
 
 
 def _supervisor_redacted_block(tool_id: str, code: str, evidence_ref: str = "error") -> str:
-    """Supervisor boundary: never forward untrusted data or error.detail; only code/severity/reason_codes."""
+    """Supervisor boundary: never forward untrusted data or error.detail; map unknown codes to TOOL_ERROR."""
+    safe_code = sanitize_supervisor_error_code(code)
     return format_tool_result_block(
         tool_id=tool_id,
         provenance=Provenance.trusted,
         evidence_ref=evidence_ref,
         payload={
-            "code": code,
+            "code": safe_code,
             "severity": "yellow",
             "reason_codes": [],
         },
@@ -54,8 +59,11 @@ async def invoke_internal_tool_safe(
     - Re-raises LeaseLostError immediately (worker must halt).
     - Surfaces 403 TOOL_NOT_GRANTED, 423 KILL_SWITCH_ACTIVE, and other tool errors as a
       provenance-labelled ToolResult error payload so the bot records yellow (never green).
-    - When `supervisor_boundary=True`, NEVER forwards data whose actual provenance is
-      `untrusted` or any `error.detail` text; returns only `{code, severity, reason_codes}`.
+    - When `supervisor_boundary=True`:
+      * NEVER forwards data whose actual provenance is `untrusted` or any `error.detail` text.
+      * Maps any error code outside the contract enum to safe constant `TOOL_ERROR`.
+      * Projects trusted tool output through its contract `<ToolId>Output` schema, recursively
+        dropping any nested `untrusted` fields/objects.
     """
     token = token_store.get(holder)
     if on_tool_called is not None:
@@ -91,6 +99,80 @@ async def invoke_internal_tool_safe(
     prov = Provenance(result.provenance.value)
     err_code = result.error.code.value if result.error is not None else None
     err_detail = result.error.detail if result.error is not None else None
+
+    if supervisor_boundary:
+        if prov == Provenance.untrusted:
+            recorded_calls.append(
+                RecordedToolCall(
+                    tool_call_id=result.evidence_ref,
+                    tool_id=tool_id,
+                    provenance=Provenance.untrusted,
+                    data={},
+                    error_code="UNTRUSTED_DATA_BLOCKED",
+                    error_detail=None,
+                )
+            )
+            return _supervisor_redacted_block(
+                tool_id,
+                "UNTRUSTED_DATA_BLOCKED",
+                evidence_ref=result.evidence_ref,
+            )
+        if err_code is not None:
+            safe_code = sanitize_supervisor_error_code(err_code)
+            recorded_calls.append(
+                RecordedToolCall(
+                    tool_call_id=result.evidence_ref,
+                    tool_id=tool_id,
+                    provenance=prov,
+                    data={},
+                    error_code=safe_code,
+                    error_detail=None,
+                )
+            )
+            return _supervisor_redacted_block(
+                tool_id,
+                safe_code,
+                evidence_ref=result.evidence_ref,
+            )
+        try:
+            projected_data = project_supervisor_tool_output(tool_id, result.data)
+        except ValueError:
+            recorded_calls.append(
+                RecordedToolCall(
+                    tool_call_id=result.evidence_ref,
+                    tool_id=tool_id,
+                    provenance=prov,
+                    data={},
+                    error_code="TOOL_ERROR",
+                    error_detail=None,
+                )
+            )
+            return _supervisor_redacted_block(
+                tool_id,
+                "TOOL_ERROR",
+                evidence_ref=result.evidence_ref,
+            )
+        recorded_calls.append(
+            RecordedToolCall(
+                tool_call_id=result.evidence_ref,
+                tool_id=tool_id,
+                provenance=Provenance.trusted,
+                data=projected_data,
+                error_code=None,
+                error_detail=None,
+            )
+        )
+        return format_tool_result_block(
+            tool_id=tool_id,
+            provenance=Provenance.trusted,
+            evidence_ref=result.evidence_ref,
+            payload={
+                "data": projected_data,
+                "evidence_ref": result.evidence_ref,
+                "error": None,
+            },
+        )
+
     recorded_calls.append(
         RecordedToolCall(
             tool_call_id=result.evidence_ref,
@@ -101,21 +183,6 @@ async def invoke_internal_tool_safe(
             error_detail=err_detail,
         )
     )
-
-    if supervisor_boundary:
-        if prov == Provenance.untrusted:
-            return _supervisor_redacted_block(
-                tool_id,
-                "UNTRUSTED_DATA_BLOCKED",
-                evidence_ref=result.evidence_ref,
-            )
-        if err_code is not None:
-            return _supervisor_redacted_block(
-                tool_id,
-                err_code,
-                evidence_ref=result.evidence_ref,
-            )
-
     payload: dict[str, Any] = {
         "data": result.data,
         "evidence_ref": result.evidence_ref,
