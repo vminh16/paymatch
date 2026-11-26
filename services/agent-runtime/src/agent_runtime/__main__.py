@@ -13,6 +13,8 @@ from agent_runtime.domain.budgets import (
     BOT_MAX_STEPS,
     BOT_TIMEOUT_S,
     HEARTBEAT_INTERVAL_S,
+    TOOL_INVOKE_MAX_RETRIES_5XX,
+    TOOL_INVOKE_TIMEOUT_S,
     RuntimeConfig,
 )
 from agent_runtime.llm.replay import ReplayLLM
@@ -28,7 +30,12 @@ def build_config_from_env() -> RuntimeConfig:
         heartbeat_interval_s=float(
             os.environ.get("HEARTBEAT_INTERVAL_S", str(HEARTBEAT_INTERVAL_S))
         ),
-        default_bot_model=os.environ.get("DEFAULT_BOT_MODEL", "unconfigured-bot-model"),
+        tool_invoke_timeout_s=float(
+            os.environ.get("TOOL_INVOKE_TIMEOUT_S", str(TOOL_INVOKE_TIMEOUT_S))
+        ),
+        tool_invoke_max_retries_5xx=int(
+            os.environ.get("TOOL_INVOKE_MAX_RETRIES_5XX", str(TOOL_INVOKE_MAX_RETRIES_5XX))
+        ),
         default_brief_model=os.environ.get("DEFAULT_BRIEF_MODEL", "unconfigured-brief-model"),
         poll_interval_s=float(os.environ.get("POLL_INTERVAL_S", "1.0")),
     )
@@ -52,7 +59,12 @@ async def _run_main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop_event.set)
 
-    async with HttpInternalApiClient(base_url=internal_url, service_key=service_key) as api:
+    async with HttpInternalApiClient(
+        base_url=internal_url,
+        service_key=service_key,
+        tool_timeout_s=config.tool_invoke_timeout_s,
+        tool_retries_5xx=config.tool_invoke_max_retries_5xx,
+    ) as api:
         worker = AgentWorker(api=api, llm=llm, config=config)
         await worker.run_forever(stop_event=stop_event)
 

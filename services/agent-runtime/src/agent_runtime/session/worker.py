@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Sequence
 
+import httpx
 from paymatch_contracts.internal import (
     AnswerSubmission,
     ClaimedJobResponse,
@@ -61,7 +62,7 @@ class AgentWorker:
         try:
             configs = await self._api.list_model_configs()
             self._model_configs = {cfg.purpose: cfg for cfg in configs}
-        except InternalApiError:
+        except (InternalApiError, httpx.HTTPError):
             logger.debug("Model configs unavailable from internal-api; using RuntimeConfig defaults")
         return dict(self._model_configs)
 
@@ -82,9 +83,14 @@ class AgentWorker:
         return await self.process_claimed_job(claimed)
 
     async def run_forever(self, *, stop_event: asyncio.Event | None = None) -> None:
-        """Poll internal-api until `stop_event` is set."""
+        """Poll internal-api until `stop_event` is set, surviving transient API errors."""
         while stop_event is None or not stop_event.is_set():
-            outcome = await self.run_once()
+            try:
+                outcome = await self.run_once()
+            except (InternalApiError, httpx.HTTPError) as exc:
+                logger.warning("Transient error during poll loop; retrying: %s", exc)
+                await asyncio.sleep(self._config.poll_interval_s)
+                continue
             if outcome is None:
                 await asyncio.sleep(self._config.poll_interval_s)
 
@@ -109,6 +115,12 @@ class AgentWorker:
                 status="lease_lost",
                 error_code="LEASE_LOST",
             )
+        except InternalApiError as exc:
+            return await self._fail_safely(claimed, error_code=exc.code, detail=exc.detail)
+        except httpx.HTTPError as exc:
+            return await self._fail_safely(
+                claimed, error_code="UPSTREAM_UNAVAILABLE", detail=str(exc)
+            )
 
         token_store = TokenStore(session)
         heartbeat = HeartbeatManager(
@@ -118,6 +130,7 @@ class AgentWorker:
             worker_id=self._config.worker_id,
             attempt=claimed.attempt,
             interval_s=self._config.heartbeat_interval_s,
+            max_consecutive_errors=self._config.heartbeat_max_consecutive_errors,
         )
 
         async def _send_progress(event: JobProgressEventItem) -> None:
@@ -130,7 +143,7 @@ class AgentWorker:
                 )
             except LeaseLostError:
                 raise
-            except InternalApiError as exc:
+            except (InternalApiError, httpx.HTTPError) as exc:
                 logger.warning("Progress event delivery failed for job %s: %s", claimed.job_id, exc)
 
         supervisor = SupervisorRunner(
@@ -165,6 +178,10 @@ class AgentWorker:
                     status="lease_lost",
                     error_code="LEASE_LOST",
                 )
+            if heartbeat.fatal_error is not None:
+                err = heartbeat.fatal_error
+                err_code = err.code if isinstance(err, InternalApiError) else "HEARTBEAT_FAILED"
+                return await self._fail_safely(claimed, error_code=err_code, detail=str(err))
             raise
         except LeaseLostError:
             return JobRunOutcome(
@@ -174,7 +191,11 @@ class AgentWorker:
                 error_code="LEASE_LOST",
             )
         except (LLMError, Exception) as exc:  # noqa: BLE001
-            error_code = "LLM_ERROR" if isinstance(exc, LLMError) else "RUNTIME_ERROR"
+            error_code = (
+                exc.code
+                if isinstance(exc, InternalApiError)
+                else ("LLM_ERROR" if isinstance(exc, LLMError) else "RUNTIME_ERROR")
+            )
             return await self._fail_safely(claimed, error_code=error_code, detail=str(exc))
         finally:
             await heartbeat.stop()
@@ -195,6 +216,10 @@ class AgentWorker:
             )
         except InternalApiError as exc:
             return await self._fail_safely(claimed, error_code=exc.code, detail=exc.detail)
+        except httpx.HTTPError as exc:
+            return await self._fail_safely(
+                claimed, error_code="UPSTREAM_UNAVAILABLE", detail=str(exc)
+            )
 
         if isinstance(complete_resp, CompleteInvestigateResponse):
             return JobRunOutcome(
@@ -234,11 +259,12 @@ class AgentWorker:
                 status="lease_lost",
                 error_code="LEASE_LOST",
             )
-        except InternalApiError as exc:
+        except (InternalApiError, httpx.HTTPError) as exc:
+            detail = exc.detail if isinstance(exc, InternalApiError) else str(exc)
             return await self._fail_safely(
                 claimed,
                 error_code="UNSUPPORTED_TASK_TYPE",
-                detail=f"{claimed.task_type.value}: {exc.detail}",
+                detail=f"{claimed.task_type.value}: {detail}",
             )
         return JobRunOutcome(
             job_id=claimed.job_id,
@@ -275,4 +301,13 @@ class AgentWorker:
                 attempt=claimed.attempt,
                 status="lease_lost",
                 error_code="LEASE_LOST",
+            )
+        except (InternalApiError, httpx.HTTPError) as exc:
+            logger.warning("fail_job call failed for job %s: %s", claimed.job_id, exc)
+            return JobRunOutcome(
+                job_id=claimed.job_id,
+                attempt=claimed.attempt,
+                status="failed",
+                will_retry=None,
+                error_code=error_code,
             )

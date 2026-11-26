@@ -34,6 +34,7 @@ from agent_runtime.domain.safety import (
     filter_supervisor_tools,
     parse_supervisor_brief_output,
     sanitize_finding_for_supervisor,
+    validate_brief_grounding,
 )
 from agent_runtime.llm.langchain_adapter import PortChatModel
 from agent_runtime.llm.port import LLM
@@ -42,6 +43,10 @@ from agent_runtime.session.token_store import TokenStore
 from agent_runtime.tools.registry import build_internal_tools
 
 ProgressCallback = Callable[[JobProgressEventItem], Awaitable[None]]
+
+
+class _SupervisorStepLimitError(RuntimeError):
+    """Raised when chief-accountant reaches its exact configured session.budget.max_steps limit."""
 
 
 def _now_utc() -> datetime:
@@ -81,7 +86,6 @@ class SupervisorRunResult:
 
 
 class _SupervisorGraphState(TypedDict, total=False):
-    session_ready: bool
     raw_brief_text: str
     brief_model: str
     steps_executed: int
@@ -89,7 +93,7 @@ class _SupervisorGraphState(TypedDict, total=False):
 
 
 class SupervisorRunner:
-    """Runs the LangGraph supervisor graph: START -> open_session -> supervisor -> finish -> END."""
+    """Runs the LangGraph supervisor graph: START -> supervisor -> finish -> END."""
 
     def __init__(
         self,
@@ -146,18 +150,18 @@ class SupervisorRunner:
         )
 
         # Build `ask_<bot_id>` tools (one per active bot in session, description from manifest)
-        ask_tools: list[StructuredTool] = []
-        for bot_grant in session.bots:
-            ask_tools.append(
-                self._make_ask_bot_tool(
-                    bot_grant=bot_grant,
-                    bot_runner=bot_runner,
-                    findings_by_bot=findings_by_bot,
-                    default_invoice_id=ctx.invoice_id,
-                )
+        ask_tools: list[StructuredTool] = [
+            self._make_ask_bot_tool(
+                bot_grant=bot_grant,
+                bot_runner=bot_runner,
+                findings_by_bot=findings_by_bot,
+                default_invoice_id=ctx.invoice_id,
             )
+            for bot_grant in session.bots
+        ]
 
-        # Build trusted supervisor tools from session.supervisor.tools (strip any forbidden untrusted tool)
+        # Build trusted supervisor tools with strict supervisor_boundary=True
+        # (strips forbidden tools and never forwards untrusted tool data or error.detail)
         safe_supervisor_defs = filter_supervisor_tools(session.supervisor.tools)
         trusted_tools = build_internal_tools(
             api=self._api,
@@ -165,13 +169,20 @@ class SupervisorRunner:
             holder="supervisor",
             tool_definitions=safe_supervisor_defs,
             recorded_calls=supervisor_tool_calls,
+            supervisor_boundary=True,
         )
 
         all_supervisor_tools: list[StructuredTool] = [*ask_tools, *trusted_tools]
 
+        max_turns = session.budget.max_steps
         step_counter = {"count": 0}
 
         async def _pre_model_hook(state: dict[str, Any]) -> dict[str, Any]:
+            del state
+            if step_counter["count"] >= max_turns:
+                raise _SupervisorStepLimitError(
+                    f"Supervisor reached max_steps={max_turns}"
+                )
             step_counter["count"] += 1
             await self._emit(
                 JobProgressEventItem(
@@ -190,10 +201,6 @@ class SupervisorRunner:
             name="chief-accountant",
         )
 
-        async def _node_open_session(state: _SupervisorGraphState) -> _SupervisorGraphState:
-            del state
-            return {"session_ready": True}
-
         async def _node_supervisor(state: _SupervisorGraphState) -> _SupervisorGraphState:
             del state
             active_bot_ids = [b.bot_id for b in session.bots]
@@ -210,7 +217,9 @@ class SupervisorRunner:
                 "Điều tra hóa đơn theo ngữ cảnh có cấu trúc sau (không có nội dung untrusted):\n"
                 + json.dumps(user_payload, ensure_ascii=False, sort_keys=True)
             )
-            recursion_limit = max(3, 2 * session.budget.max_steps + 1)
+            # Reserve enough LangGraph steps (3 per turn: hook + agent + tools) so our explicit
+            # `step_counter` enforces the exact `session.budget.max_steps` model turn budget.
+            recursion_limit = max(10, 4 * max_turns + 4)
             try:
                 result_state = await asyncio.wait_for(
                     react_agent.ainvoke(
@@ -227,7 +236,7 @@ class SupervisorRunner:
                 }
             except LeaseLostError:
                 raise
-            except (TimeoutError, GraphRecursionError):
+            except (TimeoutError, GraphRecursionError, _SupervisorStepLimitError):
                 return {
                     "raw_brief_text": "",
                     "brief_model": self._brief_model_name,
@@ -237,11 +246,17 @@ class SupervisorRunner:
         async def _node_finish(state: _SupervisorGraphState) -> _SupervisorGraphState:
             raw_text = state.get("raw_brief_text", "")
             model_name = state.get("brief_model", self._brief_model_name)
+            findings_list = list(findings_by_bot.values())
             try:
                 parsed = parse_supervisor_brief_output(raw_text)
+                grounded = validate_brief_grounding(
+                    parsed,
+                    findings=findings_list,
+                    supervisor_tool_calls=supervisor_tool_calls,
+                )
                 brief = BriefSubmission(
-                    lines=parsed.lines,
-                    cited_evidence=parsed.cited_evidence,
+                    lines=grounded.lines,
+                    cited_evidence=grounded.cited_evidence,
                     model=model_name,
                     prompt_hash=prompt_hash,
                 )
@@ -249,18 +264,16 @@ class SupervisorRunner:
                 brief = build_fallback_brief(
                     invoice_id=ctx.invoice_id,
                     invoice_type=ctx.invoice_type.value,
-                    findings=findings_by_bot.values(),
+                    findings=findings_list,
                     model=model_name,
                     prompt_hash=prompt_hash,
                 )
             return {"brief": brief}
 
         graph = StateGraph(_SupervisorGraphState)
-        graph.add_node("open_session", _node_open_session)
         graph.add_node("supervisor", _node_supervisor)
         graph.add_node("finish", _node_finish)
-        graph.add_edge(START, "open_session")
-        graph.add_edge("open_session", "supervisor")
+        graph.add_edge(START, "supervisor")
         graph.add_edge("supervisor", "finish")
         graph.add_edge("finish", END)
         compiled = graph.compile()
@@ -282,20 +295,20 @@ class SupervisorRunner:
     ) -> StructuredTool:
         tool_name = ask_tool_name(bot_grant.bot_id)
         description = bot_grant.description or bot_grant.manifest.description
+        bound_grant = bot_grant
 
         async def _ask_bot(
             invoice_id: str | None = None,
             focus: list[str] | None = None,
             question_code: str | None = None,
-            _grant: BotSessionGrant = bot_grant,
         ) -> str:
             query = BotQueryInput(
                 invoice_id=invoice_id or default_invoice_id,
                 focus=focus,
                 question_code=question_code,
             )
-            finding_for_sup = await bot_runner.run(_grant, query)
-            findings_by_bot[_grant.bot_id] = finding_for_sup
+            finding_for_sup = await bot_runner.run(bound_grant, query)
+            findings_by_bot[bound_grant.bot_id] = finding_for_sup
             # Invariant #6: return ONLY FindingForSupervisor fields — strictly NO `reason`!
             clean_payload = sanitize_finding_for_supervisor(finding_for_sup)
             return json.dumps(clean_payload, ensure_ascii=False, sort_keys=True)
