@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS core.invoices (
     invoice_id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES core.tenants(tenant_id),
     document_id TEXT NOT NULL REFERENCES core.invoice_documents(document_id),
+    document_sha256 TEXT NOT NULL DEFAULT '',
     store_id TEXT NULL REFERENCES core.stores(store_id),
     vendor_id TEXT NULL REFERENCES core.vendors(vendor_id),
     seller_tax_id TEXT NOT NULL DEFAULT '',

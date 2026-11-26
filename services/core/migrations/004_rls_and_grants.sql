@@ -129,6 +129,50 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA control TO staff;
 GRANT INSERT ON core.outbox TO staff;
 GRANT USAGE, SELECT ON SEQUENCE core.outbox_seq_seq TO staff;
 
+-- Grants & read-only RLS policies for `gate` role (payment-gate reads core/control/risk read-only)
+GRANT USAGE ON SCHEMA core, control, risk TO gate;
+GRANT SELECT ON
+    core.tenants,
+    core.invoices,
+    core.invoice_documents,
+    core.approvals,
+    core.vendor_accounts,
+    core.vendors,
+    core.mandates,
+    core.auto_pay_suspensions,
+    core.purchase_orders,
+    core.goods_receipts,
+    core.jobs,
+    core.findings
+TO gate;
+GRANT SELECT ON control.policies TO gate;
+GRANT SELECT ON risk.indicators, risk.hard_blocks, risk.cross_alerts TO gate;
+
+DO $$
+DECLARE
+    tbl TEXT;
+    gate_core_tables TEXT[] := ARRAY[
+        'tenants',
+        'invoices',
+        'invoice_documents',
+        'approvals',
+        'vendor_accounts',
+        'vendors',
+        'mandates',
+        'auto_pay_suspensions',
+        'purchase_orders',
+        'goods_receipts',
+        'jobs',
+        'findings'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY gate_core_tables LOOP
+        EXECUTE format('DROP POLICY IF EXISTS gate_readonly ON core.%I;', tbl);
+        EXECUTE format('CREATE POLICY gate_readonly ON core.%I FOR SELECT TO gate USING (true);', tbl);
+    END LOOP;
+END
+$$;
+
 -- Conditional read-only grant on schema ledger if gate migration has already created it
 DO $$
 BEGIN

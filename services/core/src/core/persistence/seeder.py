@@ -498,10 +498,10 @@ def load_core_seed(
         pl = platform_data["platform_limits"]
         conn.execute(
             """
-            INSERT INTO control.policies (policy_id, kind, scope, target_id, status, payload, updated_at)
+            INSERT INTO control.policies (policy_id, kind, scope, target_id, status, value, updated_at)
             VALUES ('pol_platform_limits', 'platform_limits', NULL, NULL, 'active', %s, %s)
             ON CONFLICT (policy_id) DO UPDATE SET
-                payload = EXCLUDED.payload,
+                value = EXCLUDED.value,
                 status = 'active',
                 updated_at = EXCLUDED.updated_at
             """,

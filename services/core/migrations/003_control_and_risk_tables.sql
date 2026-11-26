@@ -72,10 +72,11 @@ CREATE TABLE IF NOT EXISTS control.policies (
     scope TEXT NULL CHECK (scope IS NULL OR scope IN ('indicator', 'tenant', 'bot', 'tool', 'auto_pay_global')),
     target_id TEXT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'engaged', 'released')),
-    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    value JSONB NOT NULL DEFAULT '{}'::jsonb,
     reason TEXT NULL,
     engaged_by TEXT NULL,
     engaged_at TIMESTAMPTZ NULL,
+    released_by TEXT NULL,
     released_at TIMESTAMPTZ NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -149,15 +150,22 @@ CREATE TABLE IF NOT EXISTS risk.case_actions (
 
 CREATE TABLE IF NOT EXISTS risk.hard_blocks (
     hard_block_id TEXT PRIMARY KEY,
-    indicator_ids TEXT[] NOT NULL,
-    list_ref TEXT NOT NULL,
+    indicator_kind TEXT NULL CHECK (indicator_kind IS NULL OR indicator_kind IN ('account_hash', 'tax_id', 'phone', 'card_id', 'merchant_id')),
+    value_hash TEXT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'lifted')),
+    indicator_ids TEXT[] NOT NULL DEFAULT '{}',
+    list_ref TEXT NOT NULL DEFAULT '',
     case_action_id TEXT NULL REFERENCES risk.case_actions(action_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_risk_hard_blocks_lookup ON risk.hard_blocks(indicator_kind, value_hash) WHERE status = 'active';
 
 CREATE TABLE IF NOT EXISTS risk.cross_alerts (
     cross_alert_id TEXT PRIMARY KEY,
-    indicator_ids TEXT[] NOT NULL,
+    indicator_kind TEXT NULL CHECK (indicator_kind IS NULL OR indicator_kind IN ('account_hash', 'tax_id', 'phone', 'card_id', 'merchant_id')),
+    value_hash TEXT NULL,
+    indicator_ids TEXT[] NOT NULL DEFAULT '{}',
     reason_codes TEXT[] NOT NULL DEFAULT '{}',
     published_by TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('published', 'withdrawn')),
@@ -165,6 +173,7 @@ CREATE TABLE IF NOT EXISTS risk.cross_alerts (
     published_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     withdrawn_at TIMESTAMPTZ NULL
 );
+CREATE INDEX IF NOT EXISTS idx_risk_cross_alerts_lookup ON risk.cross_alerts(indicator_kind, value_hash) WHERE status = 'published';
 
 CREATE TABLE IF NOT EXISTS risk.access_log (
     log_id TEXT PRIMARY KEY,

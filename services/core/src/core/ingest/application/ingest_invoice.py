@@ -441,7 +441,7 @@ def ingest_invoice(
         conn.execute(
             """
             INSERT INTO core.invoices (
-                invoice_id, tenant_id, document_id, store_id, vendor_id,
+                invoice_id, tenant_id, document_id, document_sha256, store_id, vendor_id,
                 seller_tax_id, buyer_tax_id, symbol, number, number_norm,
                 issued_on, invoice_type, source, currency,
                 subtotal_vnd, vat_total_vnd, total_vnd, vat_breakdown,
@@ -450,7 +450,7 @@ def ingest_invoice(
                 duplicate_of, due_on, created_at, updated_at
             )
             VALUES (
-                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, 'VND',
                 %s, %s, %s, %s,
@@ -463,6 +463,7 @@ def ingest_invoice(
                 invoice_id,
                 cmd.tenant_id,
                 document_id,
+                sha,
                 store_id,
                 vendor_row["vendor_id"] if vendor_row else None,
                 parsed.seller_tax_id.strip() if parsed else "",

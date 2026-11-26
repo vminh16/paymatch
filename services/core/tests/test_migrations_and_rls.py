@@ -113,3 +113,52 @@ def test_invariant_staff_role_cannot_read_invoices_table(seeded_db: Database) ->
                 """,
                 (new_id("evt"),),
             )
+
+
+@pytest.mark.db
+def test_gate_role_readonly_cross_schema_shape(seeded_db: Database) -> None:
+    """Verify payment-gate DB role can SELECT all agreed cross-schema tables/columns and cannot mutate core."""
+    with seeded_db.connect(role="gate") as conn:
+        tenants = conn.execute("SELECT tenant_id, wallet_id FROM core.tenants").fetchall()
+        assert len(tenants) == 2
+        assert all(t["wallet_id"].startswith("wal_") for t in tenants)
+
+        conn.execute(
+            """
+            SELECT invoice_id, tenant_id, store_id, vendor_id, purchase_order_id, status, total_vnd, document_sha256
+            FROM core.invoices
+            """
+        ).fetchall()
+        conn.execute(
+            """
+            SELECT approval_id, invoice_id, purchase_order_id, status, method, amount_vnd,
+                   payee_account_id, channel, intent_hash, verification
+            FROM core.approvals
+            """
+        ).fetchall()
+        vas = conn.execute(
+            "SELECT vendor_account_id, vendor_id, kind, status FROM core.vendor_accounts"
+        ).fetchall()
+        assert len(vas) == 52
+        mandates = conn.execute("SELECT mandate_id, tenant_id, mode, limits FROM core.mandates").fetchall()
+        assert len(mandates) == 2
+
+        pols = conn.execute(
+            """
+            SELECT policy_id, kind, scope, target_id, value, status, engaged_by, released_by, updated_at
+            FROM control.policies WHERE kind = 'platform_limits' AND status = 'active'
+            """
+        ).fetchall()
+        assert len(pols) == 1
+        assert pols[0]["value"]["auto_pay_per_invoice_vnd"] == 30_000_000
+        assert pols[0]["value"]["auto_pay_per_day_vnd"] == 50_000_000
+
+        conn.execute(
+            "SELECT hard_block_id, indicator_kind, value_hash, status, created_at FROM risk.hard_blocks"
+        ).fetchall()
+        conn.execute(
+            "SELECT cross_alert_id, indicator_kind, value_hash, status, published_at FROM risk.cross_alerts"
+        ).fetchall()
+
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("UPDATE core.invoices SET status = 'paid'")

@@ -26,7 +26,7 @@ class Database:
     ) -> Iterator[psycopg.Connection[dict[str, Any]]]:
         with psycopg.connect(self.dsn, row_factory=dict_row, autocommit=autocommit) as conn:
             if role is not None:
-                if role not in {"merchant", "staff"}:
+                if role not in {"merchant", "staff", "gate"}:
                     raise ValueError(f"Unsupported DB role: {role!r}")
                 conn.execute(f"SET LOCAL ROLE {role}")
             if tenant_id is not None:
