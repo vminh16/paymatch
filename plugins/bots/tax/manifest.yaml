@@ -1,0 +1,21 @@
+id: tax
+name: Thuế
+description: Kiểm tra hiệu lực hóa đơn trên cổng HĐĐT, trạng thái MST theo TT 90/2026, danh sách DN rủi ro thuế và điều kiện khấu trừ VAT.
+skills:
+  - tax_checklist@1
+tools:
+  - invoices
+  - vendor_registry
+  - einvoice_portal
+  - tax_id_lookup
+  - tax_risk_list
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - goods
+    - software
+    - utility
+required_for:
+  - goods
+  - software

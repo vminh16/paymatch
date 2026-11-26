@@ -1,0 +1,19 @@
+id: procurement
+name: Thu mua
+description: Đối chiếu đơn giá, quy cách đóng gói và hợp đồng khung với nhà cung cấp.
+skills:
+  - procurement_checklist@1
+tools:
+  - invoices
+  - vendor_contracts
+  - price_check
+  - price_history
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - goods
+    - software
+required_for:
+  - goods
+  - software

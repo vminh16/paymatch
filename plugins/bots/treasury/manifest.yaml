@@ -1,0 +1,23 @@
+id: treasury
+name: Thủ quỹ
+description: Kiểm tra số dư ví, hạn mức tự chi theo mandate/nền tảng, lịch công nợ và đề xuất kênh cùng ngày thanh toán.
+skills:
+  - treasury_checklist@1
+tools:
+  - account_balance
+  - spending_limits
+  - payables_ledger
+  - purchase_orders
+  - goods_receipts
+  - payment_policy_preview
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - goods
+    - software
+    - utility
+required_for:
+  - goods
+  - software
+  - utility

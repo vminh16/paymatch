@@ -1,0 +1,22 @@
+id: fraud-control
+name: Chống gian lận và dữ liệu NCC
+description: Phát hiện yêu cầu đổi tài khoản, tài khoản cá nhân, chiêu hối thúc, câu lệnh giấu, cảnh báo chéo và danh sách gian lận SIMO.
+skills:
+  - fraud_control_checklist@1
+tools:
+  - invoices
+  - inbox
+  - chat_messages
+  - vendor_registry
+  - cross_alerts
+  - official_fraud_list
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - goods
+    - software
+    - utility
+required_for:
+  - goods
+  - software

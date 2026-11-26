@@ -1,0 +1,16 @@
+id: branch-operations
+name: Vận hành chi nhánh
+description: So sánh hóa đơn điện nước với nền tiêu thụ 12 tháng và doanh thu MoMo của từng chi nhánh để phát hiện bất thường.
+skills:
+  - branch_operations_checklist@1
+tools:
+  - utility_bills
+  - utility_baseline
+  - momo_revenue
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - utility
+required_for:
+  - utility
