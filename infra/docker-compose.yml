@@ -39,7 +39,8 @@ services:
       sim-world:
         condition: service_started
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      DATABASE_URL: ${MERCHANT_DATABASE_URL:-postgresql://merchant_api:merchant_api_dev@postgres:5432/paymatch}
+      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-postgresql://migrator:migrator_dev@postgres:5432/paymatch}
       SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}
@@ -59,7 +60,7 @@ services:
       sim-world:
         condition: service_started
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      DATABASE_URL: ${INTERNAL_DATABASE_URL:-postgresql://internal_api:internal_api_dev@postgres:5432/paymatch}
       SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}
@@ -68,7 +69,7 @@ services:
       INTERNAL_AGENT_SERVICE_KEY: ${INTERNAL_AGENT_SERVICE_KEY:-dev-agent-key}
       SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
       INTERNAL_PORT: "8003"
-    ports: ["8003:8003"]
+    expose: ["8003"]
 
   core-worker:
     build:
@@ -81,7 +82,7 @@ services:
       sim-world:
         condition: service_started
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql://worker:worker_dev@postgres:5432/paymatch}
       SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}

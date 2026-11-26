@@ -162,3 +162,100 @@ def test_gate_role_readonly_cross_schema_shape(seeded_db: Database) -> None:
 
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("UPDATE core.invoices SET status = 'paid'")
+        conn.rollback()
+        # I5: gate must NOT be able to read raw document bytes or raw finding reason text
+        conn.execute("SET LOCAL ROLE gate")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT raw_bytes FROM core.invoice_documents")
+        conn.rollback()
+        conn.execute("SET LOCAL ROLE gate")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT reason FROM core.findings")
+
+
+@pytest.mark.db
+def test_b1_i5_non_superuser_service_roles_rls_and_narrow_grants(
+    seeded_db: Database,
+    merchant_db: Database,
+    internal_db: Database,
+    worker_db: Database,
+    migrator_db: Database,
+) -> None:
+    """B1 & I5: separate non-superuser login roles per service, narrow grants, outbox type guards, immutable docs."""
+    with seeded_db.connect() as conn:
+        roles = {
+            r["rolname"]: r
+            for r in conn.execute(
+                """
+                SELECT rolname, rolsuper, rolbypassrls
+                FROM pg_roles
+                WHERE rolname IN ('merchant_api', 'internal_api', 'worker', 'migrator')
+                """
+            ).fetchall()
+        }
+    assert set(roles.keys()) == {"merchant_api", "internal_api", "worker", "migrator"}
+    for name, info in roles.items():
+        assert info["rolsuper"] is False, f"{name} must not be superuser"
+    for name in ("merchant_api", "internal_api", "worker"):
+        assert roles[name]["rolbypassrls"] is False, f"{name} must not bypass RLS"
+
+    # internal_api cannot query core.invoices without SET LOCAL ROLE merchant + app.tenant_id
+    with internal_db.connect() as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT * FROM core.invoices")
+        conn.rollback()
+        # But CAN read model_configs and call lookup_job_tenant
+        conn.execute("SELECT purpose FROM control.model_configs").fetchall()
+        assert conn.execute("SELECT core.lookup_job_tenant('job_nonexistent') AS tid").fetchone()["tid"] is None
+
+    # internal_api under SET LOCAL ROLE merchant + app.tenant_id sees ONLY that tenant
+    with internal_db.connect(role="merchant", tenant_id=TENANT_A) as conn:
+        tids = {r["tenant_id"] for r in conn.execute("SELECT tenant_id FROM core.tenants").fetchall()}
+        assert tids == {TENANT_A}
+
+    # merchant_api cannot mutate immutable core.invoice_documents or insert staff-only outbox events
+    with merchant_db.connect(role="merchant", tenant_id=TENANT_A) as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("UPDATE core.invoice_documents SET filename = 'tampered'")
+        conn.rollback()
+        conn.execute("SET LOCAL ROLE merchant")
+        conn.execute("SELECT set_config('app.tenant_id', %s, true)", (TENANT_A,))
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("UPDATE core.audit_events SET action = 'tampered'")
+        conn.rollback()
+        conn.execute("SET LOCAL ROLE merchant")
+        conn.execute("SELECT set_config('app.tenant_id', %s, true)", (TENANT_A,))
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute(
+                """
+                INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+                VALUES ('evt_01TESTBADMERCH000000000000', 'cross_alert.published', 1, now(), NULL, '{}'::jsonb)
+                """
+            )
+        conn.rollback()
+
+    # staff cannot insert non-staff event types (e.g. invoice.ingested) into core.outbox
+    with seeded_db.connect(role="staff") as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute(
+                """
+                INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+                VALUES ('evt_01TESTBADSTAFF0000000000', 'invoice.ingested', 1, now(), %s, '{}'::jsonb)
+                """,
+                (TENANT_A,),
+            )
+        conn.rollback()
+
+    # worker cannot mutate immutable invoice_documents
+    with worker_db.connect() as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("UPDATE core.invoice_documents SET filename = 'tampered'")
+        conn.rollback()
+        # worker CAN read core.tenants and core.outbox_receipts
+        assert len(conn.execute("SELECT tenant_id FROM core.tenants").fetchall()) == 2
+        conn.execute("SELECT source, event_id FROM core.outbox_receipts").fetchall()
+
+    # migrator (non-superuser) CAN run full seed reset cleanly
+    with migrator_db.connect() as conn:
+        counts = load_core_seed(conn, seed_dir=DEMO_SEED_DIR, reset=True)
+    assert counts["tenants"] == 2

@@ -10,7 +10,7 @@ import psycopg
 import pytest
 from psycopg.rows import dict_row
 
-from core.persistence.db import Database
+from core.persistence.db import Database, dsn_for_role
 from core.persistence.migrator import apply_migrations
 from core.persistence.seeder import load_core_seed
 from core.shared.clock import FixedClock
@@ -53,6 +53,26 @@ def seeded_db(pg_dsn: str) -> Database:
     with psycopg.connect(pg_dsn, row_factory=dict_row) as conn:
         load_core_seed(conn, seed_dir=DEMO_SEED_DIR, reset=True)
     return Database(pg_dsn)
+
+
+@pytest.fixture()
+def merchant_db(seeded_db: Database) -> Database:
+    return Database(dsn_for_role(seeded_db.dsn, "merchant_api", "merchant_api_dev"))
+
+
+@pytest.fixture()
+def internal_db(seeded_db: Database) -> Database:
+    return Database(dsn_for_role(seeded_db.dsn, "internal_api", "internal_api_dev"))
+
+
+@pytest.fixture()
+def worker_db(seeded_db: Database) -> Database:
+    return Database(dsn_for_role(seeded_db.dsn, "worker", "worker_dev"))
+
+
+@pytest.fixture()
+def migrator_db(seeded_db: Database) -> Database:
+    return Database(dsn_for_role(seeded_db.dsn, "migrator", "migrator_dev"))
 
 
 @pytest.fixture()

@@ -27,6 +27,7 @@ def truncate_all(conn: psycopg.Connection) -> None:
         TRUNCATE TABLE
             core.sse_events,
             core.audit_events,
+            core.outbox_receipts,
             core.processed_events,
             core.outbox_cursors,
             core.outbox,
@@ -34,6 +35,8 @@ def truncate_all(conn: psycopg.Connection) -> None:
             core.webhook_events,
             core.idempotency_keys,
             core.used_auth_proofs,
+            core.approval_previews,
+            core.payment_intent_links,
             core.notifications,
             core.adjustment_requests,
             core.approvals,
