@@ -3,7 +3,24 @@ name = "payment-gate"
 version = "0.1.0"
 description = "Payment Gate: luật, intent, ledger"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "contracts-py",
+    "paymatch-hashing",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "httpx>=0.28",
+    "psycopg[binary]>=3.2",
+]
+
+[dependency-groups]
+dev = [
+    "testcontainers[postgres]>=4.8",
+]
+
+[tool.uv.sources]
+contracts-py = { workspace = true }
+paymatch-hashing = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
