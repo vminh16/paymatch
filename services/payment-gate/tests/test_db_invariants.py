@@ -408,6 +408,57 @@ def test_db_least_privilege_gate_role_boot_auto_migrate_and_readyz(db_env):
 
 
 @pytest.mark.db
+def test_db_worker_role_outbox_only_grant_idempotent(db_env):
+    """When role `worker` exists, 001_init_ledger.sql idempotently grants SELECT on ledger.outbox ONLY."""
+    admin_url, gate_url, *_ = db_env
+    from gate.adapters.postgres.migrator import resolve_migrations_dir
+
+    sql_001 = (resolve_migrations_dir() / "001_init_ledger.sql").read_text(encoding="utf-8")
+
+    with psycopg.connect(admin_url, autocommit=True) as conn:
+        conn.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'worker') THEN
+                    CREATE ROLE worker LOGIN PASSWORD 'worker' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+                ELSE
+                    ALTER ROLE worker WITH LOGIN PASSWORD 'worker';
+                END IF;
+            END
+            $$;
+            """
+        )
+
+    # Re-apply 001_init_ledger.sql twice as least-privilege `gate` to verify idempotency and grant execution.
+    with psycopg.connect(gate_url, autocommit=False) as gconn:
+        gconn.execute(sql_001)
+        gconn.commit()
+        gconn.execute(sql_001)
+        gconn.commit()
+
+    worker_url = _as_role_url(admin_url, "worker", "worker")
+    with psycopg.connect(worker_url, autocommit=True) as wconn:
+        # Allowed: read ledger.outbox
+        assert wconn.execute("SELECT event_id FROM ledger.outbox LIMIT 1;").fetchall() == []
+        # Denied: mutate ledger.outbox
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            wconn.execute("DELETE FROM ledger.outbox;")
+        # Denied: read ANY other table in ledger
+        for forbidden_table in (
+            "ledger.payment_intents",
+            "ledger.payment_tokens",
+            "ledger.ledger_entries",
+            "ledger.escrows",
+            "ledger.daily_budgets",
+            "ledger.invoice_claims",
+            "ledger.rail_transactions",
+        ):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                wconn.execute(f"SELECT 1 FROM {forbidden_table} LIMIT 1;")
+
+
+@pytest.mark.db
 def test_db_invariant_11_parallel_executes_same_invoice_produce_exactly_one_ledger_row(db_env):
     """Invariant #11: two parallel executes of the same invoice -> 1 rail call & 1 append-only ledger row."""
     admin_url, gate_url, _, service, _, rail, _ = db_env

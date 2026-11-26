@@ -251,12 +251,22 @@ CREATE TABLE IF NOT EXISTS ledger.outbox (
 CREATE INDEX IF NOT EXISTS idx_ledger_outbox_tenant_seq
     ON ledger.outbox (tenant_id, seq);
 
--- Grant read-only access on ledger to `merchant` (core-worker) if role exists.
+-- Grant read-only access on ledger to `merchant` if role exists.
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'merchant') THEN
         EXECUTE 'GRANT USAGE ON SCHEMA ledger TO merchant';
         EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA ledger TO merchant';
+    END IF;
+END
+$$;
+
+-- Grant read-only access on ledger.outbox ONLY to `worker` (core-worker) if role exists.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'worker') THEN
+        GRANT USAGE ON SCHEMA ledger TO worker;
+        GRANT SELECT ON ledger.outbox TO worker;
     END IF;
 END
 $$;
