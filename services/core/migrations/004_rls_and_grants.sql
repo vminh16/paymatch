@@ -145,6 +145,7 @@ GRANT SELECT ON
     core.jobs,
     core.findings
 TO gate;
+GRANT SELECT (user_id, tenant_id, role) ON core.users TO gate;
 GRANT SELECT ON control.policies TO gate;
 GRANT SELECT ON risk.indicators, risk.hard_blocks, risk.cross_alerts TO gate;
 
@@ -153,6 +154,7 @@ DECLARE
     tbl TEXT;
     gate_core_tables TEXT[] := ARRAY[
         'tenants',
+        'users',
         'invoices',
         'invoice_documents',
         'approvals',

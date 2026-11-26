@@ -7,6 +7,7 @@ import hmac
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -98,9 +99,31 @@ def _is_kill_switch_active(
     return False
 
 
+# Explicit allowlist of trusted string fields per tool for BotAnswer string facts (I6)
+TRUSTED_BOT_ANSWER_STRING_FIELDS: dict[str, frozenset[str]] = {
+    "account_balance": frozenset({"as_of", "wallet_id"}),
+    "spending_limits": frozenset({"mode", "mandate_id", "date", "updated_at"}),
+    "payment_policy_preview": frozenset({"decision", "channel", "payee_account_id", "evaluated_at"}),
+    "vendor_registry": frozenset({"vendor_id", "vendor_account_id", "status", "tax_id"}),
+    "tax_id_lookup": frozenset({"status_code", "status_reason_code", "tax_id"}),
+    "tax_risk_list": frozenset({"listed_on"}),
+    "einvoice_portal": frozenset({"tax_authority_code"}),
+    "payables_ledger": frozenset({"invoice_id", "vendor_id", "due_on", "issued_on", "status"}),
+    "price_check": frozenset({"line_id", "sku", "contract_item_id"}),
+    "three_way_match": frozenset({"purchase_order_id", "goods_receipt_id"}),
+    "utility_baseline": frozenset({"utility_type", "store_id"}),
+    "cross_alerts": frozenset({"cross_alert_id", "indicator_kind"}),
+    "official_fraud_list": frozenset({"list_ref"}),
+    "invoice_search": frozenset({"invoice_id", "vendor_id", "store_id", "status", "severity", "due_on", "issued_on", "invoice_type"}),
+    "invoice_explain": frozenset({"invoice_id", "vendor_id", "store_id", "status", "severity", "due_on", "issued_on", "invoice_type"}),
+    "queue_status": frozenset({"nearest_due_on"}),
+}
+
+
 def _ref_in_json(obj: Any, needle: str) -> bool:
+    """Exact typed evidence ID match inside tool output JSON (I6: no substring matching)."""
     if isinstance(obj, str):
-        return obj == needle or needle in obj
+        return obj == needle
     if isinstance(obj, dict):
         return any(_ref_in_json(v, needle) for v in obj.values())
     if isinstance(obj, list):
@@ -108,8 +131,42 @@ def _ref_in_json(obj: Any, needle: str) -> bool:
     return False
 
 
+def _allowlisted_string_in_json(
+    obj: Any,
+    needle: str,
+    *,
+    allowed_keys: frozenset[str],
+    current_key: str | None = None,
+) -> bool:
+    """Match a string fact ONLY under an explicitly allowlisted trusted field name (I6)."""
+    if isinstance(obj, str):
+        if current_key not in allowed_keys:
+            return False
+        if obj == needle:
+            return True
+        # Allow YYYY-MM-DD date prefix of an allowlisted ISO timestamp field
+        if len(needle) == 10 and obj.startswith(needle) and len(obj) > 10 and obj[10] == "T":
+            return True
+        return False
+    if isinstance(obj, dict):
+        if obj.get("provenance") == "untrusted":
+            return False
+        for k, v in obj.items():
+            if k == "untrusted":
+                continue
+            if _allowlisted_string_in_json(v, needle, allowed_keys=allowed_keys, current_key=k):
+                return True
+        return False
+    if isinstance(obj, list):
+        return any(
+            _allowlisted_string_in_json(v, needle, allowed_keys=allowed_keys, current_key=current_key)
+            for v in obj
+        )
+    return False
+
+
 def _value_in_json(obj: Any, needle: str | int | float, *, trusted_only: bool = False) -> bool:
-    """Check if needle appears in obj. When trusted_only=True, skip any untrusted subtrees (B3)."""
+    """Check if needle appears in obj. Exact match for strings and numbers (I6)."""
     if isinstance(obj, bool):
         return False
     if isinstance(obj, (int, float)):
@@ -118,7 +175,7 @@ def _value_in_json(obj: Any, needle: str | int | float, *, trusted_only: bool = 
         return str(obj) == str(needle)
     if isinstance(obj, str):
         needle_str = str(needle)
-        return obj == needle_str or needle_str in obj
+        return obj == needle_str
     if isinstance(obj, dict):
         if trusted_only and obj.get("provenance") == "untrusted":
             return False
@@ -1447,9 +1504,14 @@ def create_internal_app(
                     if tc is None:
                         continue
                     if isinstance(f.value, str):
-                        # B3: string values are accepted ONLY when cited tool_call & field are provenance='trusted'
-                        ok = tc["provenance"] == "trusted" and _value_in_json(
-                            tc["output"], f.value, trusted_only=True
+                        # B3/I6: string values are accepted ONLY from explicitly allowlisted trusted fields of the cited tool
+                        allowed_keys = TRUSTED_BOT_ANSWER_STRING_FIELDS.get(tc["tool_id"], frozenset())
+                        ok = (
+                            tc["provenance"] == "trusted"
+                            and bool(allowed_keys)
+                            and _allowlisted_string_in_json(
+                                tc["output"], f.value, allowed_keys=allowed_keys
+                            )
                         )
                     else:
                         ok = _value_in_json(tc["output"], f.value, trusted_only=False)
@@ -1730,6 +1792,7 @@ def create_internal_app(
                 gate_client=gate_adapter,
                 clock=clk,
                 lease_guard=_fence_lease,
+                utility_outlier_ratio=Decimal(cfg.utility_outlier_ratio),
             )
 
     # ---- Rails webhook from sim-world (ServiceKeyAuth, B1 narrow SECURITY DEFINER) ----

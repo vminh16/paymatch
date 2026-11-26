@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -13,7 +14,6 @@ from pydantic import ValidationError
 
 from core.merchant.application.serializers import (
     build_full_invoice,
-    build_invoice_summary,
     fmt_date,
     fmt_ts,
 )
@@ -30,6 +30,11 @@ from core.tools.domain.calculations import (
     compute_three_way_match,
     compute_utility_baseline,
     fmt_dec6,
+)
+from core.tools.domain.projections import (
+    build_supervisor_invoice_summary,
+    is_relevant_chat_thread,
+    is_relevant_inbox_message,
 )
 from core.tools.domain.registry import V1_TOOL_SPECS
 from core.tools.ports import GateClientPort, SimWorldToolPort, UpstreamToolError
@@ -95,12 +100,26 @@ def _collect_invoice_indicator_pairs(
         if vrow and vrow.get("phone_on_file"):
             pairs.append(("phone", hash_phone_indicator(vrow["phone_on_file"])))
 
-    known_bank_codes = ("VNMB01", "VNMB02", "VNMB03")
-    bank_name_to_code = {
-        "ngân hàng mẫu á châu": "VNMB01",
-        "ngân hàng mẫu nam việt": "VNMB02",
-        "ngân hàng mẫu thành công": "VNMB03",
-    }
+    # Nit 2: derive bank_name -> bank_code mappings dynamically from seeded tenant vendor_accounts (no hard-coded demo banks)
+    tenant_banks = conn.execute(
+        """
+        SELECT DISTINCT bank_code, bank_name
+        FROM core.vendor_accounts
+        WHERE tenant_id = %s AND bank_code IS NOT NULL
+        """,
+        (tid,),
+    ).fetchall()
+    bank_name_to_code: dict[str, str] = {}
+    known_bank_codes: list[str] = []
+    for tb in tenant_banks:
+        bc = (tb.get("bank_code") or "").strip()
+        bn = (tb.get("bank_name") or "").strip().lower()
+        if bc:
+            if bc not in known_bank_codes:
+                known_bank_codes.append(bc)
+            if bn:
+                bank_name_to_code[bn] = bc
+
     for ba in bank_accounts:
         acc_num = (ba.get("number") or "").strip()
         if not acc_num:
@@ -132,6 +151,7 @@ def invoke_tool(
     gate_client: GateClientPort,
     clock: Clock | None = None,
     lease_guard: Callable[[psycopg.Connection], None] | None = None,
+    utility_outlier_ratio: Decimal = Decimal("1.5"),
 ) -> dict[str, Any]:
     """Validate input, execute read-only tool handler, record tool_calls row, and return ToolResult."""
     spec = V1_TOOL_SPECS.get(tool_id)
@@ -171,6 +191,7 @@ def invoke_tool(
             sim_world=sim_world,
             gate_client=gate_client,
             clock=clk,
+            utility_outlier_ratio=utility_outlier_ratio,
         )
     except UpstreamToolError as exc:
         output_data = {}
@@ -219,16 +240,25 @@ def _dispatch_tool(
     sim_world: SimWorldToolPort,
     gate_client: GateClientPort,
     clock: Clock,
+    utility_outlier_ratio: Decimal = Decimal("1.5"),
 ) -> dict[str, Any]:
     tid = ctx.tenant_id
     inv = _get_invoice(conn, tid, ctx.invoice_id)
+    is_investigation = ctx.invoice_id is not None
 
-    # ---- 1. invoices ----
+    # ---- 1. invoices (I6: bind strictly to job invoice/vendor on investigations) ----
     if tool_id == "invoices":
         req_ids = inp.get("invoice_ids")
-        if req_ids:
-            # Restrict to same vendor as job invoice when job has one
-            if inv and inv.get("vendor_id"):
+        if is_investigation:
+            if inv is None:
+                rows = []
+            elif not inv.get("vendor_id"):
+                # Vendor-less investigation: ONLY the job's own invoice is accessible!
+                if req_ids and inv["invoice_id"] not in req_ids:
+                    rows = []
+                else:
+                    rows = [inv]
+            elif req_ids:
                 rows = conn.execute(
                     """
                     SELECT * FROM core.invoices
@@ -237,19 +267,29 @@ def _dispatch_tool(
                     (tid, req_ids, inv["vendor_id"]),
                 ).fetchall()
             else:
-                rows = conn.execute(
-                    "SELECT * FROM core.invoices WHERE tenant_id = %s AND invoice_id = ANY(%s)",
-                    (tid, req_ids),
-                ).fetchall()
-        elif inv is not None:
-            rows = [inv]
+                rows = [inv]
+        elif req_ids:
+            clauses = ["tenant_id = %s", "invoice_id = ANY(%s)"]
+            params: list[Any] = [tid, req_ids]
+            if ctx.store_ids is not None:
+                clauses.append("store_id = ANY(%s)")
+                params.append(ctx.store_ids)
+            rows = conn.execute(
+                f"SELECT * FROM core.invoices WHERE {' AND '.join(clauses)}",
+                params,
+            ).fetchall()
         else:
             rows = []
         return {"invoices": [build_full_invoice(conn, r) for r in rows]}
 
-    # ---- 2. vendor_contracts ----
+    # ---- 2. vendor_contracts (I6: bind to job vendor during investigations) ----
     if tool_id == "vendor_contracts":
-        vid = inp.get("vendor_id") or (inv["vendor_id"] if inv else None)
+        if is_investigation:
+            vid = inv["vendor_id"] if inv else None
+            if inp.get("vendor_id") and inp["vendor_id"] != vid:
+                return {"contracts": []}
+        else:
+            vid = inp.get("vendor_id")
         if not vid:
             return {"contracts": []}
         c_rows = conn.execute(
@@ -283,11 +323,13 @@ def _dispatch_tool(
             )
         return {"contracts": contracts}
 
-    # ---- 3. price_check ----
+    # ---- 3. price_check (I6: restrict contract lookup strictly to invoice vendor) ----
     if tool_id == "price_check":
         if inv is None:
             return {"items": []}
         vid = inv.get("vendor_id")
+        if not vid:
+            return {"items": []}
         results = []
         for m in inp["mappings"]:
             line = conn.execute(
@@ -300,30 +342,17 @@ def _dispatch_tool(
             ).fetchone()
             if line is None:
                 continue
-            ci = None
-            if vid:
-                ci = conn.execute(
-                    """
-                    SELECT ci.item_id, ci.sku, ci.base_unit, ci.pack_qty, ci.unit_price
-                    FROM core.contract_items ci
-                    JOIN core.vendor_contracts vc ON vc.contract_id = ci.contract_id
-                    WHERE ci.tenant_id = %s AND vc.vendor_id = %s AND vc.status = 'active' AND ci.sku = %s
-                    LIMIT 1
-                    """,
-                    (tid, vid, m["sku"]),
-                ).fetchone()
-            if ci is None:
-                # Fallback by SKU across tenant active contracts
-                ci = conn.execute(
-                    """
-                    SELECT ci.item_id, ci.sku, ci.base_unit, ci.pack_qty, ci.unit_price
-                    FROM core.contract_items ci
-                    JOIN core.vendor_contracts vc ON vc.contract_id = ci.contract_id
-                    WHERE ci.tenant_id = %s AND vc.status = 'active' AND ci.sku = %s
-                    LIMIT 1
-                    """,
-                    (tid, m["sku"]),
-                ).fetchone()
+            ci = conn.execute(
+                """
+                SELECT ci.item_id, ci.sku, ci.base_unit, ci.pack_qty, ci.unit_price
+                FROM core.contract_items ci
+                JOIN core.vendor_contracts vc
+                  ON vc.tenant_id = ci.tenant_id AND vc.contract_id = ci.contract_id
+                WHERE ci.tenant_id = %s AND vc.vendor_id = %s AND vc.status = 'active' AND ci.sku = %s
+                LIMIT 1
+                """,
+                (tid, vid, m["sku"]),
+            ).fetchone()
             if ci is None:
                 continue
             line_name = line["name"]["text"] if isinstance(line["name"], dict) else str(line["name"])
@@ -352,20 +381,32 @@ def _dispatch_tool(
     # ---- 4. price_history ----
     if tool_id == "price_history":
         sku = inp["sku"]
+        clauses = [
+            "il.tenant_id = %s",
+            "il.item_code->>'text' = %s",
+            "i.issued_on IS NOT NULL",
+            "il.quantity IS NOT NULL",
+            "il.unit_price IS NOT NULL",
+        ]
+        params = [tid, sku]
+        if is_investigation:
+            if not inv or not inv.get("vendor_id"):
+                return {"sku": sku, "points": []}
+            clauses.append("i.vendor_id = %s")
+            params.append(inv["vendor_id"])
+        elif ctx.store_ids is not None:
+            clauses.append("i.store_id = ANY(%s)")
+            params.append(ctx.store_ids)
         rows = conn.execute(
-            """
+            f"""
             SELECT i.invoice_id, i.issued_on, il.quantity, il.unit_price
             FROM core.invoice_lines il
-            JOIN core.invoices i ON i.invoice_id = il.invoice_id
-            WHERE il.tenant_id = %s
-              AND il.item_code->>'text' = %s
-              AND i.issued_on IS NOT NULL
-              AND il.quantity IS NOT NULL
-              AND il.unit_price IS NOT NULL
+            JOIN core.invoices i ON i.tenant_id = il.tenant_id AND i.invoice_id = il.invoice_id
+            WHERE {' AND '.join(clauses)}
             ORDER BY i.issued_on DESC
             LIMIT 24
             """,
-            (tid, sku),
+            params,
         ).fetchall()
         return {
             "sku": sku,
@@ -380,26 +421,53 @@ def _dispatch_tool(
             ],
         }
 
-    # ---- 5. purchase_orders ----
+    # ---- 5. purchase_orders (I6: bind strictly to job vendor during investigations) ----
     if tool_id == "purchase_orders":
         po_id = inp.get("purchase_order_id")
-        vid = inp.get("vendor_id") or (inv["vendor_id"] if inv else None)
-        if po_id:
-            rows = conn.execute(
-                "SELECT * FROM core.purchase_orders WHERE tenant_id = %s AND purchase_order_id = %s",
-                (tid, po_id),
-            ).fetchall()
-        elif vid:
-            rows = conn.execute(
-                """
-                SELECT * FROM core.purchase_orders
-                WHERE tenant_id = %s AND vendor_id = %s
-                ORDER BY created_at DESC LIMIT 20
-                """,
-                (tid, vid),
-            ).fetchall()
+        if is_investigation:
+            vid = inv["vendor_id"] if inv else None
+            if not vid or (inp.get("vendor_id") and inp["vendor_id"] != vid):
+                return {"purchase_orders": []}
+            if po_id:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM core.purchase_orders
+                    WHERE tenant_id = %s AND purchase_order_id = %s AND vendor_id = %s
+                    """,
+                    (tid, po_id, vid),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM core.purchase_orders
+                    WHERE tenant_id = %s AND vendor_id = %s
+                    ORDER BY created_at DESC LIMIT 20
+                    """,
+                    (tid, vid),
+                ).fetchall()
         else:
-            rows = []
+            vid = inp.get("vendor_id")
+            clauses = ["tenant_id = %s"]
+            params = [tid]
+            if ctx.store_ids is not None:
+                clauses.append("store_id = ANY(%s)")
+                params.append(ctx.store_ids)
+            if po_id:
+                clauses.append("purchase_order_id = %s")
+                params.append(po_id)
+                rows = conn.execute(
+                    f"SELECT * FROM core.purchase_orders WHERE {' AND '.join(clauses)}",
+                    params,
+                ).fetchall()
+            elif vid:
+                clauses.append("vendor_id = %s")
+                params.append(vid)
+                rows = conn.execute(
+                    f"SELECT * FROM core.purchase_orders WHERE {' AND '.join(clauses)} ORDER BY created_at DESC LIMIT 20",
+                    params,
+                ).fetchall()
+            else:
+                rows = []
         return {
             "purchase_orders": [
                 {
@@ -416,31 +484,64 @@ def _dispatch_tool(
             ]
         }
 
-    # ---- 6. goods_receipts ----
+    # ---- 6. goods_receipts (I6: bind strictly to job vendor during investigations) ----
     if tool_id == "goods_receipts":
         po_id = inp.get("purchase_order_id")
-        vid = inp.get("vendor_id") or (inv["vendor_id"] if inv else None)
-        if po_id:
-            rows = conn.execute(
-                """
-                SELECT * FROM core.goods_receipts
-                WHERE tenant_id = %s AND purchase_order_id = %s
-                ORDER BY confirmed_at DESC
-                """,
-                (tid, po_id),
-            ).fetchall()
-        elif vid:
-            rows = conn.execute(
-                """
-                SELECT g.* FROM core.goods_receipts g
-                JOIN core.purchase_orders p ON p.purchase_order_id = g.purchase_order_id
-                WHERE g.tenant_id = %s AND p.vendor_id = %s
-                ORDER BY g.confirmed_at DESC LIMIT 20
-                """,
-                (tid, vid),
-            ).fetchall()
+        if is_investigation:
+            vid = inv["vendor_id"] if inv else None
+            if not vid or (inp.get("vendor_id") and inp["vendor_id"] != vid):
+                return {"goods_receipts": []}
+            if po_id:
+                rows = conn.execute(
+                    """
+                    SELECT g.* FROM core.goods_receipts g
+                    JOIN core.purchase_orders p
+                      ON p.tenant_id = g.tenant_id AND p.purchase_order_id = g.purchase_order_id
+                    WHERE g.tenant_id = %s AND g.purchase_order_id = %s AND p.vendor_id = %s
+                    ORDER BY g.confirmed_at DESC
+                    """,
+                    (tid, po_id, vid),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT g.* FROM core.goods_receipts g
+                    JOIN core.purchase_orders p
+                      ON p.tenant_id = g.tenant_id AND p.purchase_order_id = g.purchase_order_id
+                    WHERE g.tenant_id = %s AND p.vendor_id = %s
+                    ORDER BY g.confirmed_at DESC LIMIT 20
+                    """,
+                    (tid, vid),
+                ).fetchall()
         else:
-            rows = []
+            vid = inp.get("vendor_id")
+            clauses = ["g.tenant_id = %s"]
+            params = [tid]
+            if ctx.store_ids is not None:
+                clauses.append("g.store_id = ANY(%s)")
+                params.append(ctx.store_ids)
+            if po_id:
+                clauses.append("g.purchase_order_id = %s")
+                params.append(po_id)
+                rows = conn.execute(
+                    f"SELECT g.* FROM core.goods_receipts g WHERE {' AND '.join(clauses)} ORDER BY g.confirmed_at DESC",
+                    params,
+                ).fetchall()
+            elif vid:
+                clauses.append("p.vendor_id = %s")
+                params.append(vid)
+                rows = conn.execute(
+                    f"""
+                    SELECT g.* FROM core.goods_receipts g
+                    JOIN core.purchase_orders p
+                      ON p.tenant_id = g.tenant_id AND p.purchase_order_id = g.purchase_order_id
+                    WHERE {' AND '.join(clauses)}
+                    ORDER BY g.confirmed_at DESC LIMIT 20
+                    """,
+                    params,
+                ).fetchall()
+            else:
+                rows = []
         return {
             "goods_receipts": [
                 {
@@ -455,9 +556,14 @@ def _dispatch_tool(
             ]
         }
 
-    # ---- 7. payables_ledger ----
+    # ---- 7. payables_ledger (I6: bind to job vendor during investigations) ----
     if tool_id == "payables_ledger":
-        vid = inp.get("vendor_id") or (inv["vendor_id"] if inv else None)
+        if is_investigation:
+            vid = inv["vendor_id"] if inv else None
+            if not vid or (inp.get("vendor_id") and inp["vendor_id"] != vid):
+                return {"entries": []}
+        else:
+            vid = inp.get("vendor_id")
         if not vid:
             return {"entries": []}
         p_rows = conn.execute(
@@ -554,23 +660,47 @@ def _dispatch_tool(
             ).fetchall()
         return compute_three_way_match(invoice_lines=inv_lines, purchase_order=po, goods_receipts=grns)
 
-    # ---- 9. inbox (sim-world, untrusted) ----
+    # ---- 9. inbox (sim-world, untrusted; I6: filter to relevant correspondence) ----
     if tool_id == "inbox":
         tenant = _get_tenant(conn, tid)
         vendor_email: str | None = None
-        if inv and inv.get("vendor_id"):
-            v = conn.execute(
-                "SELECT email FROM core.vendors WHERE tenant_id = %s AND vendor_id = %s",
-                (tid, inv["vendor_id"]),
-            ).fetchone()
-            if v and v.get("email"):
-                vendor_email = v["email"]
+        vendor_name: str | None = None
+        linked_ext_ids: set[str] = set()
+        if inv is not None:
+            if inv.get("vendor_id"):
+                v = conn.execute(
+                    "SELECT email, name FROM core.vendors WHERE tenant_id = %s AND vendor_id = %s",
+                    (tid, inv["vendor_id"]),
+                ).fetchone()
+                if v:
+                    vendor_email = v.get("email")
+                    vendor_name = v.get("name")
+            im_rows = conn.execute(
+                "SELECT external_message_id FROM core.invoice_messages WHERE tenant_id = %s AND invoice_id = %s AND external_message_id IS NOT NULL",
+                (tid, inv["invoice_id"]),
+            ).fetchall()
+            linked_ext_ids = {str(r["external_message_id"]) for r in im_rows}
+
         msgs = sim_world.get_inbox_messages(
             mailbox=tenant["mailbox"],
-            from_address=None,  # include lookalike BEC emails too!
+            from_address=None,  # include lookalike BEC emails matching vendor/invoice!
             since=fmt_ts(inp.get("since")),
         )
-        # Filter to messages related to vendor email domain/prefix or invoice symbol/number if large
+        if inv is not None:
+            msgs = [
+                m
+                for m in msgs
+                if is_relevant_inbox_message(
+                    m,
+                    linked_external_ids=linked_ext_ids,
+                    vendor_email=vendor_email,
+                    vendor_name=vendor_name,
+                    invoice_symbol=inv.get("symbol"),
+                    invoice_number=inv.get("number"),
+                    invoice_number_norm=inv.get("number_norm"),
+                    seller_tax_id=inv.get("seller_tax_id"),
+                )
+            ]
         return {
             "messages": [
                 {
@@ -592,13 +722,35 @@ def _dispatch_tool(
             ]
         }
 
-    # ---- 10. chat_messages (sim-world, untrusted) ----
+    # ---- 10. chat_messages (sim-world, untrusted; I6: filter to relevant counterparty/invoice threads) ----
     if tool_id == "chat_messages":
+        vendor_phone: str | None = None
+        vendor_name_c: str | None = None
+        if inv is not None and inv.get("vendor_id"):
+            v = conn.execute(
+                "SELECT phone_on_file, name FROM core.vendors WHERE tenant_id = %s AND vendor_id = %s",
+                (tid, inv["vendor_id"]),
+            ).fetchone()
+            if v:
+                vendor_phone = v.get("phone_on_file")
+                vendor_name_c = v.get("name")
+
         threads = sim_world.get_chat_threads(tenant_ref=tid)
         since_str = fmt_ts(inp.get("since"))
         out_threads = []
         for thr in threads:
             msgs = sim_world.get_chat_messages(thread_id=thr["thread_id"], since=since_str)
+            if inv is not None and not is_relevant_chat_thread(
+                thr,
+                msgs,
+                vendor_phone=vendor_phone,
+                vendor_name=vendor_name_c,
+                invoice_symbol=inv.get("symbol"),
+                invoice_number=inv.get("number"),
+                invoice_number_norm=inv.get("number_norm"),
+                seller_tax_id=inv.get("seller_tax_id"),
+            ):
+                continue
             out_threads.append(
                 {
                     "thread_id": thr["thread_id"],
@@ -952,10 +1104,11 @@ def _dispatch_tool(
             LIMIT 1
             """
         ).fetchone()
+        # Nit 2: missing platform_limits policy fails closed (0 ceilings, not eligible for auto-pay)
         pl_payload = (
             dict(pol["value"])
             if pol
-            else {"auto_pay_per_invoice_vnd": 30_000_000, "auto_pay_per_day_vnd": 50_000_000}
+            else {"auto_pay_per_invoice_vnd": 0, "auto_pay_per_day_vnd": 0}
         )
         pl_payload.setdefault("updated_at", fmt_ts(pol["updated_at"]) if pol else fmt_ts(clock.now()))
 
@@ -1022,15 +1175,24 @@ def _dispatch_tool(
             f"""
             SELECT i.*, v.name AS vendor_name_reg
             FROM core.invoices i
-            LEFT JOIN core.vendors v ON v.vendor_id = i.vendor_id
+            LEFT JOIN core.vendors v ON v.tenant_id = i.tenant_id AND v.vendor_id = i.vendor_id
             WHERE {' AND '.join(clauses)}
             ORDER BY i.updated_at DESC
             LIMIT %s
             """,
             params,
         ).fetchall()
+        # B4: supervisor-safe projection (drops unformatted XML seller_tax_id/symbol/number)
         return {
-            "items": [build_invoice_summary(r, vendor_name=r.get("vendor_name_reg")) for r in rows]
+            "items": [
+                build_supervisor_invoice_summary(
+                    r,
+                    vendor_name=r.get("vendor_name_reg"),
+                    fmt_date_fn=fmt_date,
+                    fmt_ts_fn=fmt_ts,
+                )
+                for r in rows
+            ]
         }
 
     if tool_id == "invoice_explain":
@@ -1054,7 +1216,12 @@ def _dispatch_tool(
             (tid, target["invoice_id"]),
         ).fetchall()
         return {
-            "invoice": build_invoice_summary(target, vendor_name=vname),
+            "invoice": build_supervisor_invoice_summary(
+                target,
+                vendor_name=vname,
+                fmt_date_fn=fmt_date,
+                fmt_ts_fn=fmt_ts,
+            ),
             "findings": [
                 {
                     "finding_id": f["finding_id"],
@@ -1108,8 +1275,8 @@ def _dispatch_tool(
             SELECT i.vendor_id, v.name AS vendor_name, i.store_id, s.name AS store_name,
                    i.invoice_type, to_char(i.issued_on, 'YYYY-MM') AS month, COALESCE(i.total_vnd, 0) AS total_vnd
             FROM core.invoices i
-            LEFT JOIN core.vendors v ON v.vendor_id = i.vendor_id
-            LEFT JOIN core.stores s ON s.store_id = i.store_id
+            LEFT JOIN core.vendors v ON v.tenant_id = i.tenant_id AND v.vendor_id = i.vendor_id
+            LEFT JOIN core.stores s ON s.tenant_id = i.tenant_id AND s.store_id = i.store_id
             WHERE {' AND '.join(clauses)}
             """,
             params,
@@ -1150,12 +1317,21 @@ def _dispatch_tool(
         ).fetchone()
         if v is None:
             raise UpstreamToolError("NOT_FOUND", f"Vendor {vid} not found.")
+        clauses = ["tenant_id = %s", "vendor_id = %s"]
+        params = [tid, vid]
+        # I6: enforce store_ids scope and months window
+        if ctx.store_ids is not None:
+            clauses.append("store_id = ANY(%s)")
+            params.append(ctx.store_ids)
+        cutoff = clock.today() - timedelta(days=months * 31)
+        clauses.append("(issued_on IS NULL OR issued_on >= %s)")
+        params.append(cutoff)
         rows = conn.execute(
-            """
+            f"""
             SELECT total_vnd, severity, reason_codes FROM core.invoices
-            WHERE tenant_id = %s AND vendor_id = %s
+            WHERE {' AND '.join(clauses)}
             """,
-            (tid, vid),
+            params,
         ).fetchall()
         return {
             "vendor_id": vid,
@@ -1175,7 +1351,8 @@ def _dispatch_tool(
         ci = conn.execute(
             """
             SELECT ci.unit_price FROM core.contract_items ci
-            JOIN core.vendor_contracts vc ON vc.contract_id = ci.contract_id
+            JOIN core.vendor_contracts vc
+              ON vc.tenant_id = ci.tenant_id AND vc.contract_id = ci.contract_id
             WHERE ci.tenant_id = %s AND vc.status = 'active' AND ci.sku = %s
             LIMIT 1
             """,
@@ -1201,7 +1378,7 @@ def _dispatch_tool(
             f"""
             SELECT u.store_id, s.name AS store_name, u.utility_type, u.total_vnd, u.billing_period
             FROM core.utility_readings u
-            JOIN core.stores s ON s.store_id = u.store_id
+            JOIN core.stores s ON s.tenant_id = u.tenant_id AND s.store_id = u.store_id
             WHERE {' AND '.join(clauses)}
             ORDER BY u.billing_period DESC
             """,
@@ -1215,7 +1392,9 @@ def _dispatch_tool(
             recent = items[:months]
             vals = sorted(int(x["total_vnd"]) for x in recent)
             med = vals[len(vals) // 2]
-            out_cnt = sum(1 for x in recent if int(x["total_vnd"]) > int(Decimal(med) * Decimal("1.5")))
+            out_cnt = sum(
+                1 for x in recent if int(x["total_vnd"]) > int(Decimal(med) * utility_outlier_ratio)
+            )
             stores_out.append(
                 {
                     "store_id": sid,
