@@ -28,8 +28,20 @@ WEBHOOK_KEY = "test-webhook-key"
 
 
 class FakeSimWorld:
-    def __init__(self, *, timeout_portal: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        timeout_portal: bool = False,
+        simo_listed: bool = False,
+        tax_risk_listed: bool = False,
+        tax_status_code: str = "00",
+        portal_found: bool = True,
+    ) -> None:
         self.timeout_portal = timeout_portal
+        self.simo_listed = simo_listed
+        self.tax_risk_listed = tax_risk_listed
+        self.tax_status_code = tax_status_code
+        self.portal_found = portal_found
 
     def get_inbox_messages(self, *, mailbox: str, from_address: str | None = None, since: str | None = None):
         return []
@@ -41,20 +53,20 @@ class FakeSimWorld:
         return []
 
     def check_simo_indicator(self, *, kind: str, value_hash: str):
-        return {"listed": False, "list_ref": None}
+        return {"listed": self.simo_listed, "list_ref": "SIMO-2026-001" if self.simo_listed else None}
 
     def lookup_einvoice_portal(self, *, seller_tax_id: str, symbol: str, number: str):
         if self.timeout_portal:
             raise UpstreamToolError("UPSTREAM_TIMEOUT", "sim-world /einvoice/invoices timed out after 3.0s")
         return {
-            "found": True,
-            "invoice_status_code": 1,
-            "invoice_status_label": "Hóa đơn mới",
-            "processing_status_code": 5,
-            "processing_status_label": "Đã cấp mã hóa đơn",
+            "found": self.portal_found,
+            "invoice_status_code": 1 if self.portal_found else None,
+            "invoice_status_label": "Hóa đơn mới" if self.portal_found else None,
+            "processing_status_code": 5 if self.portal_found else None,
+            "processing_status_label": "Đã cấp mã hóa đơn" if self.portal_found else None,
             "illegal_flag": False,
-            "tax_authority_code": "00BACF19B7832F6A604EAD35C7D18858E5",
-            "total_vnd": 26500000,
+            "tax_authority_code": "00BACF19B7832F6A604EAD35C7D18858E5" if self.portal_found else None,
+            "total_vnd": 26500000 if self.portal_found else None,
             "related_invoice": None,
         }
 
@@ -62,14 +74,18 @@ class FakeSimWorld:
         return {
             "tax_id": tax_id,
             "name": "CÔNG TY TNHH MẪU",
-            "status_code": "00",
-            "status_label": "Đang hoạt động",
+            "status_code": self.tax_status_code,
+            "status_label": "Đang hoạt động" if self.tax_status_code == "00" else "Ngừng hoạt động",
             "status_reason_code": "02",
             "address": "TP.HCM",
         }
 
     def lookup_tax_risk_list(self, *, tax_id: str):
-        return {"listed": False, "list_name": None, "listed_on": None}
+        return {
+            "listed": self.tax_risk_listed,
+            "list_name": "DS-RR-2026" if self.tax_risk_listed else None,
+            "listed_on": "2026-10-01" if self.tax_risk_listed else None,
+        }
 
     def get_momo_revenue(self, *, wallet_id: str, store_ref: str, month: str):
         return {"revenue_vnd": 310_000_000, "transaction_count": 4800}
@@ -780,3 +796,226 @@ def test_b3_bot_answers_fact_key_and_trusted_string_enforcement(
         ).fetchone()
     assert ev_row is not None
     assert ev_row["data"]["text_delta"] == "Số dư hiện tại là 350.000.000đ."
+
+
+@pytest.mark.db
+def test_tool_output_floor_at_complete_and_fail_exhausted_across_all_tool_calls(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """Tool-output floors run at :complete AND :fail-exhausted over ALL core.tool_calls of the job attempt,
+    even when a bot times out after official_fraud_list/cross_alerts/tax calls and submits no Finding
+    or only a BOT_TIMEOUT/BOT_INVALID_OUTPUT Finding.
+    """
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    # --- Case 1: :complete when fraud-control calls official_fraud_list (listed=true) then submits NO Finding ---
+    inv1, job1 = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+    client1, _ = _make_client(seeded_db, fixed_clock, sim=FakeSimWorld(simo_listed=True))
+    claimed1 = client1.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert claimed1["job_id"] == job1
+    sess1 = client1.post(
+        f"/internal/jobs/{job1}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    fraud_tok1 = next(b["capability_token"] for b in sess1["bots"] if b["bot_id"] == "fraud-control")
+    tc_simo = client1.post(
+        "/internal/tools/official_fraud_list:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {fraud_tok1}"},
+    ).json()
+    assert tc_simo["data"]["listed"] is True
+
+    # fraud-control submits NO Finding (timed out/crashed); supervisor completes
+    comp1 = client1.post(
+        f"/internal/jobs/{job1}:complete",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "result": {
+                "brief": {
+                    "lines": ["Bot chống gian lận quá thời gian."],
+                    "cited_evidence": [],
+                    "model": "demo-replay-v1",
+                    "prompt_hash": "sha256:b1",
+                }
+            },
+        },
+        headers=agent_hdr,
+    )
+    assert comp1.status_code == 200
+    assert comp1.json()["final_severity"] == "red"
+    assert comp1.json()["invoice_status"] == "blocked"
+    with seeded_db.connect() as conn:
+        inv1_row = conn.execute(
+            "SELECT status, severity, reason_codes FROM core.invoices WHERE invoice_id = %s",
+            (inv1,),
+        ).fetchone()
+        sys_fnd = conn.execute(
+            """
+            SELECT severity, reason_codes, evidence FROM core.findings
+            WHERE job_id = %s AND bot_id = 'system' AND 'OFFICIAL_FRAUD_LIST' = ANY(reason_codes)
+            """,
+            (job1,),
+        ).fetchone()
+    assert inv1_row["status"] == "blocked"
+    assert inv1_row["severity"] == "red"
+    assert "OFFICIAL_FRAUD_LIST" in inv1_row["reason_codes"]
+    assert "BOT_NOT_RUN" in inv1_row["reason_codes"]
+    assert sys_fnd is not None
+    assert sys_fnd["severity"] == "red"
+    assert sys_fnd["evidence"][0]["tool_call_id"] == tc_simo["evidence_ref"]
+
+    # --- Case 2: :complete when fraud-control calls official_fraud_list (listed=true) then submits BOT_TIMEOUT ---
+    inv2, job2 = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001430.xml", fixed_clock)
+    claimed2 = client1.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert claimed2["job_id"] == job2
+    sess2 = client1.post(
+        f"/internal/jobs/{job2}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    fraud_tok2 = next(b["capability_token"] for b in sess2["bots"] if b["bot_id"] == "fraud-control")
+    fhdr2 = {"Authorization": f"Bearer {fraud_tok2}"}
+    tc_simo2 = client1.post("/internal/tools/official_fraud_list:invoke", json={"input": {}}, headers=fhdr2).json()
+    assert tc_simo2["data"]["listed"] is True
+
+    # Prefetch-exempt BOT_TIMEOUT finding (evidence=[]) MUST still get upgraded to red by tool floor
+    fnd_timeout = client1.post(
+        f"/internal/jobs/{job2}/findings",
+        json={
+            "bot_id": "fraud-control",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:t2",
+            "severity_reported": "yellow",
+            "reason_codes": ["BOT_TIMEOUT"],
+            "reason": "Timed out after official_fraud_list.",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=fhdr2,
+    )
+    assert fnd_timeout.status_code == 201
+    assert fnd_timeout.json()["severity"] == "red"
+    assert "OFFICIAL_FRAUD_LIST" in fnd_timeout.json()["reason_codes"]
+    comp2 = client1.post(
+        f"/internal/jobs/{job2}:complete",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "result": {
+                "brief": {
+                    "lines": ["Phát hiện SIMO sau timeout."],
+                    "cited_evidence": [],
+                    "model": "demo-replay-v1",
+                    "prompt_hash": "sha256:b2",
+                }
+            },
+        },
+        headers=agent_hdr,
+    )
+    assert comp2.status_code == 200
+    assert comp2.json()["final_severity"] == "red"
+    assert comp2.json()["invoice_status"] == "blocked"
+
+    # --- Case 3: :fail exhausted (attempt 2) after official_fraud_list + cross_alerts + tax tools, NO Findings ---
+    inv3, job3 = _ingest_demo(seeded_db, "inbox/attachments/1C26TPD_00000440.xml", fixed_clock)
+    client3, _ = _make_client(
+        seeded_db,
+        fixed_clock,
+        sim=FakeSimWorld(
+            simo_listed=True,
+            tax_risk_listed=True,
+            tax_status_code="03",
+            portal_found=False,
+        ),
+    )
+    # Attempt 1 fails -> will_retry=True
+    c3a1 = client3.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c3a1["job_id"] == job3 and c3a1["attempt"] == 1
+    f3a1 = client3.post(
+        f"/internal/jobs/{job3}:fail",
+        json={"worker_id": "w1", "attempt": 1, "error_code": "TRANSIENT", "detail": "first fail"},
+        headers=agent_hdr,
+    )
+    assert f3a1.status_code == 200 and f3a1.json()["will_retry"] is True
+
+    # Attempt 2: bots call tools (official_fraud_list, tax_risk_list, tax_id_lookup, einvoice_portal) +
+    # record a cross_alerts tool_call hit, submit ZERO findings, then fail exhausted
+    c3a2 = client3.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c3a2["job_id"] == job3 and c3a2["attempt"] == 2
+    sess3 = client3.post(
+        f"/internal/jobs/{job3}/session",
+        json={"worker_id": "w1", "attempt": 2},
+        headers=agent_hdr,
+    ).json()
+    fraud_tok3 = next(b["capability_token"] for b in sess3["bots"] if b["bot_id"] == "fraud-control")
+    tax_tok3 = next(b["capability_token"] for b in sess3["bots"] if b["bot_id"] == "tax")
+    r_simo = client3.post(
+        "/internal/tools/official_fraud_list:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {fraud_tok3}"},
+    )
+    assert r_simo.status_code == 200
+    r_trl = client3.post(
+        "/internal/tools/tax_risk_list:invoke",
+        json={"input": {"tax_id": "0312345678"}},
+        headers={"Authorization": f"Bearer {tax_tok3}"},
+    )
+    assert r_trl.status_code == 200
+    r_til = client3.post(
+        "/internal/tools/tax_id_lookup:invoke",
+        json={"input": {"tax_id": "0312345678"}},
+        headers={"Authorization": f"Bearer {tax_tok3}"},
+    )
+    assert r_til.status_code == 200
+    r_ep = client3.post(
+        "/internal/tools/einvoice_portal:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {tax_tok3}"},
+    )
+    assert r_ep.status_code == 200
+    # Also simulate a positive cross_alerts tool call recorded in core.tool_calls (without DB row)
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO core.tool_calls (
+                    tool_call_id, tenant_id, job_id, attempt, bot_id, tool_id,
+                    input, output, provenance, created_at
+                )
+                VALUES (%s, %s, %s, 2, 'fraud-control', 'cross_alerts', '{}'::jsonb, %s, 'trusted', %s)
+                """,
+                (
+                    new_id("tcl"),
+                    TENANT_A,
+                    job3,
+                    Jsonb({"matched": True, "hits": [{"cross_alert_id": new_id("cxa")}]}),
+                    fixed_clock.now(),
+                ),
+            )
+
+    f3a2 = client3.post(
+        f"/internal/jobs/{job3}:fail",
+        json={"worker_id": "w1", "attempt": 2, "error_code": "WORKER_CRASH", "detail": "exhausted"},
+        headers=agent_hdr,
+    )
+    assert f3a2.status_code == 200 and f3a2.json()["will_retry"] is False
+
+    with seeded_db.connect() as conn:
+        inv3_row = conn.execute(
+            "SELECT status, severity, reason_codes, verification_required FROM core.invoices WHERE invoice_id = %s",
+            (inv3,),
+        ).fetchone()
+    assert inv3_row["status"] == "blocked"
+    assert inv3_row["severity"] == "red"
+    assert inv3_row["verification_required"] is True
+    for expected_code in (
+        "OFFICIAL_FRAUD_LIST",
+        "CROSS_ALERT_HIT",
+        "TAX_RISK_LIST",
+        "MST_INACTIVE",
+        "INVOICE_NOT_FOUND_ON_PORTAL",
+    ):
+        assert expected_code in inv3_row["reason_codes"], f"Missing {expected_code} in {inv3_row['reason_codes']}"

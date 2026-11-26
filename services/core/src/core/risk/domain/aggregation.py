@@ -264,6 +264,56 @@ class SystemFindingSpec:
     severity: Severity
     reason_codes: tuple[str, ...]
     reason_text: str
+    evidence: tuple[dict[str, str], ...] = ()
+
+
+def evaluate_tool_call_floors(
+    tool_calls: Iterable[Mapping[str, Any]],
+    *,
+    existing_reason_codes: Collection[str] = (),
+) -> list[SystemFindingSpec]:
+    """Derive system findings for any tool-output floor triggered during a job attempt
+    that is not already covered by existing non-superseded findings.
+
+    Ensures a bot that times out or fails after a positive trusted tool call
+    (e.g. official_fraud_list, cross_alerts, tax_risk_list, tax_id_lookup, einvoice_portal)
+    cannot leave an invoice at yellow/green.
+    """
+    covered = set(existing_reason_codes)
+    evidence_by_code: dict[str, list[dict[str, str]]] = {}
+
+    for tc in tool_calls:
+        codes = extract_tool_floor_reason_codes([tc])
+        if not codes:
+            continue
+        tc_id = tc.get("tool_call_id")
+        ev_item = (
+            {"kind": "tool_call", "ref_id": str(tc_id), "tool_call_id": str(tc_id)}
+            if tc_id
+            else None
+        )
+        for code in codes:
+            if code in covered:
+                continue
+            bucket = evidence_by_code.setdefault(code, [])
+            if ev_item is not None and ev_item not in bucket:
+                bucket.append(ev_item)
+
+    findings: list[SystemFindingSpec] = []
+    for code, ev_list in evidence_by_code.items():
+        rule = REASON_CODE_RULES.get(code)
+        sev = compute_finding_severity("green", (code,))
+        label = rule.label_vi if rule is not None else code
+        findings.append(
+            SystemFindingSpec(
+                bot_id="system",
+                severity=sev,
+                reason_codes=(code,),
+                reason_text=f"Sàn kết quả công cụ xác nhận: {label}.",
+                evidence=tuple(ev_list),
+            )
+        )
+    return findings
 
 
 def evaluate_system_checks(

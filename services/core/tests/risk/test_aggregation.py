@@ -17,6 +17,7 @@ from core.risk.domain.aggregation import (
     compute_finding_severity,
     determine_post_investigation_status,
     evaluate_system_checks,
+    evaluate_tool_call_floors,
     extract_tool_floor_reason_codes,
 )
 
@@ -180,3 +181,33 @@ def test_post_investigation_status_table(
         now_vn=datetime(2026, 11, 26, hour, 30, tzinfo=VN_TZ),
     )
     assert status == expected
+
+
+def test_evaluate_tool_call_floors_covers_all_tools_and_dedups() -> None:
+    """evaluate_tool_call_floors emits red/yellow system findings with tool_call evidence for uncovered floors."""
+    tcs = [
+        {"tool_call_id": "tcl_01TEST00000000000000000001", "tool_id": "official_fraud_list", "error": None, "output": {"listed": True}},
+        {"tool_call_id": "tcl_01TEST00000000000000000002", "tool_id": "cross_alerts", "error": None, "output": {"matched": True}},
+        {"tool_call_id": "tcl_01TEST00000000000000000003", "tool_id": "tax_risk_list", "error": None, "output": {"listed": True}},
+        {"tool_call_id": "tcl_01TEST00000000000000000004", "tool_id": "tax_id_lookup", "error": None, "output": {"status_code": "03"}},
+        {"tool_call_id": "tcl_01TEST00000000000000000005", "tool_id": "einvoice_portal", "error": None, "output": {"found": False}},
+    ]
+    specs = evaluate_tool_call_floors(tcs, existing_reason_codes={"BOT_TIMEOUT", "TAX_RISK_LIST"})
+    by_code = {sp.reason_codes[0]: sp for sp in specs}
+    assert set(by_code.keys()) == {
+        "OFFICIAL_FRAUD_LIST",
+        "CROSS_ALERT_HIT",
+        "MST_INACTIVE",
+        "INVOICE_NOT_FOUND_ON_PORTAL",
+    }
+    assert by_code["OFFICIAL_FRAUD_LIST"].severity == "red"
+    assert by_code["OFFICIAL_FRAUD_LIST"].evidence == (
+        {
+            "kind": "tool_call",
+            "ref_id": "tcl_01TEST00000000000000000001",
+            "tool_call_id": "tcl_01TEST00000000000000000001",
+        },
+    )
+    assert by_code["CROSS_ALERT_HIT"].severity == "yellow"
+    assert by_code["MST_INACTIVE"].severity == "red"
+    assert by_code["INVOICE_NOT_FOUND_ON_PORTAL"].severity == "red"

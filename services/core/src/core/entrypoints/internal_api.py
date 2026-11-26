@@ -24,6 +24,7 @@ from core.risk.domain.aggregation import (
     compute_finding_severity,
     determine_post_investigation_status,
     evaluate_system_checks,
+    evaluate_tool_call_floors,
     extract_tool_floor_reason_codes,
     normalize_reason_codes,
 )
@@ -491,7 +492,28 @@ def _complete_investigation_job(
         has_hard_block=has_hard_block,
     )
 
-    new_sys_findings = [*missing_bot_specs, *sys_specs]
+    # Tool-output floors across ALL tool_calls of this job attempt (covers bots that timed out,
+    # failed, submitted no Finding, or submitted only BOT_TIMEOUT/BOT_INVALID_OUTPUT)
+    attempt_tool_calls = conn.execute(
+        """
+        SELECT tool_call_id, bot_id, tool_id, output, error
+        FROM core.tool_calls
+        WHERE tenant_id = %s AND job_id = %s AND attempt = %s
+        ORDER BY created_at ASC
+        """,
+        (tid, job_id, job["attempt"]),
+    ).fetchall()
+    covered_codes = {
+        c for f in existing_findings for c in (f["reason_codes"] or [])
+    } | {
+        c for sp in sys_specs for c in sp.reason_codes
+    }
+    tool_floor_specs = evaluate_tool_call_floors(
+        attempt_tool_calls,
+        existing_reason_codes=covered_codes,
+    )
+
+    new_sys_findings = [*missing_bot_specs, *sys_specs, *tool_floor_specs]
 
     # Aggregate ALL findings monotonically (invariant #5)
     finding_inputs: list[FindingInput] = [
@@ -558,7 +580,7 @@ def _complete_investigation_job(
                 VALUES (
                     %s, %s, %s, %s, %s, %s,
                     1, 1, 'system-check', %s, %s,
-                    %s, %s, '[]'::jsonb, 'trusted', %s
+                    %s, %s, %s, 'trusted', %s
                 )
                 """,
                 (
@@ -572,6 +594,7 @@ def _complete_investigation_job(
                     sp.severity,
                     list(sp.reason_codes),
                     Jsonb({"text": sp.reason_text, "provenance": "untrusted", "source": "bot_reason"}),
+                    Jsonb(list(sp.evidence)),
                     now,
                 ),
             )
