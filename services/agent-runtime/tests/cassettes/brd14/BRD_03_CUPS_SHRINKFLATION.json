@@ -1,0 +1,141 @@
+{
+  "entries": {
+    "28f0e6c69aa42fa5120feb599a12aca971b0cf626b39835d0fd2f231ba7fe580": {
+      "response": {
+        "content": "{\"severity_reported\": \"yellow\", \"reason_codes\": [\"PACK_SIZE_CHANGED\", \"PRICE_ABOVE_CONTRACT\"], \"reason\": \"Quy cách giảm từ 1.000 xuống 800 cái/thùng, đơn giá tăng +21,74%/cái.\", \"evidence\": [{\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}, {\"kind\": \"contract_item\", \"ref_id\": \"itm_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "375382d9ffbdc4e76b70dad0be490ec9a8146e6565f3e95c41d733b44ad09a94": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư; đề xuất bank_transfer sau khi Chủ chuỗi xử lý chênh giá.\", \"evidence\": [], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-12-03\"}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "3a54d48179ceb1aac0c7a72a45af2684e4d3656c19d82662e2709ea161b804df": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn ly nhựa PP 500ml 22.400.000 đ có cảnh báo vàng từ Thu mua.\", \"Phát hiện PACK_SIZE_CHANGED (800 vs 1.000 cái/thùng) và PRICE_ABOVE_CONTRACT (+21,74%).\"], \"cited_evidence\": [{\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}, {\"kind\": \"contract_item\", \"ref_id\": \"itm_00000000000000000000000037\", \"tool_call_id\": \"tcl_3NDBBYA1EJ3SJTBVZGNMT7Z9XD\"}]}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "4aea474e37f35e56e4ab862a6884aee9d8b7f0ce8fc3cd6dcaca6d1dc3145231": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Khớp 3 chứng từ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "8290b101fd3a5d69d3a025eeabd21465a1be6454c99807256bf41da576e83798": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "mappings": [
+                {
+                  "line_id": "lin_00000000000000000000000037",
+                  "sku": "CUP-PP500-1000"
+                }
+              ]
+            },
+            "id": "pc_1",
+            "name": "price_check"
+          }
+        ]
+      }
+    },
+    "94d8f2931eeeb20dcfe032423bed8adeef29e51f752e8d4a9dbf80325d9a7ec4": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "tax_id": "0999010003"
+            },
+            "id": "tx_1",
+            "name": "tax_id_lookup"
+          },
+          {
+            "arguments": {
+              "tax_id": "0999010003"
+            },
+            "id": "tx_2",
+            "name": "tax_risk_list"
+          }
+        ]
+      }
+    },
+    "a0e2ddee52bfea368eb4041c4d17eaf3b34f1d3eafe7940d85fbed9ae79d03cf": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Không có dấu hiệu gian lận.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "a532d9f86790b5bcdfadb221f598a2bd5aa76ae280ac677251a192a619248e24": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Thuế hợp lệ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "eb18e8f92584422a42abd50be53d196971e4c7e4a8121e1a37aeb55dd9a172ed": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_2",
+            "name": "ask_accounts-payable"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_3",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_4",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000037"
+            },
+            "id": "sup_5",
+            "name": "ask_treasury"
+          }
+        ]
+      }
+    }
+  },
+  "version": 1
+}
