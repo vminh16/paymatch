@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -34,7 +35,7 @@ from core.shared.config import CoreSettings
 from core.shared.errors import ProblemError, install_error_handlers
 from core.shared.hashing import action_hash, mask_account_number, payload_hash_approval
 from core.shared.ids import new_id
-from core.shared.jwt_tokens import Ed25519KeyManager, HttpJwksVerifier, JwksVerifier
+from core.shared.jwt_tokens import ALLOWED_STRONG_AMR, Ed25519KeyManager, HttpJwksVerifier, JwksVerifier
 from core.tools.adapters.http_gate import HttpGateAdapter
 from core.tools.adapters.http_sim_world import HttpSimWorldAdapter
 from core.tools.ports import GateClientPort, SimWorldToolPort, UpstreamToolError
@@ -170,17 +171,29 @@ def create_merchant_app(
     settings: CoreSettings | None = None,
     *,
     db: Database | None = None,
+    admin_db: Database | None = None,
     sim_world: SimWorldToolPort | None = None,
     gate_client: GateClientPort | None = None,
     jwks_verifier: JwksVerifier | None = None,
     session_keys: Ed25519KeyManager | None = None,
     clock: Clock | None = None,
+    security_clock: Clock | None = None,
 ) -> FastAPI:
     cfg = settings or CoreSettings.from_env()
     database = db or Database(cfg.database_url)
+    admin_database = admin_db or (
+        Database(cfg.admin_database_url) if cfg.admin_database_url else database
+    )
     sim_adapter = sim_world or HttpSimWorldAdapter(cfg.sim_url, cfg.sim_core_service_key)
     gate_adapter = gate_client or HttpGateAdapter(cfg.gate_url, cfg.gate_core_service_key)
-    verifier = jwks_verifier or HttpJwksVerifier(cfg.sim_url, cfg.sim_core_service_key)
+    # I2: wall clock for JWT auth & preview expiry; business clock for business dates/demo data
+    sec_clk = security_clock or SystemClock()
+    verifier = jwks_verifier or HttpJwksVerifier(
+        cfg.sim_url,
+        cfg.sim_core_service_key,
+        expected_issuer=cfg.identity_jwt_issuer,
+        clock=sec_clk,
+    )
     sess_keys = session_keys or Ed25519KeyManager(cfg.session_signing_key_pem)
     clk = clock or (
         SimWorldClock(cfg.sim_url, cfg.sim_core_service_key) if cfg.demo_mode else SystemClock()
@@ -198,11 +211,13 @@ def create_merchant_app(
 
     app.state.settings = cfg
     app.state.db = database
+    app.state.admin_db = admin_database
     app.state.sim_world = sim_adapter
     app.state.gate = gate_adapter
     app.state.jwks_verifier = verifier
     app.state.session_keys = sess_keys
     app.state.clock = clk
+    app.state.security_clock = sec_clk
 
     # ---- Auth dependencies ----
 
@@ -221,7 +236,7 @@ def create_merchant_app(
             token,
             audience="merchant-api",
             issuer="core",
-            now_ts=int(clk.now().timestamp()),
+            now_ts=int(sec_clk.now().timestamp()),
         )
         return SessionPrincipal(
             user_id=claims["sub"],
@@ -274,8 +289,8 @@ def create_merchant_app(
         if u is None:
             raise ProblemError(401, "UNAUTHENTICATED", "Unknown user", "Không tìm thấy người dùng trong hệ thống.")
 
-        now = clk.now()
-        now_ts = int(now.timestamp())
+        # I2: wall clock for session JWT iat/exp
+        now_ts = int(sec_clk.now().timestamp())
         exp_ts = now_ts + cfg.session_ttl_seconds
         exp_dt = datetime.fromtimestamp(exp_ts, tz=VN_TZ)
 
@@ -625,7 +640,35 @@ def create_merchant_app(
 
         ph = payload_hash_approval(ev.intent_hash, None)
         ah = action_hash("approve_invoice", invoice_id, ph)
-        expires_at = now + timedelta(minutes=5)
+        sec_now = sec_clk.now()
+        expires_at = sec_now + timedelta(seconds=cfg.approval_preview_ttl_seconds)
+        effective_ver_req = bool(ev.verification_required or inv.get("verification_required"))
+
+        # I7: Persist server-tracked approval preview record (bound to version, job, intent_hash, verification, TTL)
+        with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO core.approval_previews (
+                        preview_id, tenant_id, invoice_id, user_id, job_id,
+                        intent_hash, action_hash, verification_required, invoice_version, expires_at, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        new_id("prv"),
+                        principal.tenant_id,
+                        invoice_id,
+                        principal.user_id,
+                        latest_job["job_id"],
+                        ev.intent_hash,
+                        ah,
+                        effective_ver_req,
+                        int(inv["version"]),
+                        expires_at,
+                        sec_now,
+                    ),
+                )
 
         return {
             "invoice_id": invoice_id,
@@ -636,8 +679,8 @@ def create_merchant_app(
             "channel": ev.channel,
             "gate_decision": ev.decision,
             "allowed_methods": ev.allowed_methods,
-            "verification_required": ev.verification_required,
-            "phone_on_file_masked": phone_masked if ev.verification_required else None,
+            "verification_required": effective_ver_req,
+            "phone_on_file_masked": phone_masked if effective_ver_req else None,
             "gate_reasons": ev.reasons,
             "action_hash": ah,
             "expires_at": fmt_ts(expires_at),
@@ -653,6 +696,7 @@ def create_merchant_app(
         principal: SessionPrincipal = Depends(require_roles("owner")),
     ) -> JSONResponse:
         now = clk.now()
+        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
         req_hash = _hash_request(body.model_dump_json())
 
@@ -735,6 +779,16 @@ def create_merchant_app(
                     gate_reasons=ev.reasons,
                 )
 
+            # I3: escrow_held can ONLY be approved when channel == 'escrow'
+            if inv["status"] == "escrow_held" and ev.channel != "escrow":
+                raise ProblemError(
+                    409,
+                    "INVALID_STATE",
+                    "Escrow channel required",
+                    "Hóa đơn ở trạng thái escrow_held chỉ được duyệt cho kênh escrow.",
+                    current_status=inv["status"],
+                )
+
             if ev.intent_hash != body.intent_hash:
                 raise ProblemError(
                     409,
@@ -744,7 +798,37 @@ def create_merchant_app(
                     errors=[{"field": "intent_hash", "code": "stale"}],
                 )
 
-            if ev.verification_required:
+            # I7: Enforce fresh (<5m) server-issued preview bound to user, job, intent_hash, invoice_version, and verification_required
+            effective_ver_req = bool(ev.verification_required or inv.get("verification_required"))
+            fresh_preview = conn.execute(
+                """
+                SELECT preview_id, invoice_version, verification_required
+                FROM core.approval_previews
+                WHERE tenant_id = %s
+                  AND invoice_id = %s
+                  AND user_id = %s
+                  AND job_id = %s
+                  AND intent_hash = %s
+                  AND expires_at >= %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (principal.tenant_id, invoice_id, principal.user_id, body.job_id, body.intent_hash, sec_now),
+            ).fetchone()
+            if (
+                fresh_preview is None
+                or int(fresh_preview["invoice_version"]) != int(inv["version"])
+                or bool(fresh_preview["verification_required"]) != effective_ver_req
+            ):
+                raise ProblemError(
+                    409,
+                    "INTENT_HASH_MISMATCH",
+                    "Approval preview expired or stale",
+                    "Bản xem trước duyệt đã hết hạn hoặc hóa đơn đã cập nhật; vui lòng xem trước lại.",
+                    errors=[{"field": "preview", "code": "expired_or_stale"}],
+                )
+
+            if effective_ver_req:
                 if (
                     body.verification is None
                     or body.verification.called_phone_on_file is not True
@@ -758,7 +842,7 @@ def create_merchant_app(
                         errors=[{"field": "verification", "code": "required_confirmed"}],
                     )
 
-            # Verify step-up auth_proof (action_hash computed via paymatch_hashing)
+            # Verify step-up auth_proof (action_hash computed via paymatch_hashing; I7 checks iss/exp/iat/amr)
             ver_dict = body.verification.model_dump(mode="json") if body.verification is not None else None
             expected_ph = payload_hash_approval(body.intent_hash, ver_dict)
             expected_ah = action_hash("approve_invoice", invoice_id, expected_ph)
@@ -772,9 +856,15 @@ def create_merchant_app(
                 raise ProblemError(
                     403, "STEP_UP_INVALID", "Step-up action_hash mismatch", "auth_proof không khớp action_hash của hành động duyệt này."
                 )
-            if not (proof_claims.get("amr") or []):
+            amr_val = proof_claims.get("amr")
+            if (
+                not isinstance(amr_val, list)
+                or not amr_val
+                or not all(isinstance(x, str) for x in amr_val)
+                or not (set(amr_val) & ALLOWED_STRONG_AMR)
+            ):
                 raise ProblemError(
-                    403, "STEP_UP_INVALID", "Missing strong auth factor", "auth_proof thiếu yếu tố xác thực mạnh (amr)."
+                    403, "STEP_UP_INVALID", "Missing strong auth factor", "auth_proof thiếu yếu tố xác thực mạnh hợp lệ (amr)."
                 )
             proof_jti = proof_claims.get("jti")
             if not proof_jti:
@@ -789,6 +879,44 @@ def create_merchant_app(
             next_status = "escrow_held" if inv["status"] == "escrow_held" else "approved"
 
             with conn.transaction():
+                # I3: Lock invoice row and re-verify version, status, latest job, and verification_required under lock
+                locked_inv = conn.execute(
+                    """
+                    SELECT * FROM core.invoices
+                    WHERE tenant_id = %s AND invoice_id = %s
+                    FOR UPDATE
+                    """,
+                    (principal.tenant_id, invoice_id),
+                ).fetchone()
+                if (
+                    locked_inv is None
+                    or locked_inv["status"] != inv["status"]
+                    or int(locked_inv["version"]) != int(inv["version"])
+                    or bool(locked_inv["verification_required"]) != bool(inv["verification_required"])
+                ):
+                    raise ProblemError(
+                        409,
+                        "INTENT_HASH_MISMATCH",
+                        "Concurrent invoice update",
+                        "Hóa đơn đã thay đổi đồng thời (ví dụ cảnh báo chéo mới); vui lòng xem trước lại.",
+                    )
+                latest_job_locked = conn.execute(
+                    """
+                    SELECT job_id FROM core.jobs
+                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                    LIMIT 1
+                    """,
+                    (principal.tenant_id, invoice_id),
+                ).fetchone()
+                if latest_job_locked is None or latest_job_locked["job_id"] != body.job_id:
+                    raise ProblemError(
+                        409,
+                        "INTENT_HASH_MISMATCH",
+                        "Investigation superseded concurrently",
+                        "Job điều tra hoàn tất mới nhất đã thay đổi; vui lòng xem trước lại.",
+                    )
+
                 # Enforce single-use auth_proof jti
                 used = conn.execute(
                     """
@@ -845,10 +973,19 @@ def create_merchant_app(
                     """
                     UPDATE core.invoices
                     SET status = %s, version = version + 1, updated_at = %s
-                    WHERE tenant_id = %s AND invoice_id = %s AND status = %s
+                    WHERE tenant_id = %s AND invoice_id = %s
+                      AND status = %s AND version = %s AND verification_required = %s
                     RETURNING *
                     """,
-                    (next_status, now, principal.tenant_id, invoice_id, inv["status"]),
+                    (
+                        next_status,
+                        now,
+                        principal.tenant_id,
+                        invoice_id,
+                        inv["status"],
+                        int(inv["version"]),
+                        bool(inv["verification_required"]),
+                    ),
                 ).fetchone()
                 if updated_inv is None:
                     raise ProblemError(
@@ -1201,10 +1338,12 @@ def create_merchant_app(
     @app.get("/m/jobs/{job_id}/events")
     async def stream_job_events(
         job_id: str,
+        request: Request,
         last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
         principal: SessionPrincipal = Depends(require_roles("owner", "accountant")),
     ) -> StreamingResponse:
         now = clk.now()
+        min_time = now - timedelta(seconds=cfg.sse_replay_window_seconds)
         with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
             job = conn.execute(
                 "SELECT job_id, status FROM core.jobs WHERE tenant_id = %s AND job_id = %s",
@@ -1213,7 +1352,6 @@ def create_merchant_app(
             if job is None:
                 raise ProblemError(404, "NOT_FOUND", "Job not found", "Không tìm thấy job.")
 
-            min_time = now - timedelta(seconds=cfg.sse_replay_window_seconds)
             resync_needed = False
             start_seq = 0
             if last_event_id:
@@ -1229,33 +1367,66 @@ def create_merchant_app(
                 else:
                     start_seq = int(anchor["seq"])
 
-            events = conn.execute(
-                """
-                SELECT seq, event_id, event_type, data
-                FROM core.sse_events
-                WHERE stream_type = 'job' AND stream_key = %s AND seq > %s AND created_at >= %s
-                ORDER BY seq ASC
-                """,
-                (job_id, start_seq, min_time),
-            ).fetchall()
+        def _poll_job_batch(after_seq: int) -> tuple[list[dict[str, Any]], str]:
+            with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
+                evs = conn.execute(
+                    """
+                    SELECT seq, event_id, event_type, data
+                    FROM core.sse_events
+                    WHERE stream_type = 'job' AND stream_key = %s AND seq > %s AND created_at >= %s
+                    ORDER BY seq ASC
+                    """,
+                    (job_id, after_seq, min_time),
+                ).fetchall()
+                jrow = conn.execute(
+                    "SELECT status FROM core.jobs WHERE tenant_id = %s AND job_id = %s",
+                    (principal.tenant_id, job_id),
+                ).fetchone()
+                return evs, (jrow["status"] if jrow else "failed")
 
         async def _gen():
             if resync_needed:
                 yield _format_sse("resync", new_id("evt"), {"reason": "cursor_expired"})
                 return
-            for ev in events:
-                yield _format_sse(ev["event_type"], ev["event_id"], ev["data"])
-                if ev["event_type"] == "job.completed":
-                    return
-            # If job already completed and no job.completed event was emitted yet, close cleanly
-            if job["status"] in {"completed", "failed"}:
-                return
-            yield ": keep-alive\n\n"
 
-        return StreamingResponse(_gen(), media_type="text/event-stream")
+            last_seq = start_seq
+            last_yield = time.monotonic()
+            last_activity = last_yield
+
+            # I9: Tail job SSE live until completion, terminal failure, or client disconnect
+            while True:
+                batch, status = await asyncio.to_thread(_poll_job_batch, last_seq)
+                for ev in batch:
+                    last_seq = int(ev["seq"])
+                    last_yield = time.monotonic()
+                    last_activity = last_yield
+                    yield _format_sse(ev["event_type"], ev["event_id"], ev["data"])
+                    if ev["event_type"] in {"job.completed", "job.failed"}:
+                        return
+
+                if status in {"completed", "failed"}:
+                    return
+                if await request.is_disconnected():
+                    return
+
+                mono_now = time.monotonic()
+                if mono_now - last_yield >= cfg.sse_keepalive_interval_s:
+                    last_yield = mono_now
+                    yield ": keep-alive\n\n"
+                if cfg.sse_max_idle_seconds is not None and (mono_now - last_activity) >= cfg.sse_max_idle_seconds:
+                    return
+
+                await asyncio.sleep(cfg.sse_poll_interval_s)
+
+        return StreamingResponse(
+            _gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/m/events")
     async def stream_tenant_events(
+        request: Request,
         last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
         principal: SessionPrincipal = Depends(require_principal),
     ) -> StreamingResponse:
@@ -1278,33 +1449,60 @@ def create_merchant_app(
                 else:
                     start_seq = int(anchor["seq"])
 
-            rows = conn.execute(
-                """
-                SELECT seq, event_id, event_type, store_id, data
-                FROM core.sse_events
-                WHERE stream_type = 'tenant' AND stream_key = %s AND seq > %s AND created_at >= %s
-                ORDER BY seq ASC
-                """,
-                (principal.tenant_id, start_seq, min_time),
-            ).fetchall()
-
-        filtered = []
-        for r in rows:
-            if principal.role == "store_manager":
-                if r["store_id"] is None or r["store_id"] not in principal.store_ids:
-                    continue
-            filtered.append(r)
+        def _poll_tenant_batch(after_seq: int) -> list[dict[str, Any]]:
+            with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT seq, event_id, event_type, store_id, data
+                    FROM core.sse_events
+                    WHERE stream_type = 'tenant' AND stream_key = %s AND seq > %s AND created_at >= %s
+                    ORDER BY seq ASC
+                    """,
+                    (principal.tenant_id, after_seq, min_time),
+                ).fetchall()
+            out = []
+            for r in rows:
+                if principal.role == "store_manager":
+                    if r["store_id"] is None or r["store_id"] not in principal.store_ids:
+                        continue
+                out.append(r)
+            return out
 
         async def _gen():
             if resync_needed:
                 yield _format_sse("resync", new_id("evt"), {"reason": "cursor_expired"})
                 return
-            for ev in filtered:
-                yield _format_sse(ev["event_type"], ev["event_id"], ev["data"])
-            yield ": keep-alive\n\n"
-            await asyncio.sleep(0)
 
-        return StreamingResponse(_gen(), media_type="text/event-stream")
+            last_seq = start_seq
+            last_yield = time.monotonic()
+            last_activity = last_yield
+
+            # I9: Tail tenant SSE live with periodic scoped reads and keep-alives until disconnect
+            while True:
+                batch = await asyncio.to_thread(_poll_tenant_batch, last_seq)
+                for ev in batch:
+                    last_seq = int(ev["seq"])
+                    last_yield = time.monotonic()
+                    last_activity = last_yield
+                    yield _format_sse(ev["event_type"], ev["event_id"], ev["data"])
+
+                if await request.is_disconnected():
+                    return
+
+                mono_now = time.monotonic()
+                if mono_now - last_yield >= cfg.sse_keepalive_interval_s:
+                    last_yield = mono_now
+                    yield ": keep-alive\n\n"
+                if cfg.sse_max_idle_seconds is not None and (mono_now - last_activity) >= cfg.sse_max_idle_seconds:
+                    return
+
+                await asyncio.sleep(cfg.sse_poll_interval_s)
+
+        return StreamingResponse(
+            _gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     # ---- Approval Queue ----
 
@@ -1439,8 +1637,8 @@ def create_merchant_app(
                     "Missing Idempotency-Key",
                     "Header Idempotency-Key là bắt buộc.",
                 )
-            # Reset DB (using admin connection because TRUNCATE resets all demo tenants)
-            with database.connect() as conn:
+            # Reset DB using dedicated migrator/admin connection (B1: merchant_api login has no TRUNCATE privileges)
+            with admin_database.connect() as conn:
                 counts = load_core_seed(conn, seed_dir=cfg.seed_dir, reset=True)
 
             try:

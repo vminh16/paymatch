@@ -12,8 +12,11 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
+from core.shared.clock import Clock, SystemClock
 from core.shared.errors import ProblemError
 from core.shared.ids import new_id
+
+ALLOWED_STRONG_AMR: frozenset[str] = frozenset({"otp", "pin", "biometric", "mfa", "hwk", "swk"})
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -131,11 +134,79 @@ class JwksVerifier(Protocol):
     def verify_auth_proof(self, token: str) -> dict[str, Any]: ...
 
 
+def _validate_identity_claims(
+    claims: dict[str, Any],
+    *,
+    expected_use: str,
+    expected_issuer: str,
+    now_ts: int,
+    err_code_on_fail: str,
+    err_status: int,
+) -> dict[str, Any]:
+    """Validate iss, iat, exp, token_use, and (for auth_proof) allowed strong amr factors (I7)."""
+    if claims.get("iss") != expected_issuer:
+        raise ProblemError(
+            err_status,
+            err_code_on_fail,
+            "Invalid token issuer",
+            f"Issuer không hợp lệ (yêu cầu '{expected_issuer}').",
+        )
+    if claims.get("token_use") != expected_use:
+        raise ProblemError(
+            err_status,
+            err_code_on_fail,
+            "Invalid token type",
+            f"Yêu cầu token_use={expected_use}.",
+        )
+    exp = claims.get("exp")
+    iat = claims.get("iat")
+    if not isinstance(exp, int) or not isinstance(iat, int):
+        raise ProblemError(
+            err_status,
+            err_code_on_fail,
+            "Missing time claims",
+            "JWT bắt buộc phải có iat và exp dạng số nguyên.",
+        )
+    if exp < now_ts:
+        code = "TOKEN_EXPIRED" if expected_use == "momo_token" else "STEP_UP_INVALID"
+        raise ProblemError(err_status, code, "Token expired", "Token đã hết hạn.")
+    if iat > now_ts + 5:
+        raise ProblemError(
+            err_status,
+            err_code_on_fail,
+            "Token not yet valid",
+            "Token có iat ở tương lai.",
+        )
+    if expected_use == "auth_proof":
+        amr = claims.get("amr")
+        if (
+            not isinstance(amr, list)
+            or not amr
+            or not all(isinstance(x, str) for x in amr)
+            or not (set(amr) & ALLOWED_STRONG_AMR)
+        ):
+            raise ProblemError(
+                err_status,
+                err_code_on_fail,
+                "Invalid strong auth factor",
+                "auth_proof phải chứa yếu tố xác thực mạnh hợp lệ trong amr.",
+            )
+    return claims
+
+
 class StaticJwksVerifier:
     """In-memory verifier backed by a static JWKS dict (ideal for unit/integration tests)."""
 
-    def __init__(self, jwks: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        jwks: dict[str, Any],
+        *,
+        expected_issuer: str = "sim-world",
+        clock: Clock | None = None,
+    ) -> None:
         self._keys = _parse_ed25519_jwks(jwks)
+        self._expected_issuer = expected_issuer
+        self._clock = clock or SystemClock()
 
     def update_jwks(self, jwks: dict[str, Any]) -> None:
         self._keys = _parse_ed25519_jwks(jwks)
@@ -150,20 +221,23 @@ class StaticJwksVerifier:
         if pub is None:
             raise ProblemError(err_status, err_code_on_fail, "Unknown signing key", "Signing key not found in JWKS.")
         try:
-            claims = jwt.decode(token, pub, algorithms=["EdDSA"], audience="paymatch")
-        except jwt.ExpiredSignatureError as exc:
-            code = "TOKEN_EXPIRED" if expected_use == "momo_token" else "STEP_UP_INVALID"
-            raise ProblemError(err_status, code, "Token expired", "Token đã hết hạn.") from exc
+            claims = jwt.decode(
+                token,
+                pub,
+                algorithms=["EdDSA"],
+                audience="paymatch",
+                options={"verify_exp": False, "verify_iat": False},
+            )
         except jwt.PyJWTError as exc:
             raise ProblemError(err_status, err_code_on_fail, "Invalid JWT", f"Chữ ký JWT không hợp lệ: {exc}") from exc
-        if claims.get("token_use") != expected_use:
-            raise ProblemError(
-                err_status,
-                err_code_on_fail,
-                "Invalid token type",
-                f"Yêu cầu token_use={expected_use}.",
-            )
-        return claims
+        return _validate_identity_claims(
+            claims,
+            expected_use=expected_use,
+            expected_issuer=self._expected_issuer,
+            now_ts=int(self._clock.now().timestamp()),
+            err_code_on_fail=err_code_on_fail,
+            err_status=err_status,
+        )
 
     def verify_momo_token(self, token: str) -> dict[str, Any]:
         return self._verify(token, expected_use="momo_token", err_code_on_fail="UNAUTHENTICATED", err_status=401)
@@ -175,9 +249,18 @@ class StaticJwksVerifier:
 class HttpJwksVerifier:
     """Fetches and caches Ed25519 JWKS from {SIM_URL}/identity/.well-known/jwks.json."""
 
-    def __init__(self, sim_url: str, service_key: str = "") -> None:
+    def __init__(
+        self,
+        sim_url: str,
+        service_key: str = "",
+        *,
+        expected_issuer: str = "sim-world",
+        clock: Clock | None = None,
+    ) -> None:
         self._sim_url = sim_url.rstrip("/")
         self._service_key = service_key
+        self._expected_issuer = expected_issuer
+        self._clock = clock or SystemClock()
         self._keys: dict[str, Ed25519PublicKey] = {}
 
     def _refresh(self) -> None:
@@ -213,20 +296,23 @@ class HttpJwksVerifier:
             raise ProblemError(err_status, err_code_on_fail, "Invalid JWT", f"Invalid JWT header: {exc}") from exc
         pub = self._get_key(header.get("kid"))
         try:
-            claims = jwt.decode(token, pub, algorithms=["EdDSA"], audience="paymatch")
-        except jwt.ExpiredSignatureError as exc:
-            code = "TOKEN_EXPIRED" if expected_use == "momo_token" else "STEP_UP_INVALID"
-            raise ProblemError(err_status, code, "Token expired", "Token đã hết hạn.") from exc
+            claims = jwt.decode(
+                token,
+                pub,
+                algorithms=["EdDSA"],
+                audience="paymatch",
+                options={"verify_exp": False, "verify_iat": False},
+            )
         except jwt.PyJWTError as exc:
             raise ProblemError(err_status, err_code_on_fail, "Invalid JWT", f"Chữ ký JWT không hợp lệ: {exc}") from exc
-        if claims.get("token_use") != expected_use:
-            raise ProblemError(
-                err_status,
-                err_code_on_fail,
-                "Invalid token type",
-                f"Yêu cầu token_use={expected_use}.",
-            )
-        return claims
+        return _validate_identity_claims(
+            claims,
+            expected_use=expected_use,
+            expected_issuer=self._expected_issuer,
+            now_ts=int(self._clock.now().timestamp()),
+            err_code_on_fail=err_code_on_fail,
+            err_status=err_status,
+        )
 
     def verify_momo_token(self, token: str) -> dict[str, Any]:
         return self._verify(token, expected_use="momo_token", err_code_on_fail="UNAUTHENTICATED", err_status=401)

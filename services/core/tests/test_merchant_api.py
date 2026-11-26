@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from core.entrypoints.internal_api import create_internal_app
 from core.entrypoints.merchant_api import create_merchant_app
-from core.persistence.db import Database
+from core.persistence.db import Database, dsn_for_role
 from core.shared.clock import FixedClock
 from core.shared.config import CoreSettings
 from core.shared.hashing import action_hash, intent_hash_invoice, payload_hash_approval
@@ -61,17 +61,25 @@ class FakeIdentityProvider:
             ]
         }
 
-    def issue_momo_token(self, user_id: str, tenant_id: str) -> str:
-        now = int(time.time())
+    def issue_momo_token(
+        self,
+        user_id: str,
+        tenant_id: str,
+        *,
+        iss: str = "sim-world",
+        now_ts: int | None = None,
+        exp_offset: int = 3600,
+    ) -> str:
+        now = int(time.time()) if now_ts is None else now_ts
         return jwt.encode(
             {
-                "iss": "sim-world",
+                "iss": iss,
                 "aud": "paymatch",
                 "sub": user_id,
                 "tenant_id": tenant_id,
                 "token_use": "momo_token",
                 "iat": now,
-                "exp": now + 3600,
+                "exp": now + exp_offset,
                 "jti": new_id("jti"),
             },
             self._priv,
@@ -79,18 +87,28 @@ class FakeIdentityProvider:
             headers={"kid": self.kid},
         )
 
-    def issue_auth_proof(self, user_id: str, ah: str, *, jti: str | None = None) -> str:
-        now = int(time.time())
+    def issue_auth_proof(
+        self,
+        user_id: str,
+        ah: str,
+        *,
+        jti: str | None = None,
+        iss: str = "sim-world",
+        amr: Any = None,
+        now_ts: int | None = None,
+        exp_offset: int = 300,
+    ) -> str:
+        now = int(time.time()) if now_ts is None else now_ts
         return jwt.encode(
             {
-                "iss": "sim-world",
+                "iss": iss,
                 "aud": "paymatch",
                 "sub": user_id,
                 "action_hash": ah,
                 "jti": jti or new_id("jti"),
                 "iat": now,
-                "exp": now + 300,
-                "amr": ["otp"],
+                "exp": now + exp_offset,
+                "amr": ["otp"] if amr is None else amr,
                 "token_use": "auth_proof",
             },
             self._priv,
@@ -268,14 +286,18 @@ def _complete_cups_job(db: Database, job_id: str, clock: FixedClock) -> None:
 
 @pytest.mark.db
 def test_merchant_full_demo_slice_upload_preview_approve_reject_queue_sse_and_reset(
-    seeded_db: Database, fixed_clock: FixedClock
+    seeded_db: Database,
+    merchant_db: Database,
+    migrator_db: Database,
+    fixed_clock: FixedClock,
 ) -> None:
     idp = FakeIdentityProvider()
     gate = StubGate(db=seeded_db)
-    cfg = CoreSettings(database_url=seeded_db.dsn, demo_mode=True, seed_dir=DEMO_SEED_DIR)
+    cfg = CoreSettings(database_url=merchant_db.dsn, demo_mode=True, seed_dir=DEMO_SEED_DIR)
     app = create_merchant_app(
         cfg,
-        db=seeded_db,
+        db=merchant_db,
+        admin_db=migrator_db,
         sim_world=StubSim(),
         gate_client=gate,
         jwks_verifier=StaticJwksVerifier(idp.jwks()),
@@ -436,12 +458,14 @@ def test_merchant_full_demo_slice_upload_preview_approve_reject_queue_sse_and_re
 
 
 @pytest.mark.db
-def test_demo_reset_not_mounted_when_demo_mode_false(seeded_db: Database, fixed_clock: FixedClock) -> None:
+def test_demo_reset_not_mounted_when_demo_mode_false(
+    seeded_db: Database, merchant_db: Database, fixed_clock: FixedClock
+) -> None:
     idp = FakeIdentityProvider()
-    cfg = CoreSettings(database_url=seeded_db.dsn, demo_mode=False)
+    cfg = CoreSettings(database_url=merchant_db.dsn, demo_mode=False)
     app = create_merchant_app(
         cfg,
-        db=seeded_db,
+        db=merchant_db,
         sim_world=StubSim(),
         gate_client=StubGate(db=seeded_db),
         jwks_verifier=StaticJwksVerifier(idp.jwks()),
@@ -453,3 +477,228 @@ def test_demo_reset_not_mounted_when_demo_mode_false(seeded_db: Database, fixed_
     ).json()["session_jwt"]
     r = client.post("/m/demo:reset", json={}, headers={"Authorization": f"Bearer {tok}", "Idempotency-Key": "k1"})
     assert r.status_code == 404
+
+
+@pytest.mark.db
+def test_i9_sse_tails_live_until_job_completed_and_tenant_stream(
+    seeded_db: Database,
+    merchant_db: Database,
+    fixed_clock: FixedClock,
+) -> None:
+    """I9: /m/jobs/{id}/events stays open while job is running, streams live progress events, and closes on job.completed;
+    /m/events tails live tenant events arriving after connection open.
+    """
+    import threading
+    from psycopg.types.json import Jsonb
+
+    idp = FakeIdentityProvider()
+    cfg = CoreSettings(
+        database_url=merchant_db.dsn,
+        demo_mode=False,
+        sse_poll_interval_s=0.05,
+        sse_keepalive_interval_s=0.15,
+        sse_max_idle_seconds=2.0,
+    )
+    app = create_merchant_app(
+        cfg,
+        db=merchant_db,
+        sim_world=StubSim(),
+        gate_client=StubGate(db=seeded_db),
+        jwks_verifier=StaticJwksVerifier(idp.jwks()),
+        clock=fixed_clock,
+    )
+    client = TestClient(app)
+    owner_jwt = client.post(
+        "/m/auth/session", json={"momo_token": idp.issue_momo_token(OWNER_A, TENANT_A)}
+    ).json()["session_jwt"]
+    owner_hdr = {"Authorization": f"Bearer {owner_jwt}"}
+
+    # Upload invoice -> job is queued/running (NOT completed yet!)
+    cups_xml = (DEMO_DATA_DIR / "inbox/attachments/1C26TNX_00000744.xml").read_bytes()
+    up = client.post(
+        "/m/invoices:upload",
+        files={"file": ("1C26TNX_00000744.xml", cups_xml, "application/xml")},
+        headers={**owner_hdr, "Idempotency-Key": "idem-sse-live-1"},
+    )
+    assert up.status_code == 202
+    job_id = up.json()["job_id"]
+    inv_id = up.json()["invoice_id"]
+
+    # Background thread emits live bot progress + completes the job 0.25s AFTER the SSE stream opens
+    def _drive_job_live() -> None:
+        time.sleep(0.25)
+        _complete_cups_job(seeded_db, job_id, fixed_clock)
+
+    t = threading.Thread(target=_drive_job_live, daemon=True)
+    t.start()
+
+    # Open SSE stream BEFORE job finishes -> MUST stay open, receive live bot.finished & job.completed, then close!
+    sse_resp = client.get(f"/m/jobs/{job_id}/events", headers=owner_hdr)
+    t.join(timeout=10)
+    assert sse_resp.status_code == 200
+    assert "event: bot.finished" in sse_resp.text
+    assert "event: job.completed" in sse_resp.text
+
+    # Also verify /m/events live-tails a new tenant event emitted AFTER connection opens
+    def _emit_tenant_event() -> None:
+        time.sleep(0.20)
+        with seeded_db.connect() as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO core.sse_events (
+                        event_id, stream_type, stream_key, tenant_id, store_id, event_type, data, created_at
+                    )
+                    VALUES (%s, 'tenant', %s, %s, NULL, 'notification.created', %s, %s)
+                    """,
+                    (
+                        new_id("evt"),
+                        TENANT_A,
+                        TENANT_A,
+                        Jsonb({"notification_id": new_id("ntf"), "kind": "cross_alert_affected"}),
+                        fixed_clock.now(),
+                    ),
+                )
+
+    t2 = threading.Thread(target=_emit_tenant_event, daemon=True)
+    t2.start()
+    ten_sse = client.get("/m/events", headers=owner_hdr)
+    t2.join(timeout=10)
+    assert ten_sse.status_code == 200
+    assert "event: notification.created" in ten_sse.text
+
+
+@pytest.mark.db
+def test_i7_i3_i2_i10_auth_proof_preview_expiry_escrow_concurrent_change_and_upload_limit(
+    seeded_db: Database,
+    merchant_db: Database,
+    fixed_clock: FixedClock,
+) -> None:
+    """I7/I3/I2/I10: verify iss/exp/iat/amr validation, 5m preview TTL, escrow_held channel check,
+    concurrent version/verification change rejection, decoupled wall vs business clock, and upload byte limit.
+    """
+    sec_clock = FixedClock(fixed_clock.now())
+    biz_clock = FixedClock(fixed_clock.now() + timedelta(days=30))  # I2: +30 days ahead of wall clock!
+    idp = FakeIdentityProvider()
+    gate = StubGate(db=seeded_db)
+    cfg = CoreSettings(
+        database_url=merchant_db.dsn,
+        demo_mode=False,
+        max_invoice_bytes=200_000,
+        approval_preview_ttl_seconds=300,
+    )
+    app = create_merchant_app(
+        cfg,
+        db=merchant_db,
+        sim_world=StubSim(),
+        gate_client=gate,
+        jwks_verifier=StaticJwksVerifier(idp.jwks(), expected_issuer="sim-world", clock=sec_clock),
+        clock=biz_clock,
+        security_clock=sec_clock,
+    )
+    client = TestClient(app)
+
+    # I2: Session exchange works even when business clock is +30 days ahead of wall/security clock
+    sec_ts = int(sec_clock.now().timestamp())
+    owner_momo = idp.issue_momo_token(OWNER_A, TENANT_A, now_ts=sec_ts)
+    owner_jwt = client.post("/m/auth/session", json={"momo_token": owner_momo}).json()["session_jwt"]
+    owner_hdr = {"Authorization": f"Bearer {owner_jwt}"}
+
+    # I7: Wrong issuer on momo_token rejected (401)
+    bad_iss_momo = idp.issue_momo_token(OWNER_A, TENANT_A, iss="evil-idp", now_ts=sec_ts)
+    assert client.post("/m/auth/session", json={"momo_token": bad_iss_momo}).status_code == 401
+
+    # I10: Oversized upload rejected with 413 PAYLOAD_TOO_LARGE
+    huge = b"X" * (cfg.max_invoice_bytes + 1024)
+    r_big = client.post(
+        "/m/invoices:upload",
+        files={"file": ("huge.pdf", huge, "application/pdf")},
+        headers={**owner_hdr, "Idempotency-Key": "idem-huge-1"},
+    )
+    assert r_big.status_code == 413
+    assert r_big.json()["code"] == "PAYLOAD_TOO_LARGE"
+
+    # Upload normal cups invoice & complete investigation
+    cups_xml = (DEMO_DATA_DIR / "inbox/attachments/1C26TNX_00000744.xml").read_bytes()
+    up = client.post(
+        "/m/invoices:upload",
+        files={"file": ("cups.xml", cups_xml, "application/xml")},
+        headers={**owner_hdr, "Idempotency-Key": "idem-cups-i7"},
+    ).json()
+    inv_id, job_id = up["invoice_id"], up["job_id"]
+    _complete_cups_job(seeded_db, job_id, biz_clock)
+
+    # Get preview
+    prev = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    ah = prev["action_hash"]
+    ih = prev["intent_hash"]
+
+    # I7: Reject bad issuer, bogus amr=["none"], string amr="yes", expired auth_proof, wrong subject
+    for idx, bad_proof in enumerate(
+        [
+            idp.issue_auth_proof(OWNER_A, ah, iss="other-idp", now_ts=sec_ts),
+            idp.issue_auth_proof(OWNER_A, ah, amr=["none"], now_ts=sec_ts),
+            idp.issue_auth_proof(OWNER_A, ah, amr="yes", now_ts=sec_ts),
+            idp.issue_auth_proof(OWNER_A, ah, now_ts=sec_ts - 600, exp_offset=300),
+            idp.issue_auth_proof(ACCOUNTANT_A, ah, now_ts=sec_ts),
+            idp.issue_auth_proof(OWNER_A, "0" * 64, now_ts=sec_ts),
+        ]
+    ):
+        r_bad = client.post(
+            f"/m/invoices/{inv_id}:approve",
+            json={"intent_hash": ih, "job_id": job_id, "auth_proof": bad_proof},
+            headers={**owner_hdr, "Idempotency-Key": f"idem-bad-proof-{idx}"},
+        )
+        assert r_bad.status_code == 403, f"Case {idx} should fail 403, got {r_bad.status_code}: {r_bad.text}"
+        assert r_bad.json()["code"] == "STEP_UP_INVALID"
+
+    # I7: Expire preview (>5 minutes on security_clock) -> 409 INTENT_HASH_MISMATCH
+    sec_clock.advance(timedelta(seconds=360))
+    sec_ts2 = int(sec_clock.now().timestamp())
+    valid_proof_late = idp.issue_auth_proof(OWNER_A, ah, now_ts=sec_ts2)
+    r_exp = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": ih, "job_id": job_id, "auth_proof": valid_proof_late},
+        headers={**owner_hdr, "Idempotency-Key": "idem-exp-prev"},
+    )
+    assert r_exp.status_code == 409
+    assert r_exp.json()["code"] == "INTENT_HASH_MISMATCH"
+
+    # I3: Concurrent cross-alert updates invoice version & verification_required (status stays pending_approval!)
+    # -> fresh preview taken BEFORE alert is invalidated (409 INTENT_HASH_MISMATCH)!
+    prev2 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                """
+                UPDATE core.invoices
+                SET verification_required = TRUE, version = version + 1
+                WHERE invoice_id = %s
+                """,
+                (inv_id,),
+            )
+    proof2 = idp.issue_auth_proof(OWNER_A, prev2["action_hash"], now_ts=sec_ts2)
+    r_stale_ver = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": prev2["intent_hash"], "job_id": job_id, "auth_proof": proof2},
+        headers={**owner_hdr, "Idempotency-Key": "idem-stale-ver"},
+    )
+    assert r_stale_ver.status_code == 409
+    assert r_stale_ver.json()["code"] == "INTENT_HASH_MISMATCH"
+
+    # I3: escrow_held invoice CANNOT be approved when Gate channel != 'escrow' -> 409 INVALID_STATE
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'escrow_held', verification_required = FALSE WHERE invoice_id = %s",
+                (inv_id,),
+            )
+    prev_esc = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    proof_esc = idp.issue_auth_proof(OWNER_A, prev_esc["action_hash"], now_ts=sec_ts2)
+    r_esc = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": prev_esc["intent_hash"], "job_id": job_id, "auth_proof": proof_esc},
+        headers={**owner_hdr, "Idempotency-Key": "idem-esc-bad-ch"},
+    )
+    assert r_esc.status_code == 409
+    assert r_esc.json()["code"] == "INVALID_STATE"
