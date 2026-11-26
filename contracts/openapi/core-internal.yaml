@@ -410,8 +410,9 @@ paths:
       summary: Bot chuyên môn nộp Finding cho job `investigate_invoice` (dùng capability token của bot)
       description: 'Xác thực bằng `Authorization: Bearer <capability_token>` của đúng bot nộp (`bot_id
         == sub`). Core kiểm tra: mọi `evidence[].tool_call_id` thuộc cùng `(job_id, attempt, bot_id)`,
-        `ref_id` đúng mẫu và xuất hiện trong output của `tool_call_id`, đã gọi đủ `prefetch`, `reason
-        <= 1000` ký tự; sau đó áp mức sàn theo mã lý do + output tool (`internal-api.md §3`) và trả `201
+        `ref_id` đúng mẫu và xuất hiện trong output của `tool_call_id`, đã gọi đủ `prefetch` (miễn
+        cho Finding lỗi fail-closed: `reason_codes` chỉ gồm `BOT_TIMEOUT`/`BOT_INVALID_OUTPUT`, `evidence`
+        rỗng, core áp sàn vàng), `reason <= 1000` ký tự; sau đó áp mức sàn theo mã lý do + output tool (`internal-api.md §3`) và trả `201
         FindingForSupervisor` (**đã lược bỏ `reason`** để điều phối không bao giờ đọc chữ untrusted).'
       tags:
       - Jobs
