@@ -36,7 +36,7 @@ from gate.domain.rules import (
     validate_intent_authorization,
 )
 from gate.ports.clock import Clock
-from gate.ports.ledger_store import CreateIntentOutcome, LedgerStore
+from gate.ports.ledger_store import CreateEscrowOutcome, CreateIntentOutcome, LedgerStore
 from gate.ports.rail import PaymentRail, RailConflictError, RailTimeoutError
 from gate.ports.read_store import CoreReadStore
 
@@ -598,7 +598,13 @@ class PaymentGateService:
         expires_on: date,
         tenant_id: str | None = None,
         trace_id: str | None = None,
-    ) -> EscrowRecord:
+    ) -> CreateEscrowOutcome:
+        # B2: One approval_id funds at most one escrow forever -> return original escrow (200) in any status!
+        existing_for_approval = self._ledger.get_escrow_by_approval_id(approval_id)
+        if existing_for_approval is not None:
+            self._check_tenant_match(existing_for_approval.tenant_id, tenant_id)
+            return CreateEscrowOutcome(escrow=existing_for_approval, created=False)
+
         policy = self._require_policy()
         approval = self._read.get_approval(approval_id)
         if approval is None:
@@ -665,7 +671,7 @@ class PaymentGateService:
             "amount_vnd": approval.amount_vnd,
             "expires_on": expires_on.isoformat(),
         }
-        escrow = self._ledger.create_pending_escrow(
+        pending_outcome = self._ledger.create_pending_escrow(
             tenant_id=po.tenant_id,
             purchase_order_id=po.purchase_order_id,
             vendor_account_id=vendor_account.vendor_account_id,
@@ -676,6 +682,9 @@ class PaymentGateService:
             now=now,
             request_payload=req_payload,
         )
+        if not pending_outcome.created:
+            return pending_outcome
+        escrow = pending_outcome.escrow
 
         try:
             hold_res = self._rail.create_escrow(
@@ -689,30 +698,39 @@ class PaymentGateService:
             )
             done_now = self._clock.now()
             if hold_res.status == "held" and hold_res.rail_escrow_id:
-                return self._ledger.finalize_escrow_held(
+                return CreateEscrowOutcome(
+                    escrow=self._ledger.finalize_escrow_held(
+                        escrow_id=escrow.escrow_id,
+                        rail_escrow_id=hold_res.rail_escrow_id,
+                        response_payload=hold_res.raw_response,
+                        now=done_now,
+                        trace_id=trace_id,
+                    ),
+                    created=True,
+                )
+            return CreateEscrowOutcome(
+                escrow=self._ledger.finalize_escrow_failed(
                     escrow_id=escrow.escrow_id,
-                    rail_escrow_id=hold_res.rail_escrow_id,
+                    failure_code=hold_res.failure_code or "ESCROW_HOLD_FAILED",
                     response_payload=hold_res.raw_response,
                     now=done_now,
                     trace_id=trace_id,
-                )
-            return self._ledger.finalize_escrow_failed(
-                escrow_id=escrow.escrow_id,
-                failure_code=hold_res.failure_code or "ESCROW_HOLD_FAILED",
-                response_payload=hold_res.raw_response,
-                now=done_now,
-                trace_id=trace_id,
+                ),
+                created=True,
             )
         except RailTimeoutError:
             # Stay pending; background poller re-POSTs idempotently.
-            return escrow
+            return CreateEscrowOutcome(escrow=escrow, created=True)
         except RailConflictError:
-            return self._ledger.finalize_escrow_failed(
-                escrow_id=escrow.escrow_id,
-                failure_code="IDEMPOTENCY_CONFLICT",
-                response_payload=None,
-                now=self._clock.now(),
-                trace_id=trace_id,
+            return CreateEscrowOutcome(
+                escrow=self._ledger.finalize_escrow_failed(
+                    escrow_id=escrow.escrow_id,
+                    failure_code="IDEMPOTENCY_CONFLICT",
+                    response_payload=None,
+                    now=self._clock.now(),
+                    trace_id=trace_id,
+                ),
+                created=True,
             )
 
     def release_escrow(

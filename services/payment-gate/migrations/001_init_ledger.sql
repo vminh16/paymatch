@@ -70,13 +70,14 @@ CREATE TABLE IF NOT EXISTS ledger.payment_tokens (
 );
 
 -- Escrow holds bound to a purchase order (F7).
+-- Hard invariant (B2): one approval_id funds at most one escrow, forever (UNIQUE approval_id).
 CREATE TABLE IF NOT EXISTS ledger.escrows (
     escrow_id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
     purchase_order_id TEXT NOT NULL,
     vendor_account_id TEXT NOT NULL,
-    approval_id TEXT NOT NULL,
-    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0),
+    approval_id TEXT NOT NULL UNIQUE,
+    amount_vnd BIGINT NOT NULL CHECK (amount_vnd >= 0 AND amount_vnd <= 9007199254740991),
     status TEXT NOT NULL CHECK (status IN ('pending', 'held', 'released', 'refunded', 'failed')),
     source_invoice_id TEXT NULL,
     release_invoice_id TEXT NULL,

@@ -557,6 +557,76 @@ def test_invariant_escrow_only_account_denied_for_normal_transfer_and_release_re
     )
     assert rel_ok.decision == GateDecision.ALLOW
 
+    # B1: ESCROW_MISMATCH when release approved amount < held amount (must be EXACT equality)
+    smaller_inv = replace(inv, total_vnd=8_000_000)
+    smaller_apv = make_approval_for_invoice(
+        smaller_inv, payee_account_id=ACC_SYRUP_ESCROW, channel="escrow", method="single"
+    )
+    rel_amt_mismatch = validate_escrow_release(
+        escrow=held_escrow,
+        release_approval=smaller_apv,
+        release_invoice=smaller_inv,
+        goods_receipt=good_grn,
+        po=po,
+        vendor=vendor,
+        vendor_account=escrow_acc,
+        latest_completed_job_id=JOB_01,
+        has_settled_ledger=False,
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        now=NOW_VN,
+    )
+    assert rel_amt_mismatch.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.ESCROW_MISMATCH for r in rel_amt_mismatch.reasons)
+
+    # B1: ESCROW_MISMATCH when release approved payee != held account
+    wrong_payee_apv = make_approval_for_invoice(
+        inv, payee_account_id=ACC_COFFEE, channel="escrow", method="single"
+    )
+    rel_payee_mismatch = validate_escrow_release(
+        escrow=held_escrow,
+        release_approval=wrong_payee_apv,
+        release_invoice=inv,
+        goods_receipt=good_grn,
+        po=po,
+        vendor=vendor,
+        vendor_account=escrow_acc,
+        latest_completed_job_id=JOB_01,
+        has_settled_ledger=False,
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        now=NOW_VN,
+    )
+    assert rel_payee_mismatch.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.ESCROW_MISMATCH for r in rel_payee_mismatch.reasons)
+
+    # B1: missing / wrong GRN also yields ESCROW_MISMATCH
+    assert any(r.code == GateReasonCode.ESCROW_MISMATCH for r in rel_no_grn.reasons)
+    assert any(r.code == GateReasonCode.ESCROW_MISMATCH for r in rel_wrong_grn.reasons)
+
+
+def test_invariant_i1_amount_outside_safe_integer_range_denied():
+    vendor, acc = make_coffee_vendor()
+    huge_inv = make_coffee_invoice(amount_vnd=9_007_199_254_740_992)  # 2^53 (unsafe JS int)
+    res = evaluate_invoice(
+        invoice=huge_inv,
+        vendor=vendor,
+        vendor_accounts=(acc,),
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        daily_budget=DailyBudgetSnapshot(budget_date=NOW_VN.date()),
+        vendor_suspended=False,
+        has_settled_ledger=False,
+        held_po_escrow=None,
+        now=NOW_VN,
+    )
+    assert res.decision == GateDecision.DENY
+    assert any(r.code == GateReasonCode.BLOCKED_INVOICE for r in res.reasons)
+
 
 def test_invariant_10_fail_closed_policy_unavailable():
     vendor, acc = make_coffee_vendor()

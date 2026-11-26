@@ -248,16 +248,18 @@ def cancel_payment_intent(
 )
 def create_escrow(
     body: CreateEscrowRequest,
+    response: Response,
     traceparent: str | None = Header(default=None),
     service: PaymentGateService = Depends(_get_service),
 ) -> EscrowContract:
-    escrow = service.create_escrow(
+    outcome = service.create_escrow(
         approval_id=body.approval_id,
         expires_on=body.expires_on,
         tenant_id=body.tenant_id,
         trace_id=_extract_trace_id(traceparent),
     )
-    return to_escrow(escrow)
+    response.status_code = 201 if outcome.created else 200
+    return to_escrow(outcome.escrow)
 
 
 @router.get(

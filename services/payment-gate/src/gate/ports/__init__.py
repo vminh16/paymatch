@@ -2,6 +2,7 @@
 
 from gate.ports.clock import Clock
 from gate.ports.ledger_store import (
+    CreateEscrowOutcome,
     CreateIntentOutcome,
     ExecutePrepareOutcome,
     LedgerStore,

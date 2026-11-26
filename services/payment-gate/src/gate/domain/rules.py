@@ -43,6 +43,7 @@ from gate.domain.models import (
 )
 
 VN_TZ = timezone(timedelta(hours=7))
+MAX_SAFE_MONEY_VND = 9_007_199_254_740_991  # 2^53 - 1 per contracts/schemas/money-vnd.schema.json
 
 # Red reason codes from docs/03-agents/agent-runtime.md §5a — never auto-pay or bulk-approvable.
 RED_REASON_CODES: frozenset[str] = frozenset(
@@ -338,7 +339,11 @@ def evaluate_invoice(
         channel=channel,
         held_po_escrow=held_po_escrow,
     )
-    amount_vnd = invoice.total_vnd if (invoice.total_vnd is not None and invoice.total_vnd >= 0) else 0
+    amount_vnd = (
+        invoice.total_vnd
+        if (invoice.total_vnd is not None and 0 <= invoice.total_vnd <= MAX_SAFE_MONEY_VND)
+        else 0
+    )
     payee_account_id = payee.vendor_account_id if payee is not None else None
     intent_hash = compute_invoice_intent_hash(
         invoice_id=invoice.invoice_id,
@@ -411,12 +416,12 @@ def evaluate_invoice(
             )
         )
 
-    if invoice.total_vnd is None or invoice.total_vnd <= 0:
+    if invoice.total_vnd is None or invoice.total_vnd <= 0 or invoice.total_vnd > MAX_SAFE_MONEY_VND:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.BLOCKED_INVOICE,
                 layer=GateReasonLayer.hard_rule,
-                detail="Hóa đơn chưa có số tiền hợp lệ lớn hơn 0 để thanh toán.",
+                detail="Hóa đơn chưa có số tiền hợp lệ trong khoảng an toàn (0 < amount <= 2^53-1).",
             )
         )
 
@@ -611,7 +616,11 @@ def validate_intent_authorization(
     else:
         fallback_payee = payee
 
-    amount_vnd = invoice.total_vnd if (invoice.total_vnd is not None and invoice.total_vnd >= 0) else 0
+    amount_vnd = (
+        invoice.total_vnd
+        if (invoice.total_vnd is not None and 0 <= invoice.total_vnd <= MAX_SAFE_MONEY_VND)
+        else 0
+    )
     resolved_payee_id = payee.vendor_account_id if payee is not None else (
         fallback_payee.vendor_account_id if fallback_payee is not None else None
     )
@@ -681,12 +690,12 @@ def validate_intent_authorization(
             )
         )
 
-    if invoice.total_vnd is None or invoice.total_vnd <= 0:
+    if invoice.total_vnd is None or invoice.total_vnd <= 0 or invoice.total_vnd > MAX_SAFE_MONEY_VND:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.BLOCKED_INVOICE,
                 layer=GateReasonLayer.hard_rule,
-                detail="Hóa đơn chưa có số tiền hợp lệ lớn hơn 0.",
+                detail="Hóa đơn chưa có số tiền hợp lệ trong khoảng an toàn (0 < amount <= 2^53-1).",
             )
         )
 
@@ -958,12 +967,12 @@ def evaluate_escrow_hold(
             )
         )
 
-    if amount_vnd <= 0 or amount_vnd > po.total_vnd:
+    if amount_vnd <= 0 or amount_vnd > MAX_SAFE_MONEY_VND or amount_vnd > po.total_vnd:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.ABOVE_PER_INVOICE_LIMIT,
                 layer=GateReasonLayer.hard_rule,
-                detail=f"Số tiền cọc ({amount_vnd:,}đ) phải > 0 và không vượt giá trị PO ({po.total_vnd:,}đ).",
+                detail=f"Số tiền cọc ({amount_vnd:,}đ) phải trong khoảng hợp lệ và không vượt giá trị PO ({po.total_vnd:,}đ).",
             )
         )
 
@@ -1128,12 +1137,16 @@ def validate_escrow_create(
                 detail="Đơn đặt hàng (PO) không tồn tại hoặc đã đóng/hủy.",
             )
         )
-    elif approval is not None and (approval.amount_vnd <= 0 or approval.amount_vnd > po.total_vnd):
+    elif approval is not None and (
+        approval.amount_vnd <= 0
+        or approval.amount_vnd > MAX_SAFE_MONEY_VND
+        or approval.amount_vnd > po.total_vnd
+    ):
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.ABOVE_PER_INVOICE_LIMIT,
                 layer=GateReasonLayer.hard_rule,
-                detail=f"Số tiền cọc ({approval.amount_vnd:,}đ) vượt giá trị PO ({po.total_vnd:,}đ).",
+                detail=f"Số tiền cọc ({approval.amount_vnd:,}đ) không hợp lệ hoặc vượt giá trị PO ({po.total_vnd:,}đ).",
             )
         )
 
@@ -1269,11 +1282,11 @@ def validate_escrow_release(
             )
         )
 
-    # Hard rule: MUST have a valid GoodsReceipt belonging to the escrow's PO!
+    # Hard rule (B1): MUST have a valid GoodsReceipt belonging to the escrow's PO!
     if goods_receipt is None:
         deny_reasons.append(
             GateReasonItem(
-                code=GateReasonCode.APPROVAL_MISSING,
+                code=GateReasonCode.ESCROW_MISMATCH,
                 layer=GateReasonLayer.hard_rule,
                 detail="Không thể giải ngân escrow khi chưa có phiếu nhập hàng (goods_receipt).",
             )
@@ -1284,7 +1297,7 @@ def validate_escrow_release(
     ):
         deny_reasons.append(
             GateReasonItem(
-                code=GateReasonCode.APPROVAL_STALE,
+                code=GateReasonCode.ESCROW_MISMATCH,
                 layer=GateReasonLayer.hard_rule,
                 detail="Phiếu nhập hàng (goods_receipt) không thuộc đơn đặt hàng (PO) của khoản cọc.",
             )
@@ -1332,6 +1345,26 @@ def validate_escrow_release(
                     detail="Approval giải ngân không thuộc job hoàn tất mới nhất của hóa đơn.",
                 )
             )
+        # B1: approved amount MUST EQUAL held amount AND approved payee MUST EQUAL held account!
+        if release_approval.amount_vnd != escrow.amount_vnd:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.ESCROW_MISMATCH,
+                    layer=GateReasonLayer.hard_rule,
+                    detail=(
+                        f"Số tiền duyệt giải ngân ({release_approval.amount_vnd:,}đ) "
+                        f"không khớp số tiền cọc đang giữ ({escrow.amount_vnd:,}đ)."
+                    ),
+                )
+            )
+        if release_approval.payee_account_id != escrow.vendor_account_id:
+            deny_reasons.append(
+                GateReasonItem(
+                    code=GateReasonCode.ESCROW_MISMATCH,
+                    layer=GateReasonLayer.hard_rule,
+                    detail="Tài khoản nhận trong approval giải ngân không khớp tài khoản đã khóa của cọc.",
+                )
+            )
         if verification_required and (
             release_approval.verification is None or not release_approval.verification.is_confirmed()
         ):
@@ -1346,7 +1379,7 @@ def validate_escrow_release(
     if release_invoice is None:
         deny_reasons.append(
             GateReasonItem(
-                code=GateReasonCode.APPROVAL_STALE,
+                code=GateReasonCode.ESCROW_MISMATCH,
                 layer=GateReasonLayer.hard_rule,
                 detail="Không tìm thấy hóa đơn giải ngân gắn với approval.",
             )
@@ -1363,7 +1396,7 @@ def validate_escrow_release(
         if po is None or release_invoice.vendor_id != po.vendor_id:
             deny_reasons.append(
                 GateReasonItem(
-                    code=GateReasonCode.PAYEE_NOT_VERIFIED,
+                    code=GateReasonCode.ESCROW_MISMATCH,
                     layer=GateReasonLayer.hard_rule,
                     detail="Hóa đơn giải ngân không thuộc cùng nhà cung cấp với PO của cọc.",
                 )
@@ -1371,12 +1404,16 @@ def validate_escrow_release(
         if release_invoice.purchase_order_id != escrow.purchase_order_id:
             deny_reasons.append(
                 GateReasonItem(
-                    code=GateReasonCode.APPROVAL_STALE,
+                    code=GateReasonCode.ESCROW_MISMATCH,
                     layer=GateReasonLayer.hard_rule,
                     detail="Hóa đơn giải ngân không gắn đúng PO của khoản cọc.",
                 )
             )
-        if release_invoice.total_vnd is None or release_invoice.total_vnd <= 0:
+        if (
+            release_invoice.total_vnd is None
+            or release_invoice.total_vnd <= 0
+            or release_invoice.total_vnd > MAX_SAFE_MONEY_VND
+        ):
             deny_reasons.append(
                 GateReasonItem(
                     code=GateReasonCode.BLOCKED_INVOICE,
@@ -1384,12 +1421,15 @@ def validate_escrow_release(
                     detail="Hóa đơn giải ngân chưa có số tiền hợp lệ.",
                 )
             )
-        elif release_invoice.total_vnd > escrow.amount_vnd:
+        elif release_invoice.total_vnd != escrow.amount_vnd:
             deny_reasons.append(
                 GateReasonItem(
-                    code=GateReasonCode.ABOVE_PER_INVOICE_LIMIT,
+                    code=GateReasonCode.ESCROW_MISMATCH,
                     layer=GateReasonLayer.hard_rule,
-                    detail=f"Tổng hóa đơn giải ngân ({release_invoice.total_vnd:,}đ) vượt số tiền cọc ({escrow.amount_vnd:,}đ).",
+                    detail=(
+                        f"Tổng hóa đơn giải ngân ({release_invoice.total_vnd:,}đ) "
+                        f"phải bằng đúng số tiền cọc đang giữ ({escrow.amount_vnd:,}đ)."
+                    ),
                 )
             )
 

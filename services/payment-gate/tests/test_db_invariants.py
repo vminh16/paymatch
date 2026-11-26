@@ -35,6 +35,7 @@ from gate_fixtures import (
     APV_01,
     APV_02,
     APV_ESC_CREATE,
+    APV_ESC_CREATE_2,
     APV_ESC_RELEASE,
     DOC_SHA_COFFEE,
     DOC_SHA_SYRUP,
@@ -606,9 +607,14 @@ def test_db_escrow_unique_open_po_and_release_with_grn(db_env):
                 INSERT INTO core.approvals (
                     approval_id, tenant_id, invoice_id, purchase_order_id, source_invoice_id,
                     job_id, status, method, amount_vnd, payee_account_id, channel, intent_hash, approver_user_id
-                ) VALUES (%s, %s, NULL, %s, %s, NULL, 'active', 'single', 8800000, %s, 'escrow', %s, %s);
+                ) VALUES
+                    (%s, %s, NULL, %s, %s, NULL, 'active', 'single', 8800000, %s, 'escrow', %s, %s),
+                    (%s, %s, NULL, %s, %s, NULL, 'active', 'single', 8800000, %s, 'escrow', %s, %s);
                 """,
-                (APV_ESC_CREATE, TENANT_A, PO_01, INV_SYRUP, ACC_SYRUP_ESCROW, esc_ih, USER_OWNER),
+                (
+                    APV_ESC_CREATE, TENANT_A, PO_01, INV_SYRUP, ACC_SYRUP_ESCROW, esc_ih, USER_OWNER,
+                    APV_ESC_CREATE_2, TENANT_A, PO_01, INV_SYRUP, ACC_SYRUP_ESCROW, esc_ih, USER_OWNER,
+                ),
             )
             conn.commit()
 
@@ -621,10 +627,18 @@ def test_db_escrow_unique_open_po_and_release_with_grn(db_env):
     assert r1.status_code == 201 and r1.json()["status"] == "held"
     esc_id = r1.json()["escrow_id"]
 
-    # Second escrow on same PO while first is held -> 422 GATE_DENIED (ALREADY_PAID)
-    r_dup = client.post(
+    # B2: Re-POST with SAME approval_id -> 200 idempotent returning original escrow
+    r1_idemp = client.post(
         "/gate/escrows",
         json={"approval_id": APV_ESC_CREATE, "expires_on": "2026-12-10"},
+        headers={"X-Service-Key": SERVICE_KEYS["merchant-api"]},
+    )
+    assert r1_idemp.status_code == 200 and r1_idemp.json()["escrow_id"] == esc_id
+
+    # Second escrow on same PO with a DIFFERENT approval while first is held -> 422 GATE_DENIED (ALREADY_PAID)
+    r_dup = client.post(
+        "/gate/escrows",
+        json={"approval_id": APV_ESC_CREATE_2, "expires_on": "2026-12-10"},
         headers={"X-Service-Key": SERVICE_KEYS["merchant-api"]},
     )
     assert r_dup.status_code == 422

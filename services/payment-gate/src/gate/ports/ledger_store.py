@@ -38,6 +38,12 @@ class CreateIntentOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class CreateEscrowOutcome:
+    escrow: EscrowRecord
+    created: bool  # True -> 201 Created, False -> 200 OK (idempotent existing for approval_id)
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutePrepareOutcome:
     intent: PaymentIntentRecord
     should_call_rail: bool
@@ -161,6 +167,8 @@ class LedgerStore(Protocol):
 
     def get_escrow(self, escrow_id: str) -> EscrowRecord | None: ...
 
+    def get_escrow_by_approval_id(self, approval_id: str) -> EscrowRecord | None: ...
+
     def create_pending_escrow(
         self,
         *,
@@ -173,7 +181,7 @@ class LedgerStore(Protocol):
         expires_on: date,
         now: datetime,
         request_payload: dict[str, Any],
-    ) -> EscrowRecord: ...
+    ) -> CreateEscrowOutcome: ...
 
     def finalize_escrow_held(
         self,

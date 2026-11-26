@@ -22,6 +22,7 @@ from gate.domain.models import (
     PolicyState,
 )
 from gate.ports.rail import RailConflictError
+from paymatch_contracts.gate import IntentGateDeniedProblem
 
 from gate_fixtures import (
     ACC_COFFEE,
@@ -30,6 +31,7 @@ from gate_fixtures import (
     APV_01,
     APV_02,
     APV_ESC_CREATE,
+    APV_ESC_CREATE_2,
     APV_ESC_RELEASE,
     DOC_SHA_SYRUP,
     GRN_01,
@@ -398,10 +400,10 @@ def test_reevaluate_at_execute_blocks_new_cross_alert_and_kill_switch():
         headers=_hdr("core-worker"),
     )
     assert r.status_code == 422
-    problem = r.json()
-    assert problem["code"] == "GATE_DENIED"
-    assert any(gr["code"] == "CROSS_ALERT_UNVERIFIED" for gr in problem["gate_reasons"])
-    assert problem["payment_intent"]["status"] == "denied"
+    problem = IntentGateDeniedProblem.model_validate(r.json())
+    assert problem.code == "GATE_DENIED"
+    assert any(gr.code.value == "CROSS_ALERT_UNVERIFIED" for gr in problem.gate_reasons)
+    assert problem.payment_intent.status == "denied"
     assert len(rail.transfer_calls) == 0  # Rail was NEVER called!
     # Reserved budget released
     b = client.get(f"/gate/budgets/{TENANT_A}/2026-11-26", headers=_hdr("core-worker")).json()
@@ -569,13 +571,14 @@ def test_escrow_full_lifecycle_including_pending_poll_release_and_refund():
         method="single",
     )
 
-    # Release with non-existent GRN -> 422 GATE_DENIED
+    # Release with non-existent GRN -> 422 GATE_DENIED with ESCROW_MISMATCH (B1)
     r_bad_rel = client.post(
         f"/gate/escrows/{esc_id}:release",
         json={"approval_id": APV_ESC_RELEASE, "goods_receipt_id": "grn_01M88M1SS1NG00000000000001"},
         headers=_hdr("core-worker"),
     )
     assert r_bad_rel.status_code == 422 and r_bad_rel.json()["code"] == "GATE_DENIED"
+    assert any(gr["code"] == "ESCROW_MISMATCH" for gr in r_bad_rel.json()["gate_reasons"])
 
     # Release with valid GRN -> 200 released
     r_rel = client.post(
@@ -588,6 +591,16 @@ def test_escrow_full_lifecycle_including_pending_poll_release_and_refund():
     assert r_rel.json()["release_invoice_id"] == INV_SYRUP
     assert r_rel.json()["goods_receipt_id"] == GRN_01
 
+    # B2: Re-POST with the SAME approval_id returns 200 with the ORIGINAL released escrow!
+    r_reuse = client.post(
+        "/gate/escrows",
+        json={"approval_id": APV_ESC_CREATE, "expires_on": "2026-12-10"},
+        headers=_hdr("merchant-api"),
+    )
+    assert r_reuse.status_code == 200
+    assert r_reuse.json()["escrow_id"] == esc_id
+    assert r_reuse.json()["status"] == "released"
+
     # Refund already-released escrow -> 409 INVALID_STATE
     r_ref_bad = client.post(
         f"/gate/escrows/{esc_id}:refund",
@@ -596,22 +609,82 @@ def test_escrow_full_lifecycle_including_pending_poll_release_and_refund():
     )
     assert r_ref_bad.status_code == 409
 
-    # Create a second escrow (now that first is closed) and refund it -> 200 refunded
+    # B2: A new escrow requires a NEW approval_id -> 201 held, then refund -> 200 refunded
+    read_store.approvals[APV_ESC_CREATE_2] = make_escrow_create_approval(
+        po, approval_id=APV_ESC_CREATE_2
+    )
     r_esc2 = client.post(
         "/gate/escrows",
-        json={"approval_id": APV_ESC_CREATE, "expires_on": "2026-12-10"},
+        json={"approval_id": APV_ESC_CREATE_2, "expires_on": "2026-12-10"},
         headers=_hdr("merchant-api"),
     )
     assert r_esc2.status_code == 201 and r_esc2.json()["status"] == "held"
+    esc2_id = r_esc2.json()["escrow_id"]
     r_ref = client.post(
-        f"/gate/escrows/{r_esc2.json()['escrow_id']}:refund",
+        f"/gate/escrows/{esc2_id}:refund",
         json={"reason": "ORDER_CANCELLED"},
         headers=_hdr("core-worker"),
     )
     assert r_ref.status_code == 200 and r_ref.json()["status"] == "refunded"
 
+    # B2: Re-POST with APV_ESC_CREATE_2 after refund returns 200 with the refunded escrow!
+    r_reuse_ref = client.post(
+        "/gate/escrows",
+        json={"approval_id": APV_ESC_CREATE_2, "expires_on": "2026-12-10"},
+        headers=_hdr("merchant-api"),
+    )
+    assert r_reuse_ref.status_code == 200
+    assert r_reuse_ref.json()["escrow_id"] == esc2_id
+    assert r_reuse_ref.json()["status"] == "refunded"
+
+    # I1: Safe integer upper bound rejected with 400 VALIDATION_FAILED
+    r_overflow = client.post(
+        "/gate/evaluate",
+        json={
+            "purchase_order_id": PO_01,
+            "vendor_account_id": ACC_SYRUP_ESCROW,
+            "amount_vnd": 9_007_199_254_740_992,
+        },
+        headers=_hdr("merchant-api"),
+    )
+    assert r_overflow.status_code == 400 and r_overflow.json()["code"] == "VALIDATION_FAILED"
+
     for ev_row in ledger_store.outbox:
         validate_outbox_event_against_contract(ev_row)
+
+
+def test_x_allowed_callers_matrix_from_gate_yaml_enforced():
+    """Verify every operation's x-allowed-callers in gate.yaml rejects all non-listed callers with 403."""
+    client, *_ = _make_test_env()
+    spec = yaml.safe_load((ROOT / "contracts" / "openapi" / "gate.yaml").read_text())
+    all_callers = set(SERVICE_KEYS.keys())
+
+    sample_paths = {
+        "/gate/evaluate": ("POST", "/gate/evaluate", {"invoice_id": INV_COFFEE}),
+        "/gate/budgets/{tenant_id}/{date}": ("GET", f"/gate/budgets/{TENANT_A}/2026-11-26", None),
+        "/gate/intents": ("POST", "/gate/intents", {"invoice_id": INV_COFFEE, "approval_id": APV_01}),
+        "/gate/intents_get": ("GET", f"/gate/intents?tenant_id={TENANT_A}", None),
+        "/gate/intents/{payment_intent_id}": ("GET", "/gate/intents/pi_01M88557BXGABQA8KPG2382VH5", None),
+        "/gate/intents/{payment_intent_id}:execute": ("POST", "/gate/intents/pi_01M88557BXGABQA8KPG2382VH5:execute", {}),
+        "/gate/intents/{payment_intent_id}:cancel": ("POST", "/gate/intents/pi_01M88557BXGABQA8KPG2382VH5:cancel", {"reason": "OWNER_CANCELLED"}),
+        "/gate/escrows": ("POST", "/gate/escrows", {"approval_id": APV_ESC_CREATE, "expires_on": "2026-12-10"}),
+        "/gate/escrows/{escrow_id}": ("GET", "/gate/escrows/esc_01M88A6SAP3R27VDQ55VAKCF0P", None),
+        "/gate/escrows/{escrow_id}:release": ("POST", "/gate/escrows/esc_01M88A6SAP3R27VDQ55VAKCF0P:release", {"approval_id": APV_ESC_RELEASE, "goods_receipt_id": GRN_01}),
+        "/gate/escrows/{escrow_id}:refund": ("POST", "/gate/escrows/esc_01M88A6SAP3R27VDQ55VAKCF0P:refund", {"reason": "EXPIRED"}),
+    }
+
+    for path, path_item in spec["paths"].items():
+        for method, op in path_item.items():
+            if method not in {"get", "post"} or "x-allowed-callers" not in op:
+                continue
+            allowed = set(op["x-allowed-callers"])
+            forbidden = all_callers - allowed
+            key = "/gate/intents_get" if (path == "/gate/intents" and method == "get") else path
+            req_method, req_url, body = sample_paths[key]
+            for caller in forbidden:
+                resp = client.request(req_method, req_url, json=body, headers=_hdr(caller))
+                assert resp.status_code == 403, f"{caller} should get 403 on {req_method} {path}, got {resp.status_code}"
+                assert resp.json()["code"] == "FORBIDDEN"
 
 
 def test_sim_world_rail_and_clock_adapters():

@@ -34,6 +34,7 @@ from gate.domain.models import (
 from gate.domain.state_machine import require_escrow_transition, require_intent_transition
 from gate.ids import new_id
 from gate.ports.ledger_store import (
+    CreateEscrowOutcome,
     CreateIntentOutcome,
     ExecutePrepareOutcome,
     RailTransactionRecord,
@@ -1270,6 +1271,13 @@ class PostgresLedgerStore:
                 row = cur.fetchone()
                 return _row_to_escrow(row) if row else None
 
+    def get_escrow_by_approval_id(self, approval_id: str) -> EscrowRecord | None:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM ledger.escrows WHERE approval_id = %s;", (approval_id,))
+                row = cur.fetchone()
+                return _row_to_escrow(row) if row else None
+
     def create_pending_escrow(
         self,
         *,
@@ -1282,11 +1290,18 @@ class PostgresLedgerStore:
         expires_on: date,
         now: datetime,
         request_payload: dict[str, Any],
-    ) -> EscrowRecord:
+    ) -> CreateEscrowOutcome:
         escrow_id = new_id("esc")
         full_payload = {**request_payload, "idempotency_key": escrow_id}
         with self._connect() as conn:
             with conn.cursor() as cur:
+                # B2: 1 approval_id funds at most 1 escrow forever -> idempotent return if exists.
+                cur.execute("SELECT * FROM ledger.escrows WHERE approval_id = %s;", (approval_id,))
+                existing_apv = cur.fetchone()
+                if existing_apv is not None:
+                    conn.rollback()
+                    return CreateEscrowOutcome(escrow=_row_to_escrow(existing_apv), created=False)
+
                 try:
                     cur.execute(
                         """
@@ -1311,6 +1326,10 @@ class PostgresLedgerStore:
                     )
                 except psycopg.errors.UniqueViolation as exc:
                     conn.rollback()
+                    cur.execute("SELECT * FROM ledger.escrows WHERE approval_id = %s;", (approval_id,))
+                    winner = cur.fetchone()
+                    if winner is not None:
+                        return CreateEscrowOutcome(escrow=_row_to_escrow(winner), created=False)
                     raise GateDeniedError(
                         (
                             GateReasonItem(
@@ -1340,7 +1359,7 @@ class PostgresLedgerStore:
                     ),
                 )
                 conn.commit()
-                return _row_to_escrow(row)
+                return CreateEscrowOutcome(escrow=_row_to_escrow(row), created=True)
 
     def finalize_escrow_held(
         self,

@@ -41,6 +41,7 @@ from gate.domain.models import (
 from gate.domain.state_machine import require_escrow_transition, require_intent_transition
 from gate.ids import new_id
 from gate.ports.ledger_store import (
+    CreateEscrowOutcome,
     CreateIntentOutcome,
     ExecutePrepareOutcome,
     RailTransactionRecord,
@@ -788,6 +789,13 @@ class InMemoryLedgerStore:
         with self._lock:
             return self.escrows.get(escrow_id)
 
+    def get_escrow_by_approval_id(self, approval_id: str) -> EscrowRecord | None:
+        with self._lock:
+            for esc in self.escrows.values():
+                if esc.approval_id == approval_id:
+                    return esc
+            return None
+
     def create_pending_escrow(
         self,
         *,
@@ -800,8 +808,11 @@ class InMemoryLedgerStore:
         expires_on: date,
         now: datetime,
         request_payload: dict[str, Any],
-    ) -> EscrowRecord:
+    ) -> CreateEscrowOutcome:
         with self._lock:
+            for esc in self.escrows.values():
+                if esc.approval_id == approval_id:
+                    return CreateEscrowOutcome(escrow=esc, created=False)
             for esc in self.escrows.values():
                 if esc.purchase_order_id == purchase_order_id and esc.status in (
                     EscrowStatus.pending,
@@ -849,7 +860,7 @@ class InMemoryLedgerStore:
                 failure_code=None,
                 request_payload={**request_payload, "idempotency_key": esc_id},
             )
-            return rec
+            return CreateEscrowOutcome(escrow=rec, created=True)
 
     def finalize_escrow_held(
         self,
