@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/verification.schema.json",
+  "title": "Verification",
+  "description": "Xác nhận gọi lại qua SĐT lưu sẵn trong vendor registry (bắt buộc khi có CROSS_ALERT_HIT).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "called_phone_on_file",
+    "result",
+    "at"
+  ],
+  "properties": {
+    "called_phone_on_file": {
+      "type": "boolean",
+      "const": true
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "not_reachable",
+        "denied_by_vendor"
+      ]
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

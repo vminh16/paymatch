@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/brief.schema.json",
+  "title": "Brief",
+  "description": "Tờ trình tối đa 5 dòng của chief-accountant; hiển thị như untrusted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "brief_id",
+    "job_id",
+    "lines",
+    "cited_evidence",
+    "model",
+    "prompt_hash"
+  ],
+  "properties": {
+    "brief_id": {
+      "type": "string",
+      "pattern": "^brf_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "lines": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "./untrusted-text.schema.json"
+      }
+    },
+    "cited_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "./evidence-ref.schema.json"
+      }
+    },
+    "model": {
+      "type": "string"
+    },
+    "prompt_hash": {
+      "type": "string"
+    }
+  }
+}

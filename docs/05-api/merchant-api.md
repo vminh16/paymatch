@@ -26,7 +26,7 @@ Luồng step-up (một lần cho mỗi hành động nhạy cảm):
 | 🟡 | `pending_approval` | `pending_approval` | `pending_approval` |
 | 🔴 | `blocked` | `blocked` | `blocked` |
 
-`review_only` = PayMatch chỉ đối soát, không phát lệnh chi: `:approve`, `:schedule`, `:pay-now`, duyệt hàng loạt trả `409 INVALID_STATE code=MANDATE_REVIEW_ONLY`; chủ chuỗi tự trả bên ngoài và `:reject`/để nguyên.
+`review_only` = PayMatch chỉ đối soát, không phát lệnh chi: `:approve`, `:schedule`, `:pay-now`, duyệt hàng loạt trả `409 INVALID_STATE` (kèm `current_status` và `errors: [{field: "mandate", code: "MANDATE_REVIEW_ONLY"}]`); chủ chuỗi tự trả bên ngoài và `:reject`/để nguyên.
 
 | Method | Path | Vai | Body → Kết quả |
 |---|---|---|---|
@@ -78,7 +78,7 @@ Câu hỏi người dùng là `trusted` (người trong tenant viết) nhưng c�
 |---|---|---|---|
 | GET | `/m/approval-queue` | O A | `?group_by=vendor \| reason_code` → `{groups: [{key, label, count, total_vnd, bulk_approvable_count, invoices: [InvoiceSummary]}]}`. Chỉ gồm `pending_approval` và `blocked`. `label` là tên NCC từ registry hoặc tên mã lý do, không lấy chữ từ hóa đơn |
 | POST | `/m/approval-batches:preview` | O | `{invoice_ids: [..] }` (≤ 200) → `201 ApprovalBatchPreview` (lưu 5 phút, có `preview_id`, `mandate_version`). Đủ điều kiện = 🟢 ở `ask_first`, hoặc 🟡 mà mọi mã lý do nằm trong `mandate.bulk_approvable` và dưới ngưỡng tiền. 🔴 và hóa đơn cần xác minh luôn bị loại |
-| POST | `/m/approval-batches` | O, step-up | `{preview_id, auth_proof}` → `201 ApprovalBatch`. Danh sách duyệt = các mục `eligible` đã lưu trong preview; `action_hash` phủ `preview_id` + danh sách đó. Lúc ghi, core **kiểm lại** từng hóa đơn (hash, trạng thái, mandate còn cùng version); mandate đã đổi → `409 INVALID_STATE code=MANDATE_CHANGED`, xin preview mới. Mỗi approval ghi `mandate_version`; Gate kiểm lại lần nữa. Hóa đơn nào đổi hash từ lúc preview bị `excluded`, các hóa đơn còn lại vẫn duyệt |
+| POST | `/m/approval-batches` | O, step-up | `{preview_id, auth_proof}` → `201 ApprovalBatch`. Danh sách duyệt = các mục `eligible` đã lưu trong preview; `action_hash` phủ `preview_id` + danh sách đó. Lúc ghi, core **kiểm lại** từng hóa đơn (hash, trạng thái, mandate còn cùng version); mandate đã đổi → `409 INVALID_STATE` (`errors: [{field: "mandate", code: "MANDATE_CHANGED"}]`), xin preview mới. Mỗi approval ghi `mandate_version`; Gate kiểm lại lần nữa. Hóa đơn nào đổi hash từ lúc preview bị `excluded`, các hóa đơn còn lại vẫn duyệt |
 | GET | `/m/approval-batches/{batch_id}` | O A | `ApprovalBatch` |
 | GET | `/m/summaries/daily` | O A | `?date=` → `{date, auto_paid: {count, total_vnd}, bulk_approved, single_approved, pending: {count, total_vnd}, blocked_count, failed_payments: [InvoiceSummary]}` |
 
@@ -101,7 +101,7 @@ Câu hỏi người dùng là `trusted` (người trong tenant viết) nhưng c�
 | POST | `/m/vendors` | O, step-up | `{name, tax_id, phone_on_file, auth_proof}` → `201 Vendor` (chưa có TK). Tên/MST do bot `tax` đối chiếu khi điều tra hóa đơn đầu tiên. A soạn sẵn được ở UI nhưng chỉ O ghi |
 | POST | `/m/vendors/{vendor_id}:change-phone` | O, step-up | `{phone_on_file, source_note, auth_proof}` → `Vendor`. SĐT lưu sẵn là mốc tin cậy của gọi lại xác minh nên chỉ đổi bằng xác thực mạnh; không bao giờ lấy từ hóa đơn/tin nhắn |
 | GET | `/m/vendors/{vendor_id}` | O A | `Vendor` + `accounts: [VendorAccount]` + `contracts: [VendorContract]` |
-| POST | `/m/vendors/{vendor_id}/account-changes` | O A | `{target_status: verified \| escrow_only, proposed_account: {bank_code, account_number, account_name}, origin}` → `201 VendorVerification (pending)`. Core kiểm `account_name` khớp tên tổ chức NCC; TK cá nhân → `422 VALIDATION_FAILED code=PERSONAL_ACCOUNT_NOT_ALLOWED` |
+| POST | `/m/vendors/{vendor_id}/account-changes` | O A | `{target_status: verified \| escrow_only, proposed_account: {bank_code, account_number, account_name}, origin}` → `201 VendorVerification (pending)`. Core kiểm `account_name` khớp tên tổ chức NCC; TK cá nhân → `422 VALIDATION_FAILED` (`errors: [{field: "proposed_account", code: "PERSONAL_ACCOUNT_NOT_ALLOWED"}]`) |
 | GET | `/m/vendor-verifications` | O A | lọc `status`, `vendor_id` |
 | GET | `/m/vendor-verifications/{verification_id}` | O A | `VendorVerification` |
 | POST | `/m/vendor-verifications/{verification_id}:record-callback` | O A | `{result: confirmed \| not_reachable \| denied_by_vendor, note?}` → `VendorVerification`. Số đã gọi luôn là `phone_on_file`; client không gửi số. Bắt buộc với `target_status = verified` |
@@ -169,4 +169,4 @@ Giải ngân: khi NCC gửi hóa đơn giao hàng cho PO, hóa đơn đó đư�
 
 | Method | Path | Điều kiện | Tác dụng |
 |---|---|---|---|
-| POST | `/m/demo:reset` | `DEMO_MODE=true`, vai O | Xóa dữ liệu tenant demo, nạp lại seed, gọi `POST /sim/scenario:reset`. Ngoài demo endpoint này **không được mount** |
+| POST | `/m/demo:reset` | `DEMO_MODE=true`, vai O | `{}` (tùy chọn) → `200 {reset_at: Timestamp, counts: object}` (đồng bộ với `/sim/scenario:reset`). Xóa dữ liệu tenant demo, nạp lại seed, gọi `POST /sim/scenario:reset`. Ngoài demo endpoint này **không được mount** (trả `404`) |

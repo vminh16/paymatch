@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/severity.schema.json",
+  "title": "Severity",
+  "description": "Mức đánh giá hóa đơn/Finding do code tính (xanh/vàng/đỏ).",
+  "type": "string",
+  "enum": [
+    "green",
+    "yellow",
+    "red"
+  ]
+}

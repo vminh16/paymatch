@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/payment-intent-status.schema.json",
+  "title": "PaymentIntentStatus",
+  "description": "Trạng thái PaymentIntent trong Payment Gate.",
+  "type": "string",
+  "enum": [
+    "created",
+    "authorized",
+    "executing",
+    "settled",
+    "failed",
+    "expired",
+    "denied"
+  ]
+}

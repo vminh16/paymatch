@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/problem.schema.json",
+  "title": "Problem",
+  "description": "Lỗi chuẩn RFC 9457 (application/problem+json) kèm mã lỗi ổn định code và danh sách errors[] (docs/05-api/README.md §5).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "type",
+    "title",
+    "status",
+    "code"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "format": "uri"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 400,
+      "maximum": 599
+    },
+    "code": {
+      "type": "string",
+      "enum": [
+        "VALIDATION_FAILED",
+        "UNAUTHENTICATED",
+        "TOKEN_EXPIRED",
+        "FORBIDDEN",
+        "ROLE_NOT_ALLOWED",
+        "TOOL_NOT_GRANTED",
+        "TENANT_MISMATCH",
+        "TICKET_REQUIRED",
+        "STEP_UP_REQUIRED",
+        "STEP_UP_INVALID",
+        "NOT_FOUND",
+        "INVALID_STATE",
+        "INTENT_HASH_MISMATCH",
+        "DUPLICATE_INVOICE",
+        "IDEMPOTENCY_KEY_REUSED",
+        "LEASE_LOST",
+        "MAKER_CHECKER_VIOLATION",
+        "PRECONDITION_FAILED",
+        "GATE_DENIED",
+        "MANDATE_ABOVE_PLATFORM_CEILING",
+        "BOT_MANIFEST_INVALID",
+        "XML_UNPARSEABLE",
+        "KILL_SWITCH_ACTIVE",
+        "RATE_LIMITED",
+        "UPSTREAM_UNAVAILABLE",
+        "UPSTREAM_TIMEOUT"
+      ]
+    },
+    "detail": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "title": "ProblemErrorItem",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "code"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "current_status": {
+      "$ref": "./invoice-status.schema.json"
+    },
+    "existing_invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "gate_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "./gate-reason.schema.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/signed-money-vnd.schema.json",
+  "title": "SignedMoneyVnd",
+  "description": "Số tiền VND có dấu (integer, đơn vị đồng; có thể âm trên hóa đơn điều chỉnh TCHDon 2/4).",
+  "type": "integer"
+}

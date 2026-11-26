@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice-type.schema.json",
+  "title": "InvoiceType",
+  "description": "Loại hóa đơn đã đăng ký.",
+  "type": "string",
+  "enum": [
+    "goods",
+    "utility",
+    "software"
+  ]
+}

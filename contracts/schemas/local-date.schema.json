@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/local-date.schema.json",
+  "title": "LocalDate",
+  "description": "Ngày theo giờ Việt Nam, định dạng YYYY-MM-DD.",
+  "type": "string",
+  "format": "date",
+  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+}

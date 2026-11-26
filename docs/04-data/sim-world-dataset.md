@@ -112,7 +112,7 @@ services/sim-world/data/
 
 - Tenant chính có **19 `merchant_users`**: 1 `owner` (`store_ids`: cả 16 điểm), 2 `accountant` (`store_ids`: cả 16 điểm), 15 `store_manager` (mỗi người 1 `sto_` loại `outlet`), 1 `store_manager` bếp trung tâm (1 `sto_` loại `central_kitchen`).
 - Tenant phụ B (cho Bẫy cuối): 1 `owner`, 1 `accountant`.
-- `staff_users`: 4 nhân viên MoMo phủ đủ 4 vai trong [architecture.md §7](../02-architecture/architecture.md#7-console-momo): `risk_analyst`, `risk_lead` (cho maker-checker gỡ kill switch / chặn cứng), `cskh` (tra bằng chứng có `X-Ticket-Id`), `platform_admin`.
+- `staff_users`: 4 nhân viên MoMo phủ đủ 4 vai trong [console-api.md](../05-api/console-api.md): `risk_analyst`, `risk_lead` (cho maker-checker gỡ kill switch / chặn cứng), `support_agent` (CSKH tra bằng chứng có `X-Ticket-Id`), `platform_admin`.
 
 ### 3.3. `wallets.json` → `/sim/rails/*`
 

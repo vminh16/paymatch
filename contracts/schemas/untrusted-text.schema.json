@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/untrusted-text.schema.json",
+  "title": "UntrustedText",
+  "description": "Chuỗi văn bản đến từ người bán hoặc LLM sau khi đọc dữ liệu bẩn; frontend luôn escape và không render HTML/Markdown.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "provenance",
+    "source"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "string",
+      "const": "untrusted"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "invoice_xml",
+        "email_body",
+        "chat_message",
+        "bot_reason",
+        "ocr"
+      ]
+    }
+  }
+}

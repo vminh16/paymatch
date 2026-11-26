@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice-line.schema.json",
+  "title": "InvoiceLine",
+  "description": "Một dòng hàng hóa/dịch vụ trên hóa đơn điện tử.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "line_id",
+    "position",
+    "kind",
+    "item_code",
+    "name",
+    "unit",
+    "quantity",
+    "unit_price",
+    "discount_vnd",
+    "amount_vnd",
+    "vat_rate",
+    "arithmetic_ok"
+  ],
+  "properties": {
+    "line_id": {
+      "type": "string",
+      "pattern": "^lin_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "goods_service",
+        "promotion",
+        "trade_discount",
+        "note",
+        "special_goods"
+      ]
+    },
+    "item_code": {
+      "anyOf": [
+        {
+          "$ref": "./untrusted-text.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "name": {
+      "$ref": "./untrusted-text.schema.json"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "$ref": "./untrusted-text.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "quantity": {
+      "anyOf": [
+        {
+          "$ref": "./decimal.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unit_price": {
+      "anyOf": [
+        {
+          "$ref": "./decimal.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discount_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "amount_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vat_rate": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "arithmetic_ok": {
+      "type": "boolean"
+    }
+  }
+}

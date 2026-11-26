@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/decimal.schema.json",
+  "title": "Decimal",
+  "description": "Chuỗi thập phân tối đa 6 chữ số sau dấu chấm (số lượng, đơn giá, tỷ lệ theo QĐ 1233).",
+  "type": "string",
+  "pattern": "^-?\\d{1,15}(\\.\\d{1,6})?$"
+}

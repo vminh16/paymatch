@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/money-vnd.schema.json",
+  "title": "MoneyVnd",
+  "description": "Số tiền VND không âm (integer, đơn vị đồng).",
+  "type": "integer",
+  "minimum": 0
+}

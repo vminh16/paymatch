@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/approval-preview.schema.json",
+  "title": "ApprovalPreview",
+  "description": "Xem trước điều kiện duyệt chi do core ghép từ hóa đơn, vendor registry và Payment Gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invoice_id",
+    "job_id",
+    "intent_hash",
+    "payee",
+    "amount_vnd",
+    "channel",
+    "gate_decision",
+    "allowed_methods",
+    "verification_required",
+    "phone_on_file_masked",
+    "gate_reasons",
+    "action_hash",
+    "expires_at"
+  ],
+  "properties": {
+    "invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "intent_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payee": {
+      "anyOf": [
+        {
+          "title": "ApprovalPreviewPayee",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "vendor_account_id",
+            "bank_name",
+            "account_number_masked",
+            "merchant_id",
+            "account_name"
+          ],
+          "properties": {
+            "vendor_account_id": {
+              "type": "string",
+              "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+            },
+            "bank_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "account_number_masked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "merchant_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "account_name": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Từ vendor registry; null chỉ khi gate_decision = DENY và chưa có TK trong registry."
+    },
+    "amount_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "channel": {
+      "$ref": "./channel.schema.json"
+    },
+    "gate_decision": {
+      "type": "string",
+      "enum": [
+        "ALLOW",
+        "REQUIRE_APPROVAL",
+        "DENY"
+      ]
+    },
+    "allowed_methods": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "single",
+          "bulk"
+        ]
+      }
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "phone_on_file_masked": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Chỉ khác null khi verification_required = true; SĐT lấy từ vendor registry."
+    },
+    "gate_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "./gate-reason.schema.json"
+      }
+    },
+    "action_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expires_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

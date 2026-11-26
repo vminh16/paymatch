@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/approval.schema.json",
+  "title": "Approval",
+  "description": "Bản ghi duyệt chi gắn chặt intent_hash, payee, số tiền và job điều tra.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "invoice_id",
+    "purchase_order_id",
+    "source_invoice_id",
+    "job_id",
+    "status",
+    "amount_vnd",
+    "payee_account_id",
+    "channel",
+    "intent_hash",
+    "approver_user_id",
+    "method",
+    "mandate_version",
+    "bulk_batch_id",
+    "verification",
+    "auth_proof_jti",
+    "created_at",
+    "superseded_at",
+    "superseded_reason"
+  ],
+  "properties": {
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "purchase_order_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "source_invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "consumed"
+      ]
+    },
+    "amount_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "payee_account_id": {
+      "type": "string",
+      "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "channel": {
+      "$ref": "./channel.schema.json"
+    },
+    "intent_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "approver_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "method": {
+      "$ref": "./approval-method.schema.json"
+    },
+    "mandate_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "bulk_batch_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^abt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "verification": {
+      "anyOf": [
+        {
+          "$ref": "./verification.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_proof_jti": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    },
+    "superseded_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "superseded_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "NEW_JOB",
+        "NEW_SYSTEM_FINDING",
+        "PAYMENT_FAILED",
+        "PAYMENT_DENIED",
+        "OWNER_CANCELLED",
+        null
+      ]
+    }
+  }
+}

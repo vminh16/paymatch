@@ -7,3 +7,18 @@ services:
       POSTGRES_USER: paymatch
       POSTGRES_PASSWORD: paymatch   # chỉ dùng cho local/demo
     ports: ["5432:5432"]
+
+  sim-world:
+    build:
+      context: ..
+      dockerfile: services/sim-world/Dockerfile
+    environment:
+      SIM_PORT: "8200"
+      SIM_DATASET: demo
+      SIM_SEED: "42"
+      DEMO_MODE: "true"
+      SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}   # chỉ dùng cho local/demo
+      SIM_GATE_SERVICE_KEY: ${SIM_GATE_SERVICE_KEY:-dev-gate-key}   # chỉ dùng cho local/demo
+      CORE_INTERNAL_URL: ${CORE_INTERNAL_URL:-}
+      SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
+    ports: ["8200:8200"]

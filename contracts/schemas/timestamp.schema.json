@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/timestamp.schema.json",
+  "title": "Timestamp",
+  "description": "Thời điểm RFC 3339 có múi giờ (ví dụ 2026-11-26T09:15:00+07:00).",
+  "type": "string",
+  "format": "date-time"
+}

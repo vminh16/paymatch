@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/approval-method.schema.json",
+  "title": "ApprovalMethod",
+  "description": "Phương thức duyệt chi.",
+  "type": "string",
+  "enum": [
+    "single",
+    "bulk",
+    "mandate"
+  ]
+}

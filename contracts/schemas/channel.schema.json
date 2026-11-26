@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/channel.schema.json",
+  "title": "Channel",
+  "description": "Kênh thanh toán do Payment Gate quyết định.",
+  "type": "string",
+  "enum": [
+    "bank_transfer",
+    "virtual_card",
+    "escrow"
+  ]
+}

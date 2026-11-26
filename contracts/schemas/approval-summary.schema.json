@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/approval-summary.schema.json",
+  "title": "ApprovalSummary",
+  "description": "Tóm tắt bản ghi duyệt chi gắn trên Invoice.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "method",
+    "status",
+    "approver_user_id",
+    "created_at"
+  ],
+  "properties": {
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "method": {
+      "$ref": "./approval-method.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "consumed"
+      ]
+    },
+    "approver_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

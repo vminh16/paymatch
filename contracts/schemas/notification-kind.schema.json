@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/notification-kind.schema.json",
+  "title": "NotificationKind",
+  "description": "Loại thông báo merchant.",
+  "type": "string",
+  "enum": [
+    "cross_alert_affected",
+    "payment_failed",
+    "daily_summary",
+    "verification_needed",
+    "bot_review_needed",
+    "escrow_expiring"
+  ]
+}

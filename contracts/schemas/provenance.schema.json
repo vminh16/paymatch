@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/provenance.schema.json",
+  "title": "Provenance",
+  "description": "Nhãn nguồn tin cậy của dữ liệu.",
+  "type": "string",
+  "enum": [
+    "trusted",
+    "untrusted"
+  ]
+}

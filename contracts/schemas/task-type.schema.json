@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/task-type.schema.json",
+  "title": "TaskType",
+  "description": "Loại công việc của agent-runtime.",
+  "type": "string",
+  "enum": [
+    "investigate_invoice",
+    "question",
+    "report"
+  ]
+}

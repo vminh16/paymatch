@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice-source.schema.json",
+  "title": "InvoiceSource",
+  "description": "Kênh tiếp nhận hóa đơn.",
+  "type": "string",
+  "enum": [
+    "email",
+    "upload",
+    "bill_pay",
+    "scenario"
+  ]
+}

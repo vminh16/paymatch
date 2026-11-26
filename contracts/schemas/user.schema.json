@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/user.schema.json",
+  "title": "User",
+  "description": "Người dùng trong tenant merchant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "user_id",
+    "name",
+    "role",
+    "store_ids"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "accountant",
+        "store_manager"
+      ]
+    },
+    "store_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sto_[0-9A-HJKMNP-TV-Z]{26}$"
+      }
+    }
+  }
+}
