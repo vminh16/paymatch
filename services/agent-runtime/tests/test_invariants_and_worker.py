@@ -22,6 +22,7 @@ from agent_runtime.domain.models import LLMMessage, LLMResponse, LLMToolCall, LL
 from agent_runtime.llm import FakeLLM, LLMError
 from agent_runtime.session.worker import AgentWorker
 
+from brd14_scenarios import make_invoice_explain_output
 from fake_internal_api import FakeInternalApiServer, JobFixture, make_deterministic_ulid, make_ulid
 
 
@@ -398,9 +399,73 @@ def test_bot_step_budget_exhaustion_produces_yellow_bot_timeout():
         assert outcome is not None
         assert outcome.final_severity == Severity.yellow
         bo_llm_calls = [c for c in llm.calls if c.agent_id == "branch-operations"]
-        assert len(bo_llm_calls) == 2  # exact bot_max_steps=2 turns
+        # With max_steps=2 tool steps, bot runs 2 tool calls + 1 synthesis turn attempting a 3rd tool step (3 model turns)
+        assert len(bo_llm_calls) == 3
         bo_sub = next(s for s in server.submitted_findings[job_id] if s.bot_id == "branch-operations")
         assert [c.value for c in bo_sub.reason_codes] == ["BOT_TIMEOUT"]
+
+    asyncio.run(_run())
+
+
+def test_i5_specialist_bot_allows_max_tool_steps_plus_one_final_synthesis_turn():
+    """I5: bot_max_steps counts tool steps and leaves 1 final synthesis model turn after the last tool step."""
+
+    async def _run() -> None:
+        server = FakeInternalApiServer()
+        job_id = make_ulid("job", 135)
+        fix = JobFixture(
+            job_id=job_id,
+            tenant_id=make_ulid("ten", 1),
+            invoice_id=make_ulid("inv", 135),
+            invoice_type=InvoiceType.utility,
+            active_bot_ids=["branch-operations"],
+            required_bot_ids=["branch-operations"],
+        )
+        server.enqueue_job(fix)
+
+        llm = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[LLMToolCall(id="c1", name="ask_branch-operations", arguments={})],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(["Vận hành hoàn tất sau 2 bước tool."]), model="fake-v1"),
+                ],
+                "branch-operations": [
+                    # Tool step 1
+                    LLMResponse(tool_calls=[LLMToolCall(id="tc1", name="utility_bills", arguments={})]),
+                    # Tool step 2 (reaches bot_max_steps=2)
+                    LLMResponse(
+                        tool_calls=[
+                            LLMToolCall(
+                                id="tc2",
+                                name="momo_revenue",
+                                arguments={"store_id": make_ulid("sto", 1), "month": "2026-11"},
+                            )
+                        ]
+                    ),
+                    # Final synthesis model turn (turn 3) -> MUST be allowed and succeed!
+                    LLMResponse(content=_green_finding_json("Hợp lệ sau đúng 2 bước tool.")),
+                ],
+            }
+        )
+
+        async with server.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(
+                api=api,
+                llm=llm,
+                config=RuntimeConfig(worker_id="w-1", bot_max_steps=2),
+            )
+            outcome = await worker.run_once()
+
+        assert outcome is not None and outcome.status == "completed"
+        assert outcome.final_severity == Severity.green
+        bo_llm_calls = [c for c in llm.calls if c.agent_id == "branch-operations"]
+        assert len(bo_llm_calls) == 3
+        bo_sub = next(s for s in server.submitted_findings[job_id] if s.bot_id == "branch-operations")
+        assert [c.value for c in bo_sub.reason_codes] == ["OK"]
 
     asyncio.run(_run())
 
@@ -807,7 +872,16 @@ def test_i1_brief_uncited_or_conflicting_monetary_amount_never_reaches_complete(
                         scope="tenant",
                     )
                 ],
-                tool_outputs={"invoice_explain": {"invoice": {"total_vnd": 22400000}}},
+                tool_outputs={
+                    "invoice_explain": make_invoice_explain_output(
+                        invoice_id=inv_id,
+                        seller_tax_id="0999010003",
+                        symbol="1C26TNX",
+                        number="00000744",
+                        invoice_type="utility",
+                        total_vnd=22400000,
+                    )
+                },
             )
             server.enqueue_job(fix)
 
@@ -1036,7 +1110,14 @@ def test_hidden_instruction_in_tool_result_does_not_change_submitted_numbers():
                 )
             ],
             tool_outputs={
-                "invoice_explain": {"invoice": {"invoice_id": inv_id, "total_vnd": 22400000}},
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010003",
+                    symbol="1C26TNX",
+                    number="00000744",
+                    invoice_type="goods",
+                    total_vnd=22400000,
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -1503,5 +1584,416 @@ def test_worker_calls_fail_on_unrecoverable_llm_error_and_handles_question_stub(
             assert out2 is not None
             assert out2.status == "unsupported_completed"
             assert job_q_id in server.completed_jobs
+
+    asyncio.run(_run())
+
+
+def test_b1_supervisor_projects_nested_mixed_result_and_maps_unknown_http_error_code():
+    """B1: nested mixed trusted+untrusted output projected through schema; unknown HTTP code -> TOOL_ERROR."""
+
+    async def _run() -> None:
+        server = FakeInternalApiServer()
+        job_id = make_ulid("job", 201)
+        inv_id = make_ulid("inv", 201)
+        fnd_id = make_ulid("fnd", 201)
+        mixed_explain = make_invoice_explain_output(
+            invoice_id=inv_id,
+            seller_tax_id="0999010001",
+            symbol="1C26TTN",
+            number="00001425",
+            invoice_type="utility",
+            total_vnd=4214333,
+        )
+        mixed_explain["invoice"]["untrusted"] = {
+            "seller_name": {"text": "NESTED_UNTRUSTED_POISON", "provenance": "untrusted", "source": "invoice_xml"}
+        }
+        mixed_explain["invoice"]["injected_field"] = "INJECTED_EXTRA_FIELD"
+        mixed_explain["findings"] = [
+            {
+                "finding_id": fnd_id,
+                "bot_id": "branch-operations",
+                "severity": "yellow",
+                "reason_codes": ["UTILITY_OUT_OF_RANGE"],
+                "evidence": [],
+                "reason": {"text": "NESTED_FINDING_REASON_POISON", "provenance": "untrusted", "source": "bot_reason"},
+            }
+        ]
+
+        fix = JobFixture(
+            job_id=job_id,
+            tenant_id=make_ulid("ten", 1),
+            invoice_id=inv_id,
+            invoice_type=InvoiceType.utility,
+            active_bot_ids=["branch-operations"],
+            required_bot_ids=["branch-operations"],
+            supervisor_tools=[
+                ToolDefinition(
+                    tool_id="invoice_explain",
+                    description="trusted explain",
+                    input_schema={"type": "object", "properties": {}},
+                    output_schema={"type": "object"},
+                    default_provenance=Provenance.trusted,
+                    scope="tenant",
+                ),
+                ToolDefinition(
+                    tool_id="queue_status",
+                    description="returns unknown http code",
+                    input_schema={"type": "object", "properties": {}},
+                    output_schema={"type": "object"},
+                    default_provenance=Provenance.trusted,
+                    scope="tenant",
+                ),
+            ],
+            tool_outputs={"invoice_explain": mixed_explain},
+            tool_http_errors={
+                "queue_status": (400, "ARBITRARY_UNKNOWN_CODE", "SECRET_HTTP_PROBLEM_DETAIL")
+            },
+        )
+        server.enqueue_job(fix)
+
+        llm = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[
+                            LLMToolCall(id="s1", name="invoice_explain", arguments={}),
+                            LLMToolCall(id="s2", name="queue_status", arguments={}),
+                            LLMToolCall(id="s3", name="ask_branch-operations", arguments={}),
+                        ],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(["Hoàn tất tổng hợp."]), model="fake-v1"),
+                ],
+                "branch-operations": [LLMResponse(content=_green_finding_json())],
+            }
+        )
+
+        async with server.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(api=api, llm=llm, config=RuntimeConfig(worker_id="w-1"))
+            outcome = await worker.run_once()
+
+        assert outcome is not None and outcome.status == "completed"
+        sup_calls = [c for c in llm.calls if c.agent_id == "chief-accountant"]
+        tool_msgs = {m.name: m.content for m in sup_calls[1].messages if m.role == "tool"}
+
+        # Nested untrusted data and extra fields stripped; trusted schema fields preserved
+        explain_msg = tool_msgs["invoice_explain"]
+        assert "NESTED_UNTRUSTED_POISON" not in explain_msg
+        assert "INJECTED_EXTRA_FIELD" not in explain_msg
+        assert "NESTED_FINDING_REASON_POISON" not in explain_msg
+        parsed_explain = json.loads(explain_msg.splitlines()[1])
+        assert parsed_explain["data"]["invoice"]["total_vnd"] == 4214333
+        assert parsed_explain["data"]["findings"][0]["bot_id"] == "branch-operations"
+        assert "reason" not in parsed_explain["data"]["findings"][0]
+
+        # Unknown HTTP problem code mapped to safe constant TOOL_ERROR; detail stripped
+        queue_msg = tool_msgs["queue_status"]
+        assert "ARBITRARY_UNKNOWN_CODE" not in queue_msg
+        assert "SECRET_HTTP_PROBLEM_DETAIL" not in queue_msg
+        parsed_queue = json.loads(queue_msg.splitlines()[1])
+        assert parsed_queue == {"code": "TOOL_ERROR", "reason_codes": [], "severity": "yellow"}
+
+    asyncio.run(_run())
+
+
+def test_b2_positive_simo_forces_red_on_timeout_invalid_output_and_local_denial():
+    """B2: positive official_fraud_list (listed=true) forces red OFFICIAL_FRAUD_LIST on every exit path."""
+
+    async def _run() -> None:
+        for mode in ("timeout", "invalid_twice", "local_denial"):
+            server = FakeInternalApiServer()
+            job_id = make_ulid("job", {"timeout": 202, "invalid_twice": 203, "local_denial": 204}[mode])
+            inv_id = make_ulid("inv", 202)
+            fix = JobFixture(
+                job_id=job_id,
+                tenant_id=make_ulid("ten", 1),
+                invoice_id=inv_id,
+                invoice_type=InvoiceType.software,
+                active_bot_ids=["fraud-control"],
+                required_bot_ids=["fraud-control"],
+                bot_token_tools_override=(
+                    {
+                        "fraud-control": [
+                            "invoices",
+                            "vendor_registry",
+                            "cross_alerts",
+                            "official_fraud_list",
+                        ]
+                    }
+                    if mode == "local_denial"
+                    else {}
+                ),
+                tool_outputs={
+                    "invoices": {"invoices": [{"invoice_id": inv_id}]},
+                    "vendor_registry": {"vendor": None, "accounts": [], "approved_verifications": []},
+                    "cross_alerts": {"matched": False, "hits": []},
+                    "official_fraud_list": {
+                        "listed": True,
+                        "matches": [{"kind": "account_hash", "listed": True, "list_ref": "SIMO-2026"}],
+                    },
+                },
+            )
+            server.enqueue_job(fix)
+
+            if mode == "timeout":
+                fc_script = [LLMResponse(content=_green_finding_json())]
+                delays = {"fraud-control": 0.25}
+                bot_timeout = 0.05
+            elif mode == "invalid_twice":
+                fc_script = [
+                    LLMResponse(content="not json 1"),
+                    LLMResponse(content="not json 2"),
+                ]
+                delays = {}
+                bot_timeout = 5.0
+            else:
+                fc_script = [
+                    LLMResponse(tool_calls=[LLMToolCall(id="ld1", name="chat_messages", arguments={})]),
+                    LLMResponse(content=_green_finding_json("Try green despite SIMO + local denial.")),
+                ]
+                delays = {}
+                bot_timeout = 5.0
+
+            llm = FakeLLM(
+                by_agent={
+                    "chief-accountant": [
+                        LLMResponse(
+                            tool_calls=[LLMToolCall(id="c1", name="ask_fraud-control", arguments={})],
+                            model="fake-v1",
+                        ),
+                        LLMResponse(content=_brief_json(["Đã phát hiện SIMO."]), model="fake-v1"),
+                    ],
+                    "fraud-control": fc_script,
+                },
+                delay_by_agent=delays,
+            )
+
+            async with server.make_httpx_client() as client:
+                api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+                worker = AgentWorker(
+                    api=api,
+                    llm=llm,
+                    config=RuntimeConfig(worker_id="w-1", bot_timeout_s=bot_timeout),
+                )
+                outcome = await worker.run_once()
+
+            assert outcome is not None and outcome.status == "completed", mode
+            assert outcome.final_severity == Severity.red, mode
+            fc_sub = next(s for s in server.submitted_findings[job_id] if s.bot_id == "fraud-control")
+            assert fc_sub.severity_reported.value == "red", mode
+            assert "OFFICIAL_FRAUD_LIST" in {c.value for c in fc_sub.reason_codes}, mode
+            assert len(fc_sub.evidence) >= 1, mode
+
+    asyncio.run(_run())
+
+
+def test_i2_first_prefetch_returns_second_hangs_submits_empty_evidence_bot_timeout():
+    """I2: 1st prefetch succeeds, 2nd prefetch hangs past deadline -> BOT_TIMEOUT with empty evidence."""
+
+    async def _run() -> None:
+        server = FakeInternalApiServer()
+        job_id = make_ulid("job", 205)
+        fix = JobFixture(
+            job_id=job_id,
+            tenant_id=make_ulid("ten", 1),
+            invoice_id=make_ulid("inv", 205),
+            invoice_type=InvoiceType.utility,
+            active_bot_ids=["branch-operations"],
+            required_bot_ids=["branch-operations"],
+            # utility_bills (1st prefetch) returns immediately; utility_baseline (2nd prefetch) hangs!
+            tool_delay_s={"utility_baseline": 0.25},
+        )
+        server.enqueue_job(fix)
+
+        llm = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[LLMToolCall(id="c1", name="ask_branch-operations", arguments={})],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(["Vận hành quá hạn ở prefetch 2."]), model="fake-v1"),
+                ],
+                "branch-operations": [LLMResponse(content=_green_finding_json())],
+            }
+        )
+
+        async with server.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(
+                api=api,
+                llm=llm,
+                config=RuntimeConfig(worker_id="w-1", bot_timeout_s=0.05),
+            )
+            outcome = await worker.run_once()
+
+        assert outcome is not None and outcome.status == "completed"
+        assert outcome.final_severity == Severity.yellow
+        # Confirm 1st prefetch ran, 2nd started and timed out, and BOT_TIMEOUT submitted with evidence=[]
+        invoked_bo = [tid for holder, tid, _, _ in server.tool_invocations if holder == "branch-operations"]
+        assert "utility_bills" in invoked_bo
+        bo_sub = next(s for s in server.submitted_findings[job_id] if s.bot_id == "branch-operations")
+        assert [c.value for c in bo_sub.reason_codes] == ["BOT_TIMEOUT"]
+        assert bo_sub.evidence == []
+
+    asyncio.run(_run())
+
+
+def test_i3_schema_invalid_200_on_session_and_heartbeat_routes_through_lifecycle():
+    """I3: schema-invalid 200 on open_session or heartbeat is normalized to lifecycle :fail / retry."""
+
+    async def _run() -> None:
+        # Case A: schema-invalid 200 on open_session -> routed to :fail cleanly
+        server_a = FakeInternalApiServer()
+        server_a.corrupt_open_session_200_remaining = 1
+        job_a = make_ulid("job", 206)
+        server_a.enqueue_job(
+            JobFixture(
+                job_id=job_a,
+                tenant_id=make_ulid("ten", 1),
+                invoice_id=make_ulid("inv", 206),
+                invoice_type=InvoiceType.utility,
+                active_bot_ids=["branch-operations"],
+            )
+        )
+        llm_a = FakeLLM()
+        async with server_a.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(api=api, llm=llm_a, config=RuntimeConfig(worker_id="w-1"))
+            out_a = await worker.run_once()
+        assert out_a is not None and out_a.status == "failed"
+        assert len(server_a.failed_jobs[job_a]) == 1
+
+        # Case B: transient schema-invalid 200 on 1st heartbeat -> retried, job completes
+        server_b = FakeInternalApiServer()
+        server_b.corrupt_heartbeat_200_remaining = 1
+        job_b = make_ulid("job", 207)
+        server_b.enqueue_job(
+            JobFixture(
+                job_id=job_b,
+                tenant_id=make_ulid("ten", 1),
+                invoice_id=make_ulid("inv", 207),
+                invoice_type=InvoiceType.utility,
+                active_bot_ids=["branch-operations"],
+            )
+        )
+        llm_b = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[LLMToolCall(id="c1", name="ask_branch-operations", arguments={})],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(["Hoàn tất sau heartbeat hỏng 1 lần."]), model="fake-v1"),
+                ],
+                "branch-operations": [LLMResponse(content=_green_finding_json())],
+            },
+            delay_by_agent={"branch-operations": 0.10},
+        )
+        async with server_b.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(
+                api=api,
+                llm=llm_b,
+                config=RuntimeConfig(
+                    worker_id="w-1",
+                    heartbeat_interval_s=0.03,
+                    heartbeat_max_consecutive_errors=3,
+                ),
+            )
+            out_b = await worker.run_once()
+        assert out_b is not None and out_b.status == "completed"
+        assert len(server_b.heartbeats) >= 2
+
+        # Case C: persistent schema-invalid 200 on heartbeat -> routed to :fail
+        server_c = FakeInternalApiServer()
+        server_c.corrupt_heartbeat_200_remaining = 10
+        job_c = make_ulid("job", 208)
+        server_c.enqueue_job(
+            JobFixture(
+                job_id=job_c,
+                tenant_id=make_ulid("ten", 1),
+                invoice_id=make_ulid("inv", 208),
+                invoice_type=InvoiceType.utility,
+                active_bot_ids=["branch-operations"],
+            )
+        )
+        llm_c = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[LLMToolCall(id="c1", name="ask_branch-operations", arguments={})],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(), model="fake-v1"),
+                ],
+                "branch-operations": [LLMResponse(content=_green_finding_json())],
+            },
+            delay_by_agent={"branch-operations": 0.30},
+        )
+        async with server_c.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(
+                api=api,
+                llm=llm_c,
+                config=RuntimeConfig(
+                    worker_id="w-1",
+                    heartbeat_interval_s=0.03,
+                    heartbeat_max_consecutive_errors=2,
+                ),
+            )
+            out_c = await worker.run_once()
+        assert out_c is not None and out_c.status == "failed"
+        assert len(server_c.failed_jobs[job_c]) == 1
+
+    asyncio.run(_run())
+
+
+def test_i4_denied_mandatory_prefetch_submits_fail_closed_bot_invalid_output():
+    """I4: mandatory prefetch outside manifest ∩ grant submits exempt BOT_INVALID_OUTPUT (empty evidence) instead of :fail."""
+
+    async def _run() -> None:
+        server = FakeInternalApiServer()
+        job_id = make_ulid("job", 209)
+        # Grant omits mandatory prefetch tool 'vendor_contracts' for procurement
+        fix = JobFixture(
+            job_id=job_id,
+            tenant_id=make_ulid("ten", 1),
+            invoice_id=make_ulid("inv", 209),
+            invoice_type=InvoiceType.goods,
+            active_bot_ids=["procurement"],
+            required_bot_ids=["procurement"],
+            bot_token_tools_override={"procurement": ["invoices", "price_check"]},
+        )
+        server.enqueue_job(fix)
+
+        llm = FakeLLM(
+            by_agent={
+                "chief-accountant": [
+                    LLMResponse(
+                        tool_calls=[LLMToolCall(id="c1", name="ask_procurement", arguments={})],
+                        model="fake-v1",
+                    ),
+                    LLMResponse(content=_brief_json(["Thu mua thiếu quyền prefetch."]), model="fake-v1"),
+                ],
+            }
+        )
+
+        async with server.make_httpx_client() as client:
+            api = HttpInternalApiClient("http://internal-api.test", "test-service-key", client=client)
+            worker = AgentWorker(api=api, llm=llm, config=RuntimeConfig(worker_id="w-1"))
+            outcome = await worker.run_once()
+
+        assert outcome is not None
+        assert outcome.status == "completed"  # NOT :fail!
+        assert outcome.final_severity == Severity.yellow
+        assert job_id not in server.failed_jobs
+        # Never called ungranted vendor_contracts over HTTP
+        assert not any(tid == "vendor_contracts" for _, tid, _, _ in server.tool_invocations)
+        proc_sub = next(s for s in server.submitted_findings[job_id] if s.bot_id == "procurement")
+        assert proc_sub.severity_reported.value == "yellow"
+        assert [c.value for c in proc_sub.reason_codes] == ["BOT_INVALID_OUTPUT"]
+        assert proc_sub.evidence == []
 
     asyncio.run(_run())

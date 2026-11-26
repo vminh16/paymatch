@@ -49,6 +49,43 @@ _INVOICE_EXPLAIN_DEF = ToolDefinition(
 )
 
 
+def make_invoice_explain_output(
+    *,
+    invoice_id: str,
+    seller_tax_id: str,
+    symbol: str,
+    number: str,
+    invoice_type: str,
+    total_vnd: int,
+    vendor_name: str | None = None,
+    store_id: str | None = None,
+    vendor_id: str | None = None,
+) -> dict[str, Any]:
+    """Build a 100% contract-valid InvoiceExplainOutput payload."""
+    return {
+        "invoice": {
+            "invoice_id": invoice_id,
+            "store_id": store_id,
+            "vendor_id": vendor_id,
+            "vendor_name": vendor_name,
+            "seller_tax_id": seller_tax_id,
+            "symbol": symbol,
+            "number": number,
+            "issued_on": "2026-11-26",
+            "invoice_type": invoice_type,
+            "total_vnd": total_vnd,
+            "status": "investigating",
+            "severity": None,
+            "reason_codes": [],
+            "verification_required": False,
+            "due_on": "2026-12-03",
+            "scheduled_for": None,
+            "updated_at": "2026-11-26T08:25:00+07:00",
+        },
+        "findings": [],
+    }
+
+
 def load_brd14_expectations() -> dict[str, dict[str, Any]]:
     raw = json.loads(SCENARIOS_JSON_PATH.read_text(encoding="utf-8"))
     return {
@@ -110,14 +147,15 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             invoice_type=InvoiceType.goods,
             supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {
-                        "invoice_id": inv_id,
-                        "total_vnd": 26500000,
-                        "per_invoice_limit_vnd": 30000000,
-                    },
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010001",
+                    symbol="1C26TTN",
+                    number="00001425",
+                    invoice_type="goods",
+                    total_vnd=26500000,
+                    vendor_name="CÀ PHÊ RANG MỘC TÂY NGUYÊN",
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -209,7 +247,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                         content=_brief_json(
                             [
                                 "Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.",
-                                "Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi 30 triệu.",
+                                "Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi.",
                             ],
                             ev_sup + ev_proc + ev_ap,
                         ),
@@ -280,7 +318,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                         content=_finding_json(
                             severity="green",
                             reason_codes=["OK"],
-                            reason="Đủ số dư và nằm dưới trần 30tr/HĐ; đề xuất chuyển khoản bank_transfer.",
+                            reason="Đủ số dư và nằm dưới trần tự chi; đề xuất chuyển khoản bank_transfer.",
                             evidence=ev_tr,
                             provenance="trusted",
                             proposed_channel="bank_transfer",
@@ -306,14 +344,15 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             invoice_type=InvoiceType.goods,
             supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {
-                        "invoice_id": inv_id,
-                        "total_vnd": 31000000,
-                        "per_invoice_limit_vnd": 30000000,
-                    },
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010002",
+                    symbol="1C26TDX",
+                    number="00002108",
+                    invoice_type="goods",
+                    total_vnd=31000000,
+                    vendor_name="SỮA TƯƠI ĐỒNG XANH",
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -393,7 +432,7 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
                         content=_brief_json(
                             [
                                 "Hóa đơn sữa 31.000.000 đ bị cảnh báo đỏ: PAYEE_CHANGE_REQUEST và PERSONAL_ACCOUNT.",
-                                "Phát hiện URGENCY_PRESSURE qua Zalo và OVER_LIMIT vượt trần 30tr/HĐ.",
+                                "Phát hiện URGENCY_PRESSURE qua Zalo và OVER_LIMIT vượt trần tự chi mỗi hóa đơn.",
                                 "Đề xuất gọi lại số trong danh bạ NCC để xác minh (F12) trước khi xử lý.",
                             ],
                             ev_sup + ev_fc + ev_tr,
@@ -459,10 +498,15 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             invoice_type=InvoiceType.goods,
             supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {"invoice_id": inv_id, "total_vnd": 22400000},
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010003",
+                    symbol="1C26TNX",
+                    number="00000744",
+                    invoice_type="goods",
+                    total_vnd=22400000,
+                    vendor_name="BAO BÌ NHỰA XANH VIỆT",
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -608,10 +652,15 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             pre_findings=[ingest_finding],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {"invoice_id": inv_id, "total_vnd": 8800000},
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999090001",
+                    symbol="1C26TAC",
+                    number="00000088",
+                    invoice_type="goods",
+                    total_vnd=8800000,
+                    vendor_name=None,
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -763,10 +812,15 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             invoice_type=InvoiceType.software,
             supervisor_tools=[_INVOICE_EXPLAIN_DEF],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {"invoice_id": inv_id, "total_vnd": 12000000},
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010045",
+                    symbol="1C26TSV",
+                    number="00005511",
+                    invoice_type="software",
+                    total_vnd=12000000,
+                    vendor_name="PHẦN MỀM BÁN HÀNG SAO VIỆT",
+                ),
                 "invoices": {
                     "invoices": [
                         {
@@ -863,10 +917,16 @@ def build_brd14_fixture(template_id: str) -> tuple[JobFixture, FakeLLM]:
             active_bot_ids=["branch-operations", "treasury"],
             required_bot_ids=["branch-operations", "treasury"],
             tool_outputs={
-                "invoice_explain": {
-                    "invoice": {"invoice_id": inv_id, "total_vnd": 4214333},
-                    "findings": [],
-                },
+                "invoice_explain": make_invoice_explain_output(
+                    invoice_id=inv_id,
+                    seller_tax_id="0999010041",
+                    symbol="1C26TNC",
+                    number="00009003",
+                    invoice_type="utility",
+                    total_vnd=4214333,
+                    vendor_name="CẤP NƯỚC KHU VỰC 1",
+                    store_id=sto_id,
+                ),
                 "utility_bills": {
                     "readings": [
                         {

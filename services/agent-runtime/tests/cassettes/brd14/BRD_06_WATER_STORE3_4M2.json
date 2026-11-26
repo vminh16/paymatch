@@ -63,7 +63,7 @@
         ]
       }
     },
-    "f8bcf6359bd4a3c0e8f184b06eebc6298c29b951ce57d73b95d3822bda9fd39b": {
+    "f8637027b53160468dbd37afb8bad579b0cf4abf10eca5e1c2536b1dcbf8ba12": {
       "response": {
         "content": "{\"lines\": [\"Hóa đơn nước Quán 3 kỳ 2026-11 tổng 4.214.333 đ (144 m³) có cảnh báo vàng UTILITY_OUT_OF_RANGE.\", \"Tiêu thụ gấp 6 lần trung vị 12 tháng trong khi doanh thu MoMo không tăng; đề xuất kiểm tra rò nước.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_21S5Q5K4T63C6G025TRBVC54NS\", \"tool_call_id\": \"tcl_21S5Q5K4T63C6G025TRBVC54NS\"}, {\"kind\": \"utility_reading\", \"ref_id\": \"urd_0000000000000000000000003A\", \"tool_call_id\": \"tcl_1V2SNW7AAWHQK2NGPTJXNT39PG\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\", \"tool_call_id\": \"tcl_1RVE6R3AN8ZXQVWA0H875Z2BCM\"}]}",
         "model": "demo-replay-v1",

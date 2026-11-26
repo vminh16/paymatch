@@ -53,7 +53,7 @@
     },
     "0e693549cb6c54c72062b1d86238abdd2134e3e45eb12476d8dcb410fbc4a693": {
       "response": {
-        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư và nằm dưới trần 30tr/HĐ; đề xuất chuyển khoản bank_transfer.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\", \"tool_call_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\"}], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-11-26\"}",
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư và nằm dưới trần tự chi; đề xuất chuyển khoản bank_transfer.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\", \"tool_call_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\"}], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-11-26\"}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []
@@ -114,9 +114,9 @@
         "tool_calls": []
       }
     },
-    "a3ca4770fa0543f065e1cd8e84dc443d1fccab49ce6d167037d7e122a8c718f6": {
+    "c524a2e731e8e95a99ab6086b0d54841702f102b0c3857ca357700cceac5f0e6": {
       "response": {
-        "content": "{\"lines\": [\"Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.\", \"Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi 30 triệu.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\", \"tool_call_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\"}, {\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}, {\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}]}",
+        "content": "{\"lines\": [\"Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.\", \"Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\", \"tool_call_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\"}, {\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}, {\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []

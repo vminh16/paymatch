@@ -153,6 +153,7 @@ class JobFixture:
     tool_outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
     tool_provenance: dict[str, Provenance] = field(default_factory=dict)
     tool_errors: dict[str, tuple[str, str]] = field(default_factory=dict)
+    tool_http_errors: dict[str, tuple[int, str, str]] = field(default_factory=dict)
     bot_token_tools_override: dict[str, list[str]] = field(default_factory=dict)
     invoke_tool_403_tools: set[str] = field(default_factory=set)
     pre_findings: list[FindingForSupervisor] = field(default_factory=list)
@@ -206,6 +207,8 @@ class FakeInternalApiServer:
         self.fail_claim_503_remaining: int = 0
         self.fail_open_session_503_remaining: int = 0
         self.fail_heartbeat_503_remaining: int = 0
+        self.corrupt_open_session_200_remaining: int = 0
+        self.corrupt_heartbeat_200_remaining: int = 0
 
     def enqueue_job(self, fixture: JobFixture) -> None:
         self._jobs[fixture.job_id] = fixture
@@ -374,6 +377,9 @@ class FakeInternalApiServer:
         if self.fail_open_session_503_remaining > 0:
             self.fail_open_session_503_remaining -= 1
             return self._problem(503, "UPSTREAM_UNAVAILABLE", "Temporary 503 on open_session")
+        if self.corrupt_open_session_200_remaining > 0:
+            self.corrupt_open_session_200_remaining -= 1
+            return httpx.Response(200, json={"broken": "not a JobSessionResponse"})
 
         fix = self._jobs[job_id]
         skipped_ids = {s.bot_id for s in fix.skipped}
@@ -458,6 +464,9 @@ class FakeInternalApiServer:
         if self.fail_heartbeat_503_remaining > 0:
             self.fail_heartbeat_503_remaining -= 1
             return self._problem(503, "UPSTREAM_UNAVAILABLE", "Temporary 503 on heartbeat")
+        if self.corrupt_heartbeat_200_remaining > 0:
+            self.corrupt_heartbeat_200_remaining -= 1
+            return httpx.Response(200, json={"broken": "not a JobHeartbeatResponse"})
         if (
             self.revoke_lease_after_heartbeats is not None
             and len(self.heartbeats) >= self.revoke_lease_after_heartbeats
@@ -541,6 +550,9 @@ class FakeInternalApiServer:
                 "TOOL_NOT_GRANTED",
                 f"Tool '{tool_id}' is not granted to holder '{rec.holder}'",
             )
+        if tool_id in fix.tool_http_errors:
+            status_code, err_code, err_detail = fix.tool_http_errors[tool_id]
+            return self._problem(status_code, err_code, err_detail)
         if tool_id in fix.kill_switched_tools:
             return self._problem(423, "KILL_SWITCH_ACTIVE", f"Kill switch active for {tool_id}")
         if fix.transient_500_tools.get(tool_id, 0) > 0:

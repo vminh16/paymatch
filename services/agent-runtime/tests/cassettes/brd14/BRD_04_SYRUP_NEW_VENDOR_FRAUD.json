@@ -14,14 +14,6 @@
         ]
       }
     },
-    "316da605d87c93328732292cc86a97d0d67b59a2f595f1ae874b50896f0af30d": {
-      "response": {
-        "content": "{\"lines\": [\"Hóa đơn si-rô 8.800.000 đ từ NCC mới 0999090001 bị khóa đỏ.\", \"Phát hiện HIDDEN_INSTRUCTION, PERSONAL_ACCOUNT, TAX_RISK_LIST và VAT_DEDUCTION_RISK.\", \"Đề xuất Từ chối hoặc chỉ mở cọc tạm giữ escrow vào TK công ty đã xác minh.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\", \"tool_call_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\"}, {\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}]}",
-        "model": "demo-replay-v1",
-        "parsed": null,
-        "tool_calls": []
-      }
-    },
     "69469f97d5b9847afcc2a4e95b67e38ad8577c18b413fc0b20ee828d25a09e74": {
       "response": {
         "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"NCC mới; nếu duyệt chỉ dùng kênh escrow gắn PO.\", \"evidence\": [], \"provenance\": \"trusted\", \"proposed_channel\": \"escrow\", \"proposed_pay_on\": null}",
@@ -49,6 +41,14 @@
     "b032586e4c4bbd8e18f413df9e8ed0bb08465b4a566f89594fc0319515badde4": {
       "response": {
         "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"TAX_RISK_LIST\", \"VAT_DEDUCTION_RISK\"], \"reason\": \"MST 0999090001 nằm trong DS DN rủi ro thuế và HĐ 8,8tr (>=5tr) trả TK cá nhân mất khấu trừ VAT.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "b824b4eb16fba8fcd6969bea78ee5d31dea3a21f921d6316c5b6cbe9b607ce4e": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn si-rô 8.800.000 đ từ NCC mới 0999090001 bị khóa đỏ.\", \"Phát hiện HIDDEN_INSTRUCTION, PERSONAL_ACCOUNT, TAX_RISK_LIST và VAT_DEDUCTION_RISK.\", \"Đề xuất Từ chối hoặc chỉ mở cọc tạm giữ escrow vào TK công ty đã xác minh.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\", \"tool_call_id\": \"tcl_2R79QRA967D1PS3DP9MF5NMJWB\"}, {\"kind\": \"invoice_document\", \"ref_id\": \"doc_00000000000000000000000038\", \"tool_call_id\": \"tcl_03GCW9TG1Y22DABRVEW7764T2B\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88DJVTSCF9ES122WJQT15ZM\", \"tool_call_id\": \"tcl_329NK94QZ9JHB979P27AQFQ9PW\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\", \"tool_call_id\": \"tcl_22557DQXT92M4FFS1WN8375ENG\"}]}",
         "model": "demo-replay-v1",
         "parsed": null,
         "tool_calls": []

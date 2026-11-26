@@ -1,6 +1,6 @@
 {
   "entries": {
-    "011d3289e41f2dc5cc3cb7c77bb57ba4c04a63af1702645819c46270b81a8c42": {
+    "00789db33beff0c14e35d4ec2efe0f7cf7d2942c88aa62ba1d4d37ef1fa0a922": {
       "response": {
         "content": "{\"lines\": [\"Hóa đơn phần mềm POS 12.000.000 đ (16 điểm, KCT) hợp lệ toàn bộ.\", \"Thủ quỹ đề xuất cấp thẻ ảo virtual_card khóa theo merchant POS.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3QC23SS8E5TJNYA2DFJMED5X7Y\", \"tool_call_id\": \"tcl_3QC23SS8E5TJNYA2DFJMED5X7Y\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\", \"tool_call_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\"}]}",
         "model": "demo-replay-v1",
