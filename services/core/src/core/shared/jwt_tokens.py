@@ -101,6 +101,10 @@ class Ed25519KeyManager:
             ttl_seconds = 120
         now_i = int(time.time()) if now_ts is None else now_ts
         exp = now_i + ttl_seconds
+        if sub == "supervisor" and bot_version is not None:
+            raise ValueError("Supervisor capability token must have bot_version=None")
+        if sub != "supervisor" and (bot_version is None or bot_version < 1):
+            raise ValueError("Bot capability token must have bot_version >= 1")
         claims: dict[str, Any] = {
             "iss": "core",
             "aud": "internal-api",
@@ -112,6 +116,7 @@ class Ed25519KeyManager:
             "worker_id": worker_id,
             "bot_version": bot_version,
             "tools": list(tools),
+            "iat": now_i,
             "exp": exp,
             "jti": new_id("jti"),
         }

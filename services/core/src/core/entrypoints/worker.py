@@ -993,14 +993,60 @@ def process_ledger_outbox_once(
 
                         elif ev_type == "payment.expired":
                             if data.get("reason") == "AUTHORIZATION_TIMEOUT":
-                                conn.execute(
+                                # I6: reuse still-active, valid approval -> scheduled; otherwise -> pending_approval & supersede
+                                active_apv = conn.execute(
                                     """
-                                    UPDATE core.invoices
-                                    SET status = 'scheduled', version = version + 1, updated_at = %s
-                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
+                                    SELECT approval_id, job_id, purchase_order_id, method
+                                    FROM core.approvals
+                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
+                                    LIMIT 1
                                     """,
-                                    (now, tid, inv_id),
+                                    (tid, inv_id),
+                                ).fetchone()
+                                latest_job = conn.execute(
+                                    """
+                                    SELECT job_id FROM core.jobs
+                                    WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+                                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                                    LIMIT 1
+                                    """,
+                                    (tid, inv_id),
+                                ).fetchone()
+                                apv_still_valid = (
+                                    active_apv is not None
+                                    and (
+                                        latest_job is None
+                                        or active_apv["job_id"] is None
+                                        or active_apv["job_id"] == latest_job["job_id"]
+                                    )
                                 )
+                                if apv_still_valid:
+                                    conn.execute(
+                                        """
+                                        UPDATE core.invoices
+                                        SET status = 'scheduled', version = version + 1, updated_at = %s
+                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
+                                        """,
+                                        (now, tid, inv_id),
+                                    )
+                                else:
+                                    conn.execute(
+                                        """
+                                        UPDATE core.invoices
+                                        SET status = 'pending_approval', scheduled_for = NULL, version = version + 1, updated_at = %s
+                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'paying'
+                                        """,
+                                        (now, tid, inv_id),
+                                    )
+                                    if active_apv is not None:
+                                        conn.execute(
+                                            """
+                                            UPDATE core.approvals
+                                            SET status = 'superseded', superseded_at = %s, superseded_reason = 'NEW_JOB'
+                                            WHERE approval_id = %s AND status = 'active'
+                                            """,
+                                            (now, active_apv["approval_id"]),
+                                        )
                             if pi_id:
                                 _emit_payment_sse(
                                     conn,

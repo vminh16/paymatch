@@ -6,18 +6,25 @@ import hashlib
 import re
 
 from paymatch_hashing import (
+    MAX_SAFE_INT,
+    MIN_SAFE_INT,
     action_hash,
     intent_hash_escrow,
     intent_hash_invoice,
     jcs_canonicalize,
+    normalize_timestamp_utc,
     payload_hash_approval,
     payload_hash_batch,
     sha256_jcs,
 )
 
 __all__ = [
+    "MAX_SAFE_INT",
+    "MIN_SAFE_INT",
     "action_hash",
     "hash_account_indicator",
+    "hash_card_id_indicator",
+    "hash_merchant_id_indicator",
     "hash_phone_indicator",
     "hash_tax_id_indicator",
     "intent_hash_escrow",
@@ -25,6 +32,7 @@ __all__ = [
     "jcs_canonicalize",
     "mask_account_number",
     "mask_phone",
+    "normalize_timestamp_utc",
     "payload_hash_approval",
     "payload_hash_batch",
     "sha256_jcs",
@@ -49,6 +57,16 @@ def hash_phone_indicator(phone: str) -> str:
 def hash_tax_id_indicator(tax_id: str) -> str:
     """Normalize tax_id indicator per docs/04-data/sim-world-dataset.md §3.10."""
     return _sha256_hex(tax_id.strip())
+
+
+def hash_card_id_indicator(card_id: str) -> str:
+    """Hash card_id indicator as 64-char lowercase sha256 hex (I8)."""
+    return _sha256_hex(card_id.strip())
+
+
+def hash_merchant_id_indicator(merchant_id: str) -> str:
+    """Hash merchant_id indicator as 64-char lowercase sha256 hex (I8)."""
+    return _sha256_hex(merchant_id.strip())
 
 
 def mask_account_number(account_number: str | None) -> str | None:

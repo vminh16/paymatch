@@ -30,6 +30,7 @@ from core.risk.domain.aggregation import (
 from core.shared.clock import Clock, SimWorldClock, SystemClock
 from core.shared.config import CoreSettings
 from core.shared.errors import ProblemError, install_error_handlers
+from core.shared.hashing import hash_card_id_indicator, hash_merchant_id_indicator
 from core.shared.ids import new_id
 from core.shared.jwt_tokens import Ed25519KeyManager
 from core.tools.adapters.http_gate import HttpGateAdapter
@@ -132,19 +133,47 @@ def _ref_in_json(obj: Any, needle: str) -> bool:
     return False
 
 
-def _value_in_json(obj: Any, needle: str | int | float) -> bool:
-    needle_str = str(needle)
+def _value_in_json(obj: Any, needle: str | int | float, *, trusted_only: bool = False) -> bool:
+    """Check if needle appears in obj. When trusted_only=True, skip any untrusted subtrees (B3)."""
     if isinstance(obj, bool):
         return False
     if isinstance(obj, (int, float)):
-        return str(obj) == needle_str
+        if isinstance(needle, (int, float)) and not isinstance(needle, bool):
+            return float(obj) == float(needle)
+        return str(obj) == str(needle)
     if isinstance(obj, str):
+        needle_str = str(needle)
         return obj == needle_str or needle_str in obj
     if isinstance(obj, dict):
-        return any(_value_in_json(v, needle) for v in obj.values())
+        if trusted_only and obj.get("provenance") == "untrusted":
+            return False
+        for k, v in obj.items():
+            if trusted_only and k == "untrusted":
+                continue
+            if _value_in_json(v, needle, trusted_only=trusted_only):
+                return True
+        return False
     if isinstance(obj, list):
-        return any(_value_in_json(v, needle) for v in obj)
+        return any(_value_in_json(v, needle, trusted_only=trusted_only) for v in obj)
     return False
+
+
+def _sanitize_question_history(raw_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """B3: pass user messages with text_trusted and assistant messages as structured {message_id, citations} only."""
+    sanitized: list[dict[str, Any]] = []
+    for m in raw_messages:
+        role = m.get("role")
+        if role == "user":
+            sanitized.append({"role": "user", "text_trusted": m.get("text_trusted", "")})
+        elif role == "assistant":
+            sanitized.append(
+                {
+                    "role": "assistant",
+                    "message_id": m.get("message_id", ""),
+                    "citations": list(m.get("citations") or []),
+                }
+            )
+    return sanitized
 
 
 def _build_session_payload(
@@ -174,7 +203,7 @@ def _build_session_payload(
         store_ids_claim = None
     elif task_type == "question":
         context = {
-            "messages": subject.get("messages", []),
+            "messages": _sanitize_question_history(subject.get("messages", [])),
             "user": subject.get("user", {"role": "owner", "store_ids": []}),
         }
         u_ctx = context["user"]
@@ -396,24 +425,32 @@ def _complete_investigation_job(
         if not has_cross_alert:
             ca = conn.execute(
                 """
-                SELECT 1 FROM risk.indicators i
-                JOIN risk.cross_alerts ca ON i.indicator_id = ANY(ca.indicator_ids)
-                WHERE i.kind = %s AND i.value_hash = %s AND ca.status = 'published'
+                SELECT 1 FROM risk.cross_alerts ca
+                LEFT JOIN risk.indicators i ON i.indicator_id = ANY(ca.indicator_ids)
+                WHERE ca.status = 'published'
+                  AND (
+                    (ca.indicator_kind = %s AND ca.value_hash = %s)
+                    OR (i.kind = %s AND i.value_hash = %s)
+                  )
                 LIMIT 1
                 """,
-                (kind, val_hash),
+                (kind, val_hash, kind, val_hash),
             ).fetchone()
             if ca is not None:
                 has_cross_alert = True
         if not has_hard_block:
             hb = conn.execute(
                 """
-                SELECT 1 FROM risk.indicators i
-                JOIN risk.hard_blocks hb ON i.indicator_id = ANY(hb.indicator_ids)
-                WHERE i.kind = %s AND i.value_hash = %s
+                SELECT 1 FROM risk.hard_blocks hb
+                LEFT JOIN risk.indicators i ON i.indicator_id = ANY(hb.indicator_ids)
+                WHERE hb.status = 'active'
+                  AND (
+                    (hb.indicator_kind = %s AND hb.value_hash = %s)
+                    OR (i.kind = %s AND i.value_hash = %s)
+                  )
                 LIMIT 1
                 """,
-                (kind, val_hash),
+                (kind, val_hash, kind, val_hash),
             ).fetchone()
             if hb is not None:
                 has_hard_block = True
@@ -482,9 +519,9 @@ def _complete_investigation_job(
         (tid,),
     ).fetchone()
     pol = conn.execute(
-        "SELECT payload FROM control.policies WHERE kind = 'platform_limits' AND status = 'active' LIMIT 1"
+        "SELECT value FROM control.policies WHERE kind = 'platform_limits' AND status = 'active' LIMIT 1"
     ).fetchone()
-    platform_per_inv = int((pol["payload"] if pol else {}).get("auto_pay_per_invoice_vnd", 30_000_000))
+    platform_per_inv = int((pol["value"] if pol else {}).get("auto_pay_per_invoice_vnd", 30_000_000))
 
     is_suspended = False
     if inv.get("vendor_id"):
@@ -756,6 +793,13 @@ def create_internal_app(
             issuer="core",
             now_ts=int(clk.now().timestamp()),
         )
+        if "iat" in claims and "exp" in claims and (int(claims["exp"]) - int(claims["iat"])) > 120:
+            raise ProblemError(
+                401,
+                "UNAUTHENTICATED",
+                "Capability token TTL too long",
+                "Capability token vượt quá thời hạn tối đa 120 giây (exp - iat > 120).",
+            )
         return claims
 
     # ---- Probes (no auth) ----
@@ -925,12 +969,27 @@ def create_internal_app(
             with conn.transaction():
                 for ev in body.events:
                     ev_type = ev.type.value
-                    if ev_type == "answer.delta" and job["task_type"] != "question":
+                    if ev_type == "answer.delta":
+                        if job["task_type"] != "question":
+                            raise ProblemError(
+                                400,
+                                "VALIDATION_FAILED",
+                                "Invalid progress event",
+                                "Sự kiện answer.delta chỉ hợp lệ cho job question.",
+                            )
+                        if ev.text_delta is None:
+                            raise ProblemError(
+                                400,
+                                "VALIDATION_FAILED",
+                                "Missing text_delta",
+                                "Sự kiện answer.delta bắt buộc có text_delta.",
+                            )
+                    elif ev.text_delta is not None:
                         raise ProblemError(
                             400,
                             "VALIDATION_FAILED",
-                            "Invalid progress event",
-                            "Sự kiện answer.delta chỉ hợp lệ cho job question.",
+                            "Unexpected text_delta",
+                            "text_delta chỉ được phép với sự kiện answer.delta.",
                         )
                     if ev.bot_id:
                         st = bot_states.setdefault(
@@ -978,31 +1037,32 @@ def create_internal_app(
                         """,
                         (evt_id, job_id, job["tenant_id"], ev_type, Jsonb(sse_payload), now),
                     )
-                    if ev_type != "answer.delta":
-                        outbox_data: dict[str, Any] = {
-                            "job_id": job_id,
-                            "task_type": job["task_type"],
-                            "attempt": body.attempt,
-                            "type": ev_type,
-                            "at": at_str,
-                        }
-                        if ev.step is not None:
-                            outbox_data["step"] = ev.step
-                        if ev.bot_id is not None:
-                            outbox_data["bot_id"] = ev.bot_id
-                        if ev.tool_id is not None:
-                            outbox_data["tool_id"] = ev.tool_id
-                        if ev.severity is not None:
-                            outbox_data["severity"] = ev.severity.value
-                        if ev.reason_code is not None:
-                            outbox_data["reason_code"] = ev.reason_code.value
-                        conn.execute(
-                            """
-                            INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
-                            VALUES (%s, 'job.progressed', 1, %s, %s, %s, %s)
-                            """,
-                            (evt_id, now, job["tenant_id"], trace_id, Jsonb(outbox_data)),
-                        )
+                    outbox_data: dict[str, Any] = {
+                        "job_id": job_id,
+                        "task_type": job["task_type"],
+                        "attempt": body.attempt,
+                        "type": ev_type,
+                        "at": at_str,
+                    }
+                    if ev.step is not None:
+                        outbox_data["step"] = ev.step
+                    if ev.bot_id is not None:
+                        outbox_data["bot_id"] = ev.bot_id
+                    if ev.tool_id is not None:
+                        outbox_data["tool_id"] = ev.tool_id
+                    if ev.severity is not None:
+                        outbox_data["severity"] = ev.severity.value
+                    if ev.reason_code is not None:
+                        outbox_data["reason_code"] = ev.reason_code.value
+                    if ev_type == "answer.delta" and ev.text_delta is not None:
+                        outbox_data["text_delta"] = ev.text_delta
+                    conn.execute(
+                        """
+                        INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
+                        VALUES (%s, 'job.progressed', 1, %s, %s, %s, %s)
+                        """,
+                        (evt_id, now, job["tenant_id"], trace_id, Jsonb(outbox_data)),
+                    )
 
                 conn.execute(
                     """
@@ -1066,11 +1126,15 @@ def create_internal_app(
             required_prefetch = [
                 p for p in (bot_ver["prefetch"] if bot_ver else []) if p in (claims.get("tools") or [])
             ]
-            # Allow BOT_TIMEOUT / BOT_INVALID_OUTPUT error findings without full prefetch
+            # Prefetch exemption (1f69ce8): skip ONLY if reason_codes contains ONLY BOT_TIMEOUT / BOT_INVALID_OUTPUT AND evidence is empty
             submitted_codes = [c.value for c in body.reason_codes]
-            is_error_finding = any(c in {"BOT_TIMEOUT", "BOT_INVALID_OUTPUT"} for c in submitted_codes)
+            is_prefetch_exempt = (
+                len(submitted_codes) > 0
+                and set(submitted_codes) <= {"BOT_TIMEOUT", "BOT_INVALID_OUTPUT"}
+                and len(body.evidence) == 0
+            )
             missing_prefetch = [p for p in required_prefetch if p not in called_tool_ids]
-            if missing_prefetch and not is_error_finding:
+            if missing_prefetch and not is_prefetch_exempt:
                 raise ProblemError(
                     400,
                     "VALIDATION_FAILED",
@@ -1196,21 +1260,29 @@ def create_internal_app(
                 raise ProblemError(409, "INVALID_STATE", "Wrong task type", "bot-answers chỉ áp dụng cho question/report.")
             tcs = conn.execute(
                 """
-                SELECT tool_call_id, output FROM core.tool_calls
+                SELECT tool_call_id, output, provenance FROM core.tool_calls
                 WHERE tenant_id = %s AND job_id = %s AND attempt = %s AND bot_id = %s
                 """,
                 (job["tenant_id"], job_id, int(claims["attempt"]), body.bot_id),
             ).fetchall()
-            tc_by_id = {tc["tool_call_id"]: tc["output"] for tc in tcs}
+            tc_by_id = {tc["tool_call_id"]: tc for tc in tcs}
 
             verified_facts = []
             for f in body.facts:
-                out = tc_by_id.get(f.tool_call_id)
-                ok = out is not None and _value_in_json(out, f.value)
+                tc = tc_by_id.get(f.tool_call_id)
+                if tc is None:
+                    continue
+                if isinstance(f.value, str):
+                    # B3: string values are accepted ONLY when cited tool_call & field are provenance='trusted'
+                    ok = tc["provenance"] == "trusted" and _value_in_json(
+                        tc["output"], f.value, trusted_only=True
+                    )
+                else:
+                    ok = _value_in_json(tc["output"], f.value, trusted_only=False)
                 if ok:
                     verified_facts.append(
                         {
-                            "key": f.key,
+                            "key": f.key.value,
                             "value": f.value,
                             "tool_call_id": f.tool_call_id,
                             "verified": True,
@@ -1460,7 +1532,7 @@ def create_internal_app(
         now = clk.now()
         trace_id = _extract_trace_id(traceparent)
         data_dict = body.data.model_dump(mode="json")
-        ev_type = body.type.value
+        ev_type = body.type
 
         with database.connect() as conn:
             with conn.transaction():
@@ -1478,8 +1550,8 @@ def create_internal_app(
                     return Response(status_code=204)
 
                 if ev_type == "card.authorization_declined":
-                    card_id = data_dict["card_id"]
-                    merchant_id = data_dict["merchant_id"]
+                    card_hash = hash_card_id_indicator(data_dict["card_id"])
+                    merchant_hash = hash_merchant_id_indicator(data_dict["merchant_id"])
                     opaque_ref = "srf_" + hashlib.sha256(body.event_id.encode("utf-8")).hexdigest()[:16]
                     conn.execute(
                         """
@@ -1493,8 +1565,8 @@ def create_internal_app(
                             Jsonb(
                                 {
                                     "indicators": [
-                                        {"kind": "card_id", "value_hash": card_id},
-                                        {"kind": "merchant_id", "value_hash": merchant_id},
+                                        {"kind": "card_id", "value_hash": card_hash},
+                                        {"kind": "merchant_id", "value_hash": merchant_hash},
                                     ],
                                     "reason_codes": ["OFFICIAL_FRAUD_LIST"],
                                     "source": "rail",

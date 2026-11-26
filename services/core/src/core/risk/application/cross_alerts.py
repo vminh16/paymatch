@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -10,6 +11,8 @@ from psycopg.types.json import Jsonb
 
 from core.shared.clock import Clock, SystemClock
 from core.shared.ids import new_id
+
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def publish_cross_alert(
@@ -31,7 +34,9 @@ def publish_cross_alert(
     with conn.transaction():
         for ind in indicators:
             kind = ind["kind"]
-            val_hash = ind["value_hash"]
+            val_hash = ind["value_hash"].lower()
+            if not _SHA256_HEX_RE.fullmatch(val_hash):
+                raise ValueError(f"Indicator value_hash must be 64-char lowercase sha256 hex, got {val_hash!r}")
             row = conn.execute(
                 """
                 INSERT INTO risk.indicators (indicator_id, kind, value_hash, first_seen_at, flags_count)
@@ -44,14 +49,26 @@ def publish_cross_alert(
             indicator_ids.append(row["indicator_id"])
             normalized_indicators.append({"kind": kind, "value_hash": val_hash})
 
+        primary_kind = normalized_indicators[0]["kind"] if normalized_indicators else None
+        primary_hash = normalized_indicators[0]["value_hash"] if normalized_indicators else None
+
         conn.execute(
             """
             INSERT INTO risk.cross_alerts (
-                cross_alert_id, indicator_ids, reason_codes, published_by, status, affected_invoice_count, published_at
+                cross_alert_id, indicator_kind, value_hash, indicator_ids,
+                reason_codes, published_by, status, affected_invoice_count, published_at
             )
-            VALUES (%s, %s, %s, %s, 'published', 0, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, 'published', 0, %s)
             """,
-            (cross_alert_id, indicator_ids, list(reason_codes), published_by, now),
+            (
+                cross_alert_id,
+                primary_kind,
+                primary_hash,
+                indicator_ids,
+                list(reason_codes),
+                published_by,
+                now,
+            ),
         )
 
         conn.execute(

@@ -65,12 +65,11 @@ def _get_tenant(conn: psycopg.Connection, tenant_id: str) -> dict[str, Any]:
 def _collect_invoice_indicator_pairs(
     conn: psycopg.Connection, inv: dict[str, Any]
 ) -> list[tuple[str, str]]:
-    """Collect (kind, value_hash_or_value) indicators for an invoice (bank accounts, tax_id, phone)."""
+    """Collect (kind, sha256_value_hash) indicators for an invoice (I8: always 64-char sha256 hex, never raw)."""
     pairs: list[tuple[str, str]] = []
     tid = inv["tenant_id"]
     seller_tax = (inv.get("seller_tax_id") or "").strip()
     if seller_tax:
-        pairs.append(("tax_id", seller_tax))
         pairs.append(("tax_id", hash_tax_id_indicator(seller_tax)))
 
     untrusted = inv.get("untrusted") or {}
@@ -705,12 +704,19 @@ def _dispatch_tool(
         for kind, val_hash in pairs:
             rows = conn.execute(
                 """
-                SELECT ca.cross_alert_id, i.kind AS indicator_kind, ca.reason_codes, ca.published_at
-                FROM risk.indicators i
-                JOIN risk.cross_alerts ca ON i.indicator_id = ANY(ca.indicator_ids)
-                WHERE i.kind = %s AND i.value_hash = %s AND ca.status = 'published'
+                SELECT ca.cross_alert_id,
+                       COALESCE(ca.indicator_kind, i.kind) AS indicator_kind,
+                       ca.reason_codes,
+                       ca.published_at
+                FROM risk.cross_alerts ca
+                LEFT JOIN risk.indicators i ON i.indicator_id = ANY(ca.indicator_ids)
+                WHERE ca.status = 'published'
+                  AND (
+                    (ca.indicator_kind = %s AND ca.value_hash = %s)
+                    OR (i.kind = %s AND i.value_hash = %s)
+                  )
                 """,
-                (kind, val_hash),
+                (kind, val_hash, kind, val_hash),
             ).fetchall()
             for r in rows:
                 if r["cross_alert_id"] in seen_cxa:
@@ -937,13 +943,13 @@ def _dispatch_tool(
         ).fetchone()
         pol = conn.execute(
             """
-            SELECT payload, updated_at FROM control.policies
+            SELECT value, updated_at FROM control.policies
             WHERE kind = 'platform_limits' AND status = 'active'
             LIMIT 1
             """
         ).fetchone()
         pl_payload = (
-            dict(pol["payload"])
+            dict(pol["value"])
             if pol
             else {"auto_pay_per_invoice_vnd": 30_000_000, "auto_pay_per_day_vnd": 50_000_000}
         )

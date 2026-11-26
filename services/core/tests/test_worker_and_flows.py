@@ -438,3 +438,82 @@ def test_invariant_stale_approval_superseded_on_payment_failed_and_qt03_suspensi
     assert apv_row["superseded_reason"] == "PAYMENT_FAILED"
     assert susp is not None
     assert "PACK_SIZE_CHANGED" in susp["reason_codes"]
+
+
+@pytest.mark.db
+def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pending(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """Contract I6: payment.expired AUTHORIZATION_TIMEOUT -> scheduled if approval still active & valid; else pending_approval."""
+    _ensure_ledger_outbox(seeded_db)
+    xml_1 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    xml_2 = (DEMO_DATA_DIR / "inbox/attachments/1C26TNX_00000744.xml").read_bytes()
+
+    with seeded_db.connect() as conn:
+        r1 = ingest_invoice(
+            conn,
+            IngestCommand(
+                tenant_id=TENANT_A,
+                raw_bytes=xml_1,
+                filename="1.xml",
+                content_type="application/xml",
+                source="email",
+            ),
+            clock=fixed_clock,
+        )
+        r2 = ingest_invoice(
+            conn,
+            IngestCommand(
+                tenant_id=TENANT_A,
+                raw_bytes=xml_2,
+                filename="2.xml",
+                content_type="application/xml",
+                source="email",
+            ),
+            clock=fixed_clock,
+        )
+        va = conn.execute(
+            "SELECT vendor_account_id FROM core.vendor_accounts WHERE tenant_id = %s LIMIT 1",
+            (TENANT_A,),
+        ).fetchone()["vendor_account_id"]
+
+        with conn.transaction():
+            # Invoice 1: paying + still-active valid approval -> should return to scheduled
+            conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r1.invoice_id,))
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at
+                )
+                VALUES (%s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                """,
+                (new_id("apv"), TENANT_A, r1.invoice_id, va, "d" * 64, fixed_clock.now()),
+            )
+            # Invoice 2: paying + NO active approval -> should return to pending_approval
+            conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r2.invoice_id,))
+
+            conn.execute(
+                """
+                INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'payment.expired', %s, %s, %s),
+                       (%s, 'payment.expired', %s, %s, %s)
+                """,
+                (
+                    new_id("evt"),
+                    fixed_clock.now(),
+                    TENANT_A,
+                    Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": r1.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
+                    new_id("evt"),
+                    fixed_clock.now(),
+                    TENANT_A,
+                    Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": r2.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
+                ),
+            )
+
+        process_ledger_outbox_once(conn, clock=fixed_clock)
+        st1 = conn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()["status"]
+        st2 = conn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r2.invoice_id,)).fetchone()["status"]
+
+    assert st1 == "scheduled"
+    assert st2 == "pending_approval"

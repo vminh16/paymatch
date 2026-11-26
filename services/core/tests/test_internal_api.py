@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from core.entrypoints.internal_api import create_internal_app
 from core.ingest.application.ingest_invoice import IngestCommand, ingest_invoice
@@ -507,5 +508,275 @@ def test_rails_webhook_card_declined_emits_indicator_flagged_idempotently(
         ).fetchall()
     assert len(rows) == 1
     assert rows[0]["data"]["source"] == "rail"
-    kinds = {i["kind"] for i in rows[0]["data"]["indicators"]}
-    assert kinds == {"card_id", "merchant_id"}
+    inds = rows[0]["data"]["indicators"]
+    assert {i["kind"] for i in inds} == {"card_id", "merchant_id"}
+    # I8: every indicator value_hash must be 64-char lowercase sha256 hex, never raw IDs
+    assert all(len(i["value_hash"]) == 64 and i["value_hash"] == i["value_hash"].lower() for i in inds)
+
+
+@pytest.mark.db
+def test_prefetch_exemption_accepted_and_rejected_cases(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """Contract 1f69ce8: prefetch skipped ONLY for BOT_TIMEOUT/BOT_INVALID_OUTPUT with empty evidence; floored to yellow."""
+    _, job_id = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+    client, _ = _make_client(seeded_db, fixed_clock)
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    claimed = client.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    sess = client.post(
+        f"/internal/jobs/{job_id}/session",
+        json={"worker_id": "w1", "attempt": claimed["attempt"]},
+        headers=agent_hdr,
+    ).json()
+    proc_tok = next(b["capability_token"] for b in sess["bots"] if b["bot_id"] == "procurement")
+    hdr = {"Authorization": f"Bearer {proc_tok}"}
+
+    # Rejected case 1: normal OK without prefetch -> 400
+    r_ok = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:x",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "no prefetch",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=hdr,
+    )
+    assert r_ok.status_code == 400
+    assert r_ok.json()["code"] == "VALIDATION_FAILED"
+
+    # Rejected case 2: BOT_TIMEOUT mixed with another code -> 400
+    r_mixed = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:x",
+            "severity_reported": "yellow",
+            "reason_codes": ["BOT_TIMEOUT", "OK"],
+            "reason": "mixed",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=hdr,
+    )
+    assert r_mixed.status_code == 400
+
+    # Rejected case 3: BOT_TIMEOUT with non-empty evidence -> 400
+    r_ev = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:x",
+            "severity_reported": "yellow",
+            "reason_codes": ["BOT_TIMEOUT"],
+            "reason": "has evidence",
+            "evidence": [
+                {
+                    "kind": "tool_call",
+                    "ref_id": new_id("tcl"),
+                    "tool_call_id": new_id("tcl"),
+                }
+            ],
+            "provenance": "trusted",
+        },
+        headers=hdr,
+    )
+    assert r_ev.status_code == 400
+
+    # Accepted case: ONLY BOT_TIMEOUT + empty evidence, even if reported green -> 201 and floored to yellow
+    r_acc = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:x",
+            "severity_reported": "green",
+            "reason_codes": ["BOT_TIMEOUT"],
+            "reason": "Bot exceeded 20s budget before prefetch.",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=hdr,
+    )
+    assert r_acc.status_code == 201
+    assert r_acc.json()["severity"] == "yellow"
+    assert r_acc.json()["reason_codes"] == ["BOT_TIMEOUT"]
+
+
+@pytest.mark.db
+def test_b3_bot_answers_fact_key_and_trusted_string_enforcement(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """Contract B3: bot-answers accepts FactKey string ONLY from trusted tool output; drops untrusted strings;
+    question session strips assistant free text to {message_id, citations}.
+    """
+    # Ingest one invoice so procurement can invoke untrusted `invoices` tool in this question job
+    inv_id, _ = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+
+    cnv_id = new_id("cnv")
+    msg_id = new_id("cmg")
+    q_job_id = new_id("job")
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO core.jobs (job_id, tenant_id, task_type, subject, status, attempt, created_at, updated_at)
+                VALUES (%s, %s, 'question', %s, 'queued', 0, %s, %s)
+                """,
+                (
+                    q_job_id,
+                    TENANT_A,
+                    Jsonb(
+                        {
+                            "conversation_id": cnv_id,
+                            "message_id": msg_id,
+                            "messages": [
+                                {"role": "user", "text_trusted": "Số dư ví hiện tại là bao nhiêu?"},
+                                {
+                                    "role": "assistant",
+                                    "message_id": msg_id,
+                                    "text": "SECRET UNTRUSTED TEXT MUST NOT LEAK",
+                                    "citations": [],
+                                },
+                            ],
+                            "user": {"role": "owner", "store_ids": []},
+                        }
+                    ),
+                    fixed_clock.now(),
+                    fixed_clock.now(),
+                ),
+            )
+
+    client, _ = _make_client(seeded_db, fixed_clock)
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    # Question has higher priority than investigate_invoice
+    claimed = client.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert claimed["job_id"] == q_job_id
+    sess = client.post(
+        f"/internal/jobs/{q_job_id}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+
+    # Assistant message in question history has NO free text
+    assistant_msg = sess["context"]["messages"][1]
+    assert set(assistant_msg.keys()) == {"role", "message_id", "citations"}
+
+    # Treasury calls account_balance (trusted) -> submits numeric wallet_balance_vnd (accepted),
+    # trusted string from output (accepted), and fabricated string (dropped)
+    tr_tok = next(b["capability_token"] for b in sess["bots"] if b["bot_id"] == "treasury")
+    thdr = {"Authorization": f"Bearer {tr_tok}"}
+    bal_tc = client.post("/internal/tools/account_balance:invoke", json={"input": {}}, headers=thdr).json()
+    assert bal_tc["provenance"] == "trusted"
+
+    ba_resp = client.post(
+        f"/internal/jobs/{q_job_id}/bot-answers",
+        json={
+            "bot_id": "treasury",
+            "facts": [
+                {
+                    "key": "wallet_balance_vnd",
+                    "value": 350000000,
+                    "tool_call_id": bal_tc["evidence_ref"],
+                },
+                {
+                    "key": "invoice_due_on",
+                    "value": bal_tc["data"]["as_of"][:10],
+                    "tool_call_id": bal_tc["evidence_ref"],
+                },
+                {
+                    "key": "gate_decision",
+                    "value": "FAKE_VALUE_NOT_IN_OUTPUT",
+                    "tool_call_id": bal_tc["evidence_ref"],
+                },
+            ],
+            "reason_codes": ["OK"],
+        },
+        headers=thdr,
+    )
+    assert ba_resp.status_code == 201
+    facts = ba_resp.json()["facts"]
+    assert {f["key"] for f in facts} == {"wallet_balance_vnd", "invoice_due_on"}
+    assert all(f["verified"] is True for f in facts)
+
+    # Procurement calls untrusted `invoices` tool -> string value from untrusted output MUST be dropped!
+    proc_tok = next(b["capability_token"] for b in sess["bots"] if b["bot_id"] == "procurement")
+    phdr = {"Authorization": f"Bearer {proc_tok}"}
+    inv_tc = client.post(
+        "/internal/tools/invoices:invoke",
+        json={"input": {"invoice_ids": [inv_id]}},
+        headers=phdr,
+    ).json()
+    assert inv_tc["provenance"] == "untrusted"
+    ba_untrusted = client.post(
+        f"/internal/jobs/{q_job_id}/bot-answers",
+        json={
+            "bot_id": "procurement",
+            "facts": [
+                {
+                    "key": "invoice_due_on",
+                    "value": inv_id,
+                    "tool_call_id": inv_tc["evidence_ref"],
+                }
+            ],
+            "reason_codes": ["OK"],
+        },
+        headers=phdr,
+    )
+    assert ba_untrusted.status_code == 201
+    assert ba_untrusted.json()["facts"] == []
+
+    # I7: text_delta on non-answer.delta progress event is rejected (400),
+    # and answer.delta WITH text_delta succeeds (204) and emits text_delta in outbox
+    bad_prog = client.post(
+        f"/internal/jobs/{q_job_id}/progress",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "events": [
+                {
+                    "type": "supervisor.step",
+                    "step": 1,
+                    "text_delta": "forbidden",
+                    "at": "2026-11-26T09:00:01+07:00",
+                }
+            ],
+        },
+        headers=agent_hdr,
+    )
+    assert bad_prog.status_code == 400
+
+    ok_delta = client.post(
+        f"/internal/jobs/{q_job_id}/progress",
+        json={
+            "worker_id": "w1",
+            "attempt": 1,
+            "events": [
+                {
+                    "type": "answer.delta",
+                    "text_delta": "Số dư hiện tại là 350.000.000đ.",
+                    "at": "2026-11-26T09:00:02+07:00",
+                }
+            ],
+        },
+        headers=agent_hdr,
+    )
+    assert ok_delta.status_code == 204
+    with seeded_db.connect() as conn:
+        ev_row = conn.execute(
+            "SELECT data FROM core.outbox WHERE type = 'job.progressed' AND data->>'type' = 'answer.delta' ORDER BY seq DESC LIMIT 1"
+        ).fetchone()
+    assert ev_row is not None
+    assert ev_row["data"]["text_delta"] == "Số dư hiện tại là 350.000.000đ."
