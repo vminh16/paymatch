@@ -7,6 +7,11 @@ services:
       POSTGRES_USER: paymatch
       POSTGRES_PASSWORD: paymatch   # chỉ dùng cho local/demo
     ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paymatch -d paymatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   sim-world:
     build:
@@ -19,6 +24,67 @@ services:
       DEMO_MODE: "true"
       SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}   # chỉ dùng cho local/demo
       SIM_GATE_SERVICE_KEY: ${SIM_GATE_SERVICE_KEY:-dev-gate-key}   # chỉ dùng cho local/demo
-      CORE_INTERNAL_URL: ${CORE_INTERNAL_URL:-}
+      CORE_INTERNAL_URL: ${CORE_INTERNAL_URL:-http://internal-api:8003/internal}
       SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
     ports: ["8200:8200"]
+
+  merchant-api:
+    build:
+      context: ..
+      dockerfile: services/core/Dockerfile
+    command: ["python", "-m", "core.entrypoints.merchant_api"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sim-world:
+        condition: service_started
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
+      GATE_URL: ${GATE_URL:-http://gate:8100/gate}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      MERCHANT_PORT: "8001"
+    ports: ["8001:8001"]
+
+  internal-api:
+    build:
+      context: ..
+      dockerfile: services/core/Dockerfile
+    command: ["python", "-m", "core.entrypoints.internal_api"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sim-world:
+        condition: service_started
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
+      GATE_URL: ${GATE_URL:-http://gate:8100/gate}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      INTERNAL_AGENT_SERVICE_KEY: ${INTERNAL_AGENT_SERVICE_KEY:-dev-agent-key}
+      SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
+      INTERNAL_PORT: "8003"
+    ports: ["8003:8003"]
+
+  core-worker:
+    build:
+      context: ..
+      dockerfile: services/core/Dockerfile
+    command: ["python", "-m", "core.entrypoints.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sim-world:
+        condition: service_started
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+      SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
+      GATE_URL: ${GATE_URL:-http://gate:8100/gate}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      WORKER_POLL_INTERVAL_S: ${WORKER_POLL_INTERVAL_S:-2.0}
