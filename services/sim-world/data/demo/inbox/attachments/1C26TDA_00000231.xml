@@ -5,8 +5,8 @@
       <PBan>2.1.0</PBan>
       <THDon>Hóa đơn giá trị gia tăng</THDon>
       <KHMSHDon>1</KHMSHDon>
-      <KHHDon>C26TAC</KHHDon>
-      <SHDon>00000089</SHDon>
+      <KHHDon>C26TDA</KHHDon>
+      <SHDon>00000231</SHDon>
       <NLap>2026-11-26</NLap>
       <HDCTTChinh>0</HDCTTChinh>
       <DVTTe>VND</DVTTe>
@@ -16,13 +16,13 @@
     </TTChung>
     <NDHDon>
       <NBan>
-        <Ten>CÔNG TY TNHH PHÂN PHỐI NGUYÊN LIỆU Á CHÂU MẪU</Ten>
-        <MST>0999090001</MST>
-        <DChi>Số 66 Đường Mẫu Tân Tạo, Quận Bình Tân, TP. Hồ Chí Minh</DChi>
+        <Ten>CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU</Ten>
+        <MST>0999090013</MST>
+        <DChi>Số 9 Đường Mẫu Tân Kỳ Tân Quý, Quận Bình Tân, TP. Hồ Chí Minh</DChi>
         <SDThoai>0900090001</SDThoai>
-        <DCTDTu>ketoan@nguyenlieuachau.example</DCTDTu>
-        <STKNHang>998800011100</STKNHang>
-        <TNHang>Ngân hàng Mẫu Thành Công</TNHang>
+        <DCTDTu>ketoan@nguyenlieudonga.example</DCTDTu>
+        <STKNHang>990090000013</STKNHang>
+        <TNHang>Ngân hàng Mẫu Nam Việt</TNHang>
       </NBan>
       <NMua>
         <Ten>CÔNG TY TNHH NHÀ HÀNG BẾP PHỐ XANH</Ten>
@@ -42,7 +42,7 @@
           <TChat>1</TChat>
           <STT>1</STT>
           <MHHDVu>SYR-PCH-750ML</MHHDVu>
-          <THHDVu>Si-rô đào Hương Việt chai 750ml giao chi nhánh Quận 1</THHDVu>
+          <THHDVu>Si-rô đào Hương Việt chai 750ml</THHDVu>
           <DVTinh>Chai</DVTinh>
           <SLuong>30</SLuong>
           <DGia>162962.963</DGia>
@@ -68,8 +68,8 @@
       </TToan>
     </NDHDon>
   </DLHDon>
-  <MCCQT Id="ID2">009B18AF2F473F45CA95A907F211CCB1D0</MCCQT>
-  <DLQRCode>00020101021238560010A0000007270126000699990301129988000111000208QRIBFTTA5303704540752800005802VN996401100999090001020110306C26TAC040800000089050820261126060752800006304E3C6</DLQRCode>
+  <MCCQT Id="ID2">00908D4AF62919A044268B9F569C2257BE</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990201129900900000130208QRIBFTTA5303704540752800005802VN996401100999090013020110306C26TDA040800000231050820261126060752800006304E3A4</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
@@ -84,7 +84,7 @@
         <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
         <KeyInfo>
           <X509Data>
-            <X509SubjectName>CN=CÔNG TY TNHH PHÂN PHỐI NGUYÊN LIỆU Á CHÂU MẪU, O=CÔNG TY TNHH PHÂN PHỐI NGUYÊN LIỆU Á CHÂU MẪU</X509SubjectName>
+            <X509SubjectName>CN=CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU, O=CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU</X509SubjectName>
             <X509Certificate>DEMO-CERT-STUB</X509Certificate>
           </X509Data>
         </KeyInfo>

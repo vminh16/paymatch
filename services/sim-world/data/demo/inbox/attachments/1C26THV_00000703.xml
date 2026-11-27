@@ -44,11 +44,11 @@
           <MHHDVu>SYR-LYC-700ML</MHHDVu>
           <THHDVu>Si-rô vải Hương Việt chai 700ml</THHDVu>
           <DVTinh>Chai</DVTinh>
-          <SLuong>102.380952</SLuong>
+          <SLuong>105</SLuong>
           <DGia>194444.444444</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>19907407</ThTien>
+          <ThTien>20416667</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,20 +56,20 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>19907407</ThTien>
-            <TThue>1592593</TThue>
+            <ThTien>20416667</ThTien>
+            <TThue>1633333</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>19907407</TgTCThue>
-        <TgTThue>1592593</TgTThue>
+        <TgTCThue>20416667</TgTCThue>
+        <TgTThue>1633333</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>21500000</TgTTTBSo>
-        <TgTTTBChu>Hai mươi mốt triệu năm trăm nghìn đồng</TgTTTBChu>
+        <TgTTTBSo>22050000</TgTTTBSo>
+        <TgTTTBChu>Hai mươi hai triệu không trăm năm mươi nghìn đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
   </DLHDon>
   <MCCQT Id="ID2">009FA17A3909A91591CE372B6CB37A4556</MCCQT>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000090208QRIBFTTA53037045408215000005802VN996501100999010009020110306C26THV0408000007030508202611260608215000006304534B</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000090208QRIBFTTA53037045408220500005802VN996501100999010009020110306C26THV040800000703050820261126060822050000630482EB</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

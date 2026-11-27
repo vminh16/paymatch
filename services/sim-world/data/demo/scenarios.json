@@ -121,7 +121,7 @@
     },
     {
       "template_id": "TRAP_02_CROSS_ALERT_TENANT_B",
-      "title": "Bẫy cuối phần 2 (F3, D8) — Hóa đơn cùng NCC si-rô 0999090001 tại Tenant B nhận cảnh báo chéo",
+      "title": "Bẫy cuối phần 2 (F3, D8) — Hóa đơn của công ty bình phong cùng đường dây si-rô tại Tenant B bị cảnh báo chéo kéo về",
       "group": "trap",
       "channel": "inbox+console",
       "message_id": "msg_01M8851XCD7YGDX38812T4RG7Z",
@@ -131,7 +131,7 @@
       "expected_reason_codes": [
         "CROSS_ALERT_HIT"
       ],
-      "notes": "Tenant B (Bếp Phố Xanh, 0999000002) có hóa đơn chưa chi từ cùng MST 0999090001; khi MoMo phát hành cảnh báo chéo -> tự động đánh giá lại thành yellow bắt buộc xác minh"
+      "notes": "Tenant B (Bếp Phố Xanh) mua si-rô của NCC quen 0999090013 (MST đang hoạt động, TK công ty verified, có PO + GRN) nên trước cảnh báo hóa đơn không đỏ. NCC này dùng chung SĐT 0900090001 với người bán si-rô BRD_04 (0999090001). Khi MoMo phát hành cảnh báo chéo theo indicator phone -> F3 kéo hóa đơn về, thêm CROSS_ALERT_HIT (vàng, bắt buộc xác minh)"
     },
     {
       "template_id": "SCAM_BEC_EMAIL_DOMAIN",
@@ -186,7 +186,8 @@
       "chat_injections": [],
       "expected_severity": "red",
       "expected_reason_codes": [
-        "OFFICIAL_FRAUD_LIST"
+        "OFFICIAL_FRAUD_LIST",
+        "UNKNOWN_VENDOR"
       ],
       "notes": "MST 0999090011, SĐT 0900999011 và TK VNMB03:998855667788 đều nằm trong simo_indicators.json (SIMO-2026-00991)"
     },
@@ -203,14 +204,9 @@
           "message_id": "msg_01M88DNZ6JJXVFF08D1WGZAXCP"
         }
       ],
-      "expected_severity": "red",
-      "expected_reason_codes": [
-        "UNKNOWN_VENDOR",
-        "PERSONAL_ACCOUNT",
-        "NO_GOODS_RECEIPT",
-        "URGENCY_PRESSURE"
-      ],
-      "notes": "P06_CEO_ZALO_DEEPFAKE: tài khoản clone tên Nguyễn Thị Lan (SĐT lạ 0900888777) ép chuyển gấp 24,5tr vào TK cá nhân 998866554433"
+      "expected_severity": null,
+      "expected_reason_codes": [],
+      "notes": "Không có hóa đơn nên không có job điều tra; PayMatch không có đường chi tiền không hóa đơn (QT-05, F11). Tin nhắn chỉ để demo kênh chat. P06_CEO_ZALO_DEEPFAKE: tài khoản clone tên Nguyễn Thị Lan (SĐT lạ 0900888777) ép chuyển gấp 24,5tr vào TK cá nhân 998866554433"
     },
     {
       "template_id": "TAX_MST_06_ABANDONED",
@@ -222,7 +218,8 @@
       "chat_injections": [],
       "expected_severity": "red",
       "expected_reason_codes": [
-        "MST_INACTIVE"
+        "MST_INACTIVE",
+        "UNKNOWN_VENDOR"
       ],
       "notes": "MST 0999090006 (Bình Minh Phát) có status_code='06' trong taxpayers.json"
     },
@@ -236,7 +233,8 @@
       "chat_injections": [],
       "expected_severity": "red",
       "expected_reason_codes": [
-        "MST_INACTIVE"
+        "MST_INACTIVE",
+        "UNKNOWN_VENDOR"
       ],
       "notes": "MST 0999090005 có status_code='05' trong taxpayers.json"
     },
@@ -250,7 +248,8 @@
       "chat_injections": [],
       "expected_severity": "yellow",
       "expected_reason_codes": [
-        "VAT_DEDUCTION_RISK"
+        "VAT_DEDUCTION_RISK",
+        "UNKNOWN_VENDOR"
       ],
       "notes": "MST 0999090009 có status_code='09' trong taxpayers.json"
     },
@@ -292,7 +291,8 @@
       "chat_injections": [],
       "expected_severity": "red",
       "expected_reason_codes": [
-        "TAX_RISK_LIST"
+        "TAX_RISK_LIST",
+        "UNKNOWN_VENDOR"
       ],
       "notes": "Cổng HĐĐT gắn cờ bhphap=1 (illegal_flag=true) cho MST 0999090012"
     },
@@ -406,7 +406,7 @@
       "expected_reason_codes": [
         "OVER_LIMIT"
       ],
-      "notes": "3 hóa đơn xanh hợp lệ (22tr + 21,5tr + 21,5tr = 65tr) dưới trần 30tr/HĐ nhưng vượt trần 50tr/ngày -> demo duyệt hàng loạt",
+      "notes": "3 hóa đơn xanh hợp lệ (21.496.104 + 21.500.000 + 22.050.000 = 65.046.104 đ) dưới trần 30tr/HĐ nhưng vượt trần 50tr/ngày -> demo duyệt hàng loạt",
       "extra_message_ids": [
         "msg_01M88E6AVRX960FEZNJPGP0G73",
         "msg_01M88CR06ENE09WRNH2B4QKA3J"

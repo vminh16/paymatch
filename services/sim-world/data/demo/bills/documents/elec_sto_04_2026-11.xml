@@ -44,11 +44,11 @@
           <STT>1</STT>
           <THHDVu>Tiền điện kinh doanh hạ áp 1 giá kỳ 2026-11</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>1140</SLuong>
+          <SLuong>1112</SLuong>
           <DGia>3089</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>3521460</ThTien>
+          <ThTien>3434968</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,15 +56,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>3521460</ThTien>
-            <TThue>281717</TThue>
+            <ThTien>3434968</ThTien>
+            <TThue>274797</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>3521460</TgTCThue>
-        <TgTThue>281717</TgTThue>
+        <TgTCThue>3434968</TgTCThue>
+        <TgTThue>274797</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>3803177</TgTTTBSo>
-        <TgTTTBChu>Ba triệu tám trăm lẻ ba nghìn một trăm bảy mươi bảy đồng</TgTTTBChu>
+        <TgTTTBSo>3709765</TgTTTBSo>
+        <TgTTTBChu>Ba triệu bảy trăm lẻ chín nghìn bảy trăm sáu mươi lăm đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -75,7 +75,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540738031775802VN996501130999010040001020110306K26TEA040604110105082026112106073803177630415BC</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540737097655802VN996501130999010040001020110306K26TEA0406041101050820261121060737097656304111D</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

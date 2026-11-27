@@ -675,6 +675,19 @@
       "category": "utility",
       "status": "active",
       "created_at": "2026-02-01T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88JP6JSET3K47G4C8YX58BD",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU",
+      "tax_id": "0999090013",
+      "phone_on_file": "0900090001",
+      "phone_on_file_masked": "0900***001",
+      "email": "ketoan@nguyenlieudonga.example",
+      "address": "Số 9 Đường Mẫu Tân Kỳ Tân Quý, Quận Bình Tân, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-09-01T08:00:00+07:00"
     }
   ],
   "vendor_accounts": [
@@ -1259,8 +1272,8 @@
       "kind": "bank_account",
       "bank_code": "VNMB01",
       "bank_name": "Ngân hàng Mẫu Á Châu",
-      "account_number": "990010000040",
-      "account_number_masked": "****0040",
+      "account_number": "990010000046",
+      "account_number_masked": "****0046",
       "merchant_id": null,
       "account_name": "CHI NHANH DIEN LUC KHU VUC BAC THANH PHO MAU",
       "status": "verified",
@@ -1273,8 +1286,8 @@
       "kind": "bank_account",
       "bank_code": "VNMB01",
       "bank_name": "Ngân hàng Mẫu Á Châu",
-      "account_number": "990010000040",
-      "account_number_masked": "****0040",
+      "account_number": "990010000047",
+      "account_number_masked": "****0047",
       "merchant_id": null,
       "account_name": "CHI NHANH DIEN LUC KHU VUC NAM THANH PHO MAU",
       "status": "verified",
@@ -1287,8 +1300,8 @@
       "kind": "bank_account",
       "bank_code": "VNMB01",
       "bank_name": "Ngân hàng Mẫu Á Châu",
-      "account_number": "990010000040",
-      "account_number_masked": "****0040",
+      "account_number": "990010000048",
+      "account_number_masked": "****0048",
       "merchant_id": null,
       "account_name": "CHI NHANH DIEN LUC KHU VUC DONG THANH PHO MAU",
       "status": "verified",
@@ -1405,6 +1418,20 @@
       "account_name": "CONG TY CP CAP NUOC KHU VUC TRUNG TAM MAU",
       "status": "verified",
       "verified_at": "2026-02-02T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88J6MSH2FEZ3E8JTZ0QJ4VY",
+      "vendor_id": "ven_01M88JP6JSET3K47G4C8YX58BD",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990090000013",
+      "account_number_masked": "****0013",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THUONG MAI NGUYEN LIEU DONG A MAU",
+      "status": "verified",
+      "verified_at": "2026-09-02T09:00:00+07:00"
     }
   ],
   "vendor_contracts": [
@@ -2823,6 +2850,28 @@
           "vat_rate": "8%",
           "price_source_ref": "docs/04-data/sources.md#L51",
           "item_id": "itm_01M885YNQX4271CAWFH6AEGE4N"
+        }
+      ],
+      "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"
+    },
+    {
+      "contract_id": "ctr_01M885VD653ZB5AKHV84FXWEEP",
+      "vendor_id": "ven_01M88JP6JSET3K47G4C8YX58BD",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "status": "active",
+      "valid_from": "2026-09-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "sku": "SYR-PCH-750ML",
+          "name": "Si-rô đào Hương Việt chai 750ml",
+          "base_unit": "chai",
+          "pack_spec": "chai 750ml",
+          "pack_qty": "1.000000",
+          "unit_price": "162962.963000",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L51",
+          "item_id": "itm_01M88FE4YKKRE62V7Y75A03208"
         }
       ],
       "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"

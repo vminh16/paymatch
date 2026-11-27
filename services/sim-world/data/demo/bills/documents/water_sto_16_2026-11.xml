@@ -44,11 +44,11 @@
           <STT>1</STT>
           <THHDVu>Tiền nước sạch kinh doanh dịch vụ kỳ 2026-11</THHDVu>
           <DVTinh>m3</DVTinh>
-          <SLuong>71</SLuong>
+          <SLuong>72</SLuong>
           <DGia>21300</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>1512300</ThTien>
+          <ThTien>1533600</ThTien>
           <TSuat>5%</TSuat>
         </HHDVu>
         <HHDVu>
@@ -56,11 +56,11 @@
           <STT>2</STT>
           <THHDVu>Tiền dịch vụ thoát nước và xử lý nước thải kỳ 2026-11 (30%)</THHDVu>
           <DVTinh>m3</DVTinh>
-          <SLuong>71</SLuong>
+          <SLuong>72</SLuong>
           <DGia>6390</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>453690</ThTien>
+          <ThTien>460080</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -68,20 +68,20 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>5%</TSuat>
-            <ThTien>1512300</ThTien>
-            <TThue>75615</TThue>
+            <ThTien>1533600</ThTien>
+            <TThue>76680</TThue>
           </LTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>453690</ThTien>
-            <TThue>36295</TThue>
+            <ThTien>460080</ThTien>
+            <TThue>36806</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>1965990</TgTCThue>
-        <TgTThue>111910</TgTThue>
+        <TgTCThue>1993680</TgTCThue>
+        <TgTThue>113486</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>2077900</TgTTTBSo>
-        <TgTTTBChu>Hai triệu không trăm bảy mươi bảy nghìn chín trăm đồng</TgTTTBChu>
+        <TgTTTBSo>2107166</TgTTTBSo>
+        <TgTTTBChu>Hai triệu một trăm lẻ bảy nghìn một trăm sáu mươi sáu đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -92,7 +92,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990201129900100000440208QRIBFTTA5303704540720779005802VN996201100999010044020110306K26TWD0406162201050820261121060720779006304A829</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990201129900100000440208QRIBFTTA5303704540721071665802VN996201100999010044020110306K26TWD04061622010508202611210607210716663048502</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

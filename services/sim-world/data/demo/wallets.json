@@ -255,6 +255,24 @@
       "simulate_failure": null
     },
     {
+      "bank_code": "VNMB01",
+      "account_number": "990010000046",
+      "account_name": "CHI NHANH DIEN LUC KHU VUC BAC THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000047",
+      "account_name": "CHI NHANH DIEN LUC KHU VUC NAM THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000048",
+      "account_name": "CHI NHANH DIEN LUC KHU VUC DONG THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
       "bank_code": "VNMB02",
       "account_number": "990010000041",
       "account_name": "CONG TY CP CAP NUOC KHU VUC TRUNG TAM MAU",
@@ -276,6 +294,12 @@
       "bank_code": "VNMB02",
       "account_number": "990010000044",
       "account_name": "CONG TY CP CAP NUOC KHU VUC DONG THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990090000001",
+      "account_name": "CONG TY TNHH PHAN PHOI NGUYEN LIEU A CHAU MAU",
       "simulate_failure": null
     },
     {
@@ -414,6 +438,12 @@
       "bank_code": "VNMB03",
       "account_number": "990090000012",
       "account_name": "CONG TY TNHH TM DV THANH TIN MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000013",
+      "account_name": "CONG TY TNHH THUONG MAI NGUYEN LIEU DONG A MAU",
       "simulate_failure": null
     }
   ],

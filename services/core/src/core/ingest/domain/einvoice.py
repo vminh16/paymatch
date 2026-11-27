@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import re
 from typing import Literal
@@ -87,6 +87,7 @@ _BUYER_KEY_MARKERS: tuple[str, ...] = ("buyer", "nmua", "nguoimua", "customer", 
 
 _VAT_PERCENT_RE = re.compile(r"^(?:KHAC:)?\s*(\d+(?:\.\d+)?)%\s*$", re.IGNORECASE)
 _UTF8_BOM = b"\xef\xbb\xbf"
+_PLAIN_DECIMAL_RE = re.compile(r"[+-]?\d{1,15}(\.\d+)?")  # integer-part bound of schemas.md Decimal
 _LINE_TOLERANCE_RATE = Decimal("0.0005")  # 0.05% per einvoice-xml.md §4 Tier 1
 _ONE_VND = Decimal("1")
 _HUNDRED = Decimal("100")
@@ -597,13 +598,10 @@ def _normalize_symbol(template_code: str, series: str) -> str:
 
 
 def _parse_decimal(text: str, *, field_name: str) -> Decimal:
-    try:
-        value = Decimal(text)
-    except InvalidOperation as exc:
-        raise InvoiceUnparseable(f"invalid decimal in {field_name}: {text!r}") from exc
-    if not value.is_finite():
-        raise InvoiceUnparseable(f"non-finite decimal in {field_name}: {text!r}")
-    return value
+    # Decimal() also accepts "1E100" / "1_000"; those overflow quantize() and would escape as a 500, not a 422.
+    if not _PLAIN_DECIMAL_RE.fullmatch(text):
+        raise InvoiceUnparseable(f"invalid decimal in {field_name}: {text!r}")
+    return Decimal(text)
 
 
 def _optional_decimal(parent: ET.Element, name: str) -> Decimal | None:

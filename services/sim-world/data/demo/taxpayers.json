@@ -495,6 +495,14 @@
       "status_label": "NNT đã được cấp MST / Đang hoạt động",
       "status_reason_code": "02",
       "address": "Số 121 Đường Mẫu Z, Huyện Hóc Môn, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090013",
+      "name": "CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 9 Đường Mẫu Tân Kỳ Tân Quý, Quận Bình Tân, TP. Hồ Chí Minh"
     }
   ]
 }

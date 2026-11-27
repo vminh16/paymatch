@@ -9,7 +9,7 @@
       <SHDon>051101</SHDon>
       <NLap>2026-11-21</NLap>
       <HDCTTChinh>0</HDCTTChinh>
-      <SBKe>261205801</SBKe>
+      <SBKe>261305801</SBKe>
       <NBKe>2026-11-21</NBKe>
       <DVTTe>VND</DVTTe>
       <TGia>1</TGia>
@@ -23,7 +23,7 @@
         <DChi>Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh</DChi>
         <SDThoai>0280001041</SDThoai>
         <DCTDTu>ketoan@dienlucbactp.example</DCTDTu>
-        <STKNHang>990010000040</STKNHang>
+        <STKNHang>990010000046</STKNHang>
         <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
       </NBan>
       <NMua>
@@ -44,13 +44,13 @@
         <HHDVu>
           <TChat>1</TChat>
           <STT>1</STT>
-          <THHDVu>Tiền điện kinh doanh hạ áp 3 giá kỳ 2026-11 (theo bảng kê 261205801)</THHDVu>
+          <THHDVu>Tiền điện kinh doanh hạ áp 3 giá kỳ 2026-11 (theo bảng kê 261305801)</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>1995</SLuong>
+          <SLuong>2098</SLuong>
           <DGia />
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>7078891</ThTien>
+          <ThTien>7442986</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -58,15 +58,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>7078891</ThTien>
-            <TThue>566311</TThue>
+            <ThTien>7442986</ThTien>
+            <TThue>595439</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>7078891</TgTCThue>
-        <TgTThue>566311</TgTThue>
+        <TgTCThue>7442986</TgTCThue>
+        <TgTThue>595439</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>7645202</TgTTTBSo>
-        <TgTTTBChu>Bảy triệu sáu trăm bốn mươi lăm nghìn hai trăm lẻ hai đồng</TgTTTBChu>
+        <TgTTTBSo>8038425</TgTTTBSo>
+        <TgTTTBChu>Tám triệu không trăm ba mươi tám nghìn bốn trăm hai mươi lăm đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -77,7 +77,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540776452025802VN996501130999010040002020110306K26TEB040605110105082026112106077645202630474C2</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000460208QRIBFTTA5303704540780384255802VN996501130999010040002020110306K26TEB04060511010508202611210607803842563047F47</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

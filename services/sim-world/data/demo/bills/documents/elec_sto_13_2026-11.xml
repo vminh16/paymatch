@@ -21,7 +21,7 @@
         <DChi>Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh</DChi>
         <SDThoai>0280001041</SDThoai>
         <DCTDTu>ketoan@dienlucbactp.example</DCTDTu>
-        <STKNHang>990010000040</STKNHang>
+        <STKNHang>990010000046</STKNHang>
         <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
       </NBan>
       <NMua>
@@ -44,11 +44,11 @@
           <STT>1</STT>
           <THHDVu>Tiền điện kinh doanh hạ áp 1 giá kỳ 2026-11</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>1199</SLuong>
+          <SLuong>1198</SLuong>
           <DGia>3089</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>3703711</ThTien>
+          <ThTien>3700622</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,15 +56,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>3703711</ThTien>
-            <TThue>296297</TThue>
+            <ThTien>3700622</ThTien>
+            <TThue>296050</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>3703711</TgTCThue>
-        <TgTThue>296297</TgTThue>
+        <TgTCThue>3700622</TgTCThue>
+        <TgTThue>296050</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>4000008</TgTTTBSo>
-        <TgTTTBChu>Bốn triệu không trăm lẻ tám đồng</TgTTTBChu>
+        <TgTTTBSo>3996672</TgTTTBSo>
+        <TgTTTBChu>Ba triệu chín trăm chín mươi sáu nghìn sáu trăm bảy mươi hai đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -75,7 +75,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540740000085802VN996501130999010040002020110306K26TEB04061311010508202611210607400000863049F71</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000460208QRIBFTTA5303704540739966725802VN996501130999010040002020110306K26TEB0406131101050820261121060739966726304605F</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

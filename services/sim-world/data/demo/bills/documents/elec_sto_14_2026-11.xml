@@ -21,7 +21,7 @@
         <DChi>Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh</DChi>
         <SDThoai>0280001041</SDThoai>
         <DCTDTu>ketoan@dienlucbactp.example</DCTDTu>
-        <STKNHang>990010000040</STKNHang>
+        <STKNHang>990010000046</STKNHang>
         <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
       </NBan>
       <NMua>
@@ -44,11 +44,11 @@
           <STT>1</STT>
           <THHDVu>Tiền điện kinh doanh hạ áp 1 giá kỳ 2026-11</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>1100</SLuong>
+          <SLuong>1103</SLuong>
           <DGia>3089</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>3397900</ThTien>
+          <ThTien>3407167</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,15 +56,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>3397900</ThTien>
-            <TThue>271832</TThue>
+            <ThTien>3407167</ThTien>
+            <TThue>272573</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>3397900</TgTCThue>
-        <TgTThue>271832</TgTThue>
+        <TgTCThue>3407167</TgTCThue>
+        <TgTThue>272573</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>3669732</TgTTTBSo>
-        <TgTTTBChu>Ba triệu sáu trăm sáu mươi chín nghìn bảy trăm ba mươi hai đồng</TgTTTBChu>
+        <TgTTTBSo>3679740</TgTTTBSo>
+        <TgTTTBChu>Ba triệu sáu trăm bảy mươi chín nghìn bảy trăm bốn mươi đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -75,7 +75,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540736697325802VN996501130999010040002020110306K26TEB040614110105082026112106073669732630418E9</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000460208QRIBFTTA5303704540736797405802VN996501130999010040002020110306K26TEB04061411010508202611210607367974063049DF0</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

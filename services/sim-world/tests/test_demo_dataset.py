@@ -762,7 +762,8 @@ def test_edge_and_scam_scenarios_invariants() -> None:
     assert Decimal(short_po["lines"][0]["quantity"]) == Decimal("50")
     assert Decimal(short_grn["lines"][0]["quantity_received"]) == Decimal("45")
 
-    # EDGE_BULK_OVER_DAILY: 3 invoices totaling 65,000,000 VND
+    # EDGE_BULK_OVER_DAILY: 3 invoices each under the per-invoice ceiling, together over the daily one
+    limits = _load_json("core_seed/platform_config.json")["platform_limits"]
     bulk_sc = scenarios["EDGE_BULK_OVER_DAILY"]
     bulk_msg_ids = [bulk_sc["message_id"], *bulk_sc["extra_message_ids"]]
     assert len(bulk_msg_ids) == 3
@@ -771,9 +772,9 @@ def test_edge_and_scam_scenarios_invariants() -> None:
         xml_p = DEMO_DIR / messages[mid]["attachments"][0]["file_path"]
         root = ET.fromstring(xml_p.read_text(encoding="utf-8"))
         amt = int(_text(_find_child(_find_child(_find_child(root, "DLHDon"), "NDHDon"), "TToan"), "TgTTTBSo") or "0")
-        assert amt <= 30000000
+        assert amt <= limits["auto_pay_per_invoice_vnd"]
         bulk_sum += amt
-    assert bulk_sum == 65000000
+    assert bulk_sum > limits["auto_pay_per_day_vnd"]
 
     # SIMO indicators hashes match §3.10 normalization formula
     hashes_by_kind = {(i["kind"], i["value_hash"]) for i in simo["indicators"]}
@@ -788,3 +789,93 @@ def test_edge_and_scam_scenarios_invariants() -> None:
     assert "0999010006" in qr_val
     assert "998877665544" in qr_val
     assert len(qr_val) <= 512
+
+
+def test_current_utility_bill_is_not_already_in_its_baseline() -> None:
+    """A bill must be compared against the 12 months before it, so its own period never sits in readings."""
+    ops = _load_json("core_seed/operations.json")
+    bills = _load_json("bills/bills.json")["bills"]
+    current = max(b["period"] for b in bills)
+    acct_by_code = {u["customer_code"]: u["utility_account_id"] for u in ops["utility_accounts"]}
+    seeded = {(r["utility_account_id"], r["billing_period"]) for r in ops["utility_readings"]}
+    current_bills = [b for b in bills if b["period"] == current]
+    assert len(current_bills) == len(ops["utility_accounts"])
+    assert len({b["customer_code"] for b in current_bills}) == len(current_bills), "one current bill per account"
+    for b in current_bills:
+        assert (acct_by_code[b["customer_code"]], current) not in seeded
+
+    scenarios = {s["template_id"]: s for s in _load_json("scenarios.json")["scenarios"]}
+    leak = next(b for b in bills if b["bill_id"] == scenarios["BRD_06_WATER_STORE3_4M2"]["bill_id"])
+    history = [Decimal(r["total_usage"]) for r in ops["utility_readings"] if r["utility_account_id"] == acct_by_code[leak["customer_code"]]]
+    assert leak["period"] == current and Decimal(leak["total_usage"]) == 6 * statistics.median(history)
+
+
+def test_every_payable_vendor_account_resolves_on_the_rail() -> None:
+    """Gate pays {bank_code, account_number, account_name}; sim-world must not answer ACCOUNT_NOT_FOUND / NAME_MISMATCH."""
+    vendors = _load_json("core_seed/vendors.json")
+    rails = {(a["bank_code"], a["account_number"]): a for a in _load_json("wallets.json")["external_bank_accounts"]}
+    for acc in vendors["vendor_accounts"]:
+        if acc["kind"] != "bank_account":
+            continue
+        ext = rails.get((acc["bank_code"], acc["account_number"]))
+        assert ext is not None, acc["account_number"]
+        assert ext["account_name"] == acc["account_name"] and ext["simulate_failure"] is None
+
+
+def test_purchase_orders_carry_contract_prices() -> None:
+    """A PO is what was ordered under the contract; copying the invoiced price would hide price/pack drift."""
+    vendors = _load_json("core_seed/vendors.json")
+    contract_price = {
+        (c["vendor_id"], it["sku"]): (Decimal(it["unit_price"]), it["vat_rate"])
+        for c in vendors["vendor_contracts"]
+        for it in c["items"]
+    }
+    for po in _load_json("core_seed/operations.json")["purchase_orders"]:
+        gross = Decimal(0)
+        for line in po["lines"]:
+            price, vat_rate = contract_price[(po["vendor_id"], line["sku"])]
+            assert Decimal(line["unit_price"]) == price
+            vat = Decimal(vat_rate.rstrip("%")) / 100 if vat_rate.endswith("%") else Decimal(0)
+            gross += Decimal(line["quantity"]) * price * (1 + vat)
+        assert po["total_vnd"] == int(gross.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def test_trap_02_invoice_is_clean_until_the_cross_alert() -> None:
+    """F3 only re-evaluates unpaid, non-blocked invoices; TRAP_02 must share just the seller phone with BRD_04."""
+    ts = _load_json("core_seed/tenant_and_stores.json")
+    vendors = _load_json("core_seed/vendors.json")
+    messages = {m["message_id"]: m for m in _load_json("inbox/messages.json")["messages"]}
+    scenarios = {s["template_id"]: s for s in _load_json("scenarios.json")["scenarios"]}
+    risk = {e["tax_id"] for e in _load_json("tax_risk_list.json")["entries"] if e["listed"]}
+
+    def seller(tid: str) -> tuple[str, str, str | None]:
+        att = messages[scenarios[tid]["message_id"]]["attachments"][0]
+        nban = _find_child(_find_child(_find_child(ET.parse(DEMO_DIR / att["file_path"]).getroot(), "DLHDon"), "NDHDon"), "NBan")
+        return _text(nban, "MST") or "", _text(nban, "SDThoai") or "", _text(nban, "STKNHang")
+
+    b_mst, b_phone, b_acct = seller("TRAP_02_CROSS_ALERT_TENANT_B")
+    a_mst, a_phone, _ = seller("BRD_04_SYRUP_NEW_VENDOR_FRAUD")
+    tenant_b = next(t for t in ts["tenants"] if t["tax_id"] == "0999000002")["tenant_id"]
+    vendor = next(v for v in vendors["vendors"] if v["tenant_id"] == tenant_b and v["tax_id"] == b_mst)
+    verified = {a["account_number"] for a in vendors["vendor_accounts"] if a["vendor_id"] == vendor["vendor_id"] and a["status"] == "verified"}
+
+    assert b_mst != a_mst and b_mst not in risk
+    assert b_phone == a_phone == vendor["phone_on_file"]
+    assert b_acct in verified
+    assert scenarios["TRAP_02_CROSS_ALERT_TENANT_B"]["expected_reason_codes"] == ["CROSS_ALERT_HIT"]
+
+
+def test_prompt_injection_invoices_carry_no_other_signal() -> None:
+    """Injection cases test HIDDEN_INSTRUCTION; pack unit and amount must not add PACK_SIZE_CHANGED or OVER_LIMIT."""
+    limit = _load_json("core_seed/platform_config.json")["platform_limits"]["auto_pay_per_invoice_vnd"]
+    messages = {m["message_id"]: m for m in _load_json("inbox/messages.json")["messages"]}
+    for sc in _load_json("scenarios.json")["scenarios"]:
+        if sc["group"] != "prompt_injection":
+            continue
+        root = ET.parse(DEMO_DIR / messages[sc["message_id"]]["attachments"][0]["file_path"]).getroot()
+        ndhdon = _find_child(_find_child(root, "DLHDon"), "NDHDon")
+        assert int(_text(_find_child(ndhdon, "TToan"), "TgTTTBSo") or "0") <= limit, sc["template_id"]
+        for line in _find_children(_find_child(ndhdon, "DSHHDVu"), "HHDVu"):
+            unit, name = (_text(line, "DVTinh") or "").lower(), (_text(line, "THHDVu") or "").lower()
+            if _text(line, "TChat") == "1" and unit in ("thùng", "bao", "bộ"):
+                assert f"({unit} " in name, f"{sc['template_id']}: pack size missing from name {name!r}"
