@@ -114,16 +114,10 @@ RED_REASON_CODES: frozenset[ReasonCode] = frozenset(
     }
 )
 
-# Valid backing tool_ids that can substantiate each red reason code.
+# Red codes whose truth a trusted tool decides; only these are dropped without a positive result
+# (core re-adds them from tool output anyway). Judgement-based red codes are never dropped:
+# a mis-cited red must not fall to an approvable yellow (agent-runtime.md §5a).
 RED_CODE_BACKING_TOOLS: dict[ReasonCode, frozenset[str]] = {
-    ReasonCode.DUPLICATE_INVOICE: frozenset({"invoices", "payables_ledger"}),
-    ReasonCode.PAYEE_CHANGE_REQUEST: frozenset(
-        {"invoices", "inbox", "chat_messages", "vendor_registry"}
-    ),
-    ReasonCode.PERSONAL_ACCOUNT: frozenset(
-        {"invoices", "inbox", "chat_messages", "vendor_registry"}
-    ),
-    ReasonCode.HIDDEN_INSTRUCTION: frozenset({"invoices", "inbox", "chat_messages"}),
     ReasonCode.OFFICIAL_FRAUD_LIST: frozenset({"official_fraud_list"}),
     ReasonCode.TAX_RISK_LIST: frozenset({"tax_risk_list", "einvoice_portal"}),
     ReasonCode.MST_INACTIVE: frozenset({"tax_id_lookup"}),
@@ -456,8 +450,7 @@ def _call_positively_backs_red_code(rc: ReasonCode, call: RecordedToolCall) -> b
     """Return True only if `call` is an error-free, positive backing result for red code `rc`."""
     if call.error_code is not None:
         return False
-    allowed_tools = RED_CODE_BACKING_TOOLS.get(rc)
-    if allowed_tools is not None and call.tool_id not in allowed_tools:
+    if call.tool_id not in RED_CODE_BACKING_TOOLS[rc]:
         return False
 
     data = call.data
@@ -469,34 +462,12 @@ def _call_positively_backs_red_code(rc: ReasonCode, call: RecordedToolCall) -> b
         )
     if rc == ReasonCode.MST_INACTIVE:
         return call.tool_id == "tax_id_lookup" and data.get("status_code") in _MST_INACTIVE_STATUS_CODES
-    if rc == ReasonCode.INVOICE_NOT_FOUND_ON_PORTAL:
-        return call.tool_id == "einvoice_portal" and (
-            data.get("found") is False
-            or data.get("processing_status_code") in {2, 4}
-            or data.get("invoice_status_code") in {4, 6}
-        )
-    if rc == ReasonCode.DUPLICATE_INVOICE:
-        if call.tool_id == "invoices":
-            invs = data.get("invoices")
-            return isinstance(invs, list) and any(
-                isinstance(inv, dict) and inv.get("duplicate_of") for inv in invs
-            )
-        if call.tool_id == "payables_ledger":
-            entries = data.get("entries")
-            return isinstance(entries, list) and len(entries) > 0
-        return False
-    # Untrusted-content red codes (PAYEE_CHANGE_REQUEST, PERSONAL_ACCOUNT, HIDDEN_INSTRUCTION):
-    # require non-empty data from one of the allowed source tools
-    if call.tool_id == "inbox":
-        msgs = data.get("messages")
-        return isinstance(msgs, list) and len(msgs) > 0
-    if call.tool_id == "chat_messages":
-        threads = data.get("threads")
-        return isinstance(threads, list) and len(threads) > 0
-    if call.tool_id == "invoices":
-        invs = data.get("invoices")
-        return isinstance(invs, list) and len(invs) > 0
-    return bool(data)
+    # INVOICE_NOT_FOUND_ON_PORTAL
+    return call.tool_id == "einvoice_portal" and (
+        data.get("found") is False
+        or data.get("processing_status_code") in {2, 4}
+        or data.get("invoice_status_code") in {4, 6}
+    )
 
 
 def _evidence_ref_matches_call(ev: EvidenceRef, call: RecordedToolCall) -> bool:
@@ -576,10 +547,14 @@ def build_finding_submission(
             note = " [Xác nhận trùng danh sách gian lận chính thức SIMO (official_fraud_list).]"
             reason = (reason[: max(0, 1000 - len(note))] + note)[:1000]
 
-    # 3. Require positive backing evidence for every red reason code
+    # 3. Tool-decided red codes need a positive tool result; judgement red codes stay red
     verified_codes: list[ReasonCode] = []
     for rc in kept_codes:
-        if rc in RED_REASON_CODES:
+        if rc in RED_REASON_CODES and rc not in RED_CODE_BACKING_TOOLS:
+            if not valid_evidence:
+                note = " [Mã đỏ giữ nguyên dù thiếu trích dẫn hợp lệ; cần người kiểm.]"
+                reason = (reason[: max(0, 1000 - len(note))] + note)[:1000]
+        elif rc in RED_CODE_BACKING_TOOLS:
             has_positive_backing = any(
                 _call_positively_backs_red_code(rc, calls_by_tcl[ev.tool_call_id])
                 for ev in valid_evidence

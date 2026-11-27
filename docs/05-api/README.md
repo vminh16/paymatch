@@ -42,6 +42,8 @@ Biến môi trường chỉ địa chỉ (một biến cho mỗi đích, không 
 | `SIM_URL` | `http://sim-world:8200/sim` | core-*, gate |
 | `DATABASE_URL` | `postgresql://…@postgres:5432/paymatch` | core-*, gate. **agent-worker và sim-world không có biến này** |
 
+Biến của `agent-worker` (khóa dịch vụ, chế độ LLM, khóa API theo bot) liệt kê ở `.env.example` gốc repo; quy ước khóa theo bot ở [agent-runtime.md §7](../03-agents/agent-runtime.md#7-llm-port).
+
 ## 2. Ai gọi ai
 
 ```

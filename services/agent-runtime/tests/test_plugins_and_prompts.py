@@ -135,3 +135,17 @@ def test_runtime_prompts_contain_safety_boundaries():
     assert "chief-accountant" in prompts.chief_accountant
     assert "ask_<bot_id>" in prompts.chief_accountant
     assert "FindingForSupervisor" in prompts.chief_accountant
+
+
+def test_env_example_has_api_key_slot_for_every_system_bot():
+    """agent-runtime.md §7: every system bot (and the supervisor) has an LLM_API_KEY_<BOT_ID> slot."""
+    env_keys = {
+        line.split("=", 1)[0]
+        for line in (REPO_ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
+        if "=" in line and not line.lstrip().startswith("#")
+    }
+    bot_ids = {p.parent.name for p in (REPO_ROOT / "plugins" / "bots").glob("*/manifest.yaml")}
+    expected = {"LLM_API_KEY"} | {
+        "LLM_API_KEY_" + bot_id.upper().replace("-", "_") for bot_id in bot_ids | {"chief-accountant"}
+    }
+    assert expected <= env_keys

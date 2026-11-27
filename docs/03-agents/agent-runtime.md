@@ -34,7 +34,7 @@ Thêm loại việc mới = thêm một dòng cấu hình (tool được phép, 
 | Bot chuyên môn (ReAct nhỏ) | làm đúng nghề với tool của mình, kể cả đọc dữ liệu bẩn (thư, tin nhắn, chữ trên hóa đơn) | gọi bot khác; trả chữ tự do cho điều phối |
 | Core (code) | cấp token, chạy tool, kiểm bằng chứng, áp mức sàn, kiểm tra hệ thống, gộp màu, ghi trạng thái | — |
 
-Khi điều phối gọi `ask_<bot_id>`, nó chỉ đưa **câu hỏi có cấu trúc** (`{invoice_id?, focus?: [enum], question_code?}`) và nhận lại **kết quả có cấu trúc**: với điều tra là `Finding` (không có `reason`), với hỏi đáp là `BotAnswer {facts: [{key, value, tool_call_id}], reason_codes}`. Đây là mô hình Dual LLM: bot chuyên môn đứng ở vùng cách ly, điều phối là vùng đặc quyền.
+Khi điều phối gọi `ask_<bot_id>`, nó chỉ đưa **câu hỏi có cấu trúc** (`{invoice_id?, focus?: [enum], question_code?}`; enum `focus` và `question_code` **chưa chốt**, v1 nhận chuỗi ngắn, chấp nhận được vì điều phối không đọc untrusted) và nhận lại **kết quả có cấu trúc**: với điều tra là `Finding` (không có `reason`), với hỏi đáp là `BotAnswer {facts: [{key, value, tool_call_id}], reason_codes}`. Đây là mô hình Dual LLM: bot chuyên môn đứng ở vùng cách ly, điều phối là vùng đặc quyền.
 
 ## 4. Rào chắn (code, không phụ thuộc LLM)
 
@@ -65,6 +65,8 @@ Schema đầy đủ: [05-api/schemas.md §3](../05-api/schemas.md#3-điều-tra)
 ## 5a. Danh mục mã lý do (nguồn sự thật)
 
 Code áp **mức sàn** theo bảng này bất kể bot ghi gì; `CROSS_ALERT_HIT` bị **giới hạn ở vàng** (D6). Cách gỡ 🔴 xem problem-definition.md mục 6b.
+
+Runtime lọc mã trước khi nộp: bỏ mã không thuộc bot (cột *Sinh bởi*) và bỏ trích dẫn không khớp output tool. Mã đỏ mà **tool trusted quyết định** (`OFFICIAL_FRAUD_LIST`, `TAX_RISK_LIST`, `MST_INACTIVE`, `INVOICE_NOT_FOUND_ON_PORTAL`) chỉ giữ khi output tool dương; core vẫn tự thêm lại từ output tool (internal-api.md §3). Mã đỏ do **bot đánh giá nội dung** (`HIDDEN_INSTRUCTION`, `PAYEE_CHANGE_REQUEST`, `PERSONAL_ACCOUNT`, `DUPLICATE_INVOICE`) **không bao giờ bị bỏ** vì trích dẫn sai: vẫn đỏ, `reason` ghi chú thiếu trích dẫn. Bot báo nhầm chỉ khóa một hóa đơn (gỡ theo 6b); hạ nhầm xuống vàng thì hóa đơn gian lận duyệt được.
 
 | Mã | Mức | Sinh bởi | QT-03 (hạ quyền) |
 |---|---|---|---|
@@ -99,6 +101,7 @@ Code áp **mức sàn** theo bảng này bất kể bot ghi gì; `CROSS_ALERT_HI
 - **Model/provider: chưa chốt, đội thảo luận sau.** Cho tới khi chốt: code chỉ gọi port `LLM`; tên model và provider đọc từ `ModelConfig`/env, không nằm trong code; prompt và tool schema viết trung lập, không dùng tính năng riêng của một hãng.
 - `LLM.complete(messages, tools?, schema?) -> message | json`. Adapter: một adapter cho provider được chọn, model dự phòng, **Replay** (cassette theo hash input).
 - Chế độ: `live` · `record` · `replay`. Test và ngày chấm dùng `replay` khi cần ổn định.
+- **Khóa API theo bot** (chỗ chờ, chưa có adapter thật; mẫu ở `.env.example`): mỗi bot đọc `LLM_API_KEY_<BOT_ID>` (`bot_id` viết hoa, `-` → `_`, vd `LLM_API_KEY_FRAUD_CONTROL`; điều phối là `LLM_API_KEY_CHIEF_ACCOUNTANT`), trống thì dùng `LLM_API_KEY`; bot người dùng tạo luôn dùng `LLM_API_KEY`. Lý do: tách hạn mức/chi phí từng bot và thu hồi riêng một khóa. Khóa chỉ nằm trong env của `agent-worker`; không vào manifest, DB, log, cassette hay `ModelConfig` (`ModelConfig` chỉ giữ tên model).
 - Mỗi lời gọi sinh span `invoke_agent` / `execute_tool` (OpenTelemetry GenAI).
 
 ## 8. LangGraph
