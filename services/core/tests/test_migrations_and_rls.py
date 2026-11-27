@@ -11,6 +11,7 @@ from core.persistence.migrator import apply_migrations
 from core.persistence.seeder import load_core_seed
 from core.shared.ids import new_id
 
+import json
 import pathlib
 
 DEMO_SEED_DIR = (
@@ -21,6 +22,7 @@ DEMO_SEED_DIR = (
     / "demo"
     / "core_seed"
 )
+_SEED_VENDORS = json.loads((DEMO_SEED_DIR / "vendors.json").read_text(encoding="utf-8"))
 TENANT_A = "ten_01M88D3C06B97Y4G0S9W8BVKNG"
 TENANT_B = "ten_01M88AXX2KPMD46VQQTDDH040J"
 
@@ -34,7 +36,7 @@ def test_migrations_are_idempotent_and_seed_loads_demo_counts(pg_dsn: str) -> No
 
     assert counts["tenants"] == 2
     assert counts["stores"] == 19
-    assert counts["vendors"] == 52
+    assert counts["vendors"] == len(_SEED_VENDORS["vendors"])
     assert counts["tools"] == 30
     assert counts["bots"] == 6
     assert counts["utility_accounts"] == 32
@@ -144,7 +146,7 @@ def test_gate_role_readonly_cross_schema_shape(seeded_db: Database) -> None:
         vas = conn.execute(
             "SELECT vendor_account_id, vendor_id, kind, status FROM core.vendor_accounts"
         ).fetchall()
-        assert len(vas) == 52
+        assert len(vas) == len(_SEED_VENDORS["vendor_accounts"])
         mandates = conn.execute("SELECT mandate_id, tenant_id, mode, limits FROM core.mandates").fetchall()
         assert len(mandates) == 2
 

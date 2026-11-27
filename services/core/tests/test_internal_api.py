@@ -1676,7 +1676,7 @@ def test_b1_tax_target_binding_partial_simo_and_i4_concurrent_claim_and_i5_compl
 
     # --- I4: DB clock_timestamp() lease expiry before reclaim AND concurrent per-tenant claim limit ---
     inv3, job3 = _ingest_demo(seeded_db, "inbox/attachments/1C26TAC_00000088.xml", fixed_clock)
-    inv4, job4 = _ingest_demo(seeded_db, "inbox/attachments/1C26TAC_00000089.xml", fixed_clock)
+    inv4, job4 = _ingest_demo(seeded_db, "inbox/attachments/1C26TBM_00000109.xml", fixed_clock)
     assert job3 != job4
 
     # Concurrent claims with max_concurrent_jobs_per_tenant=1 -> strictly ONE wins, ONE gets 204!
