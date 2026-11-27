@@ -22,6 +22,7 @@ class InvoiceStatus(StrEnum):
     paid = 'paid'
     payment_failed = 'payment_failed'
     escrow_held = 'escrow_held'
+    no_payment_due = 'no_payment_due'
     rejected = 'rejected'
 
 

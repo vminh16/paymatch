@@ -87,6 +87,7 @@ Quy tắc an toàn của duyệt hàng loạt:
 | Bot người dùng tạo **qua form**, manifest + duyệt, kiến trúc plugin | Tạo bot qua chat; marketplace template; shadow mode |
 | Console MoMo: luồng cảnh báo, case đơn giản, cảnh báo chéo (1 người), kill switch (1 người bật, 2 người gỡ), tra bằng chứng có mã ticket | Gom cụm, chấm điểm, đồ thị thực thể, báo cáo SIMO, RBAC đầy đủ, break-glass |
 | Frontend: hàng chờ duyệt + thẻ duyệt 5 dòng; **hỏi đáp cơ bản với trợ lý**; console tối thiểu; nút reset demo | Memory của bot; đối soát ledger với rail (F10) |
+| Hóa đơn điều chỉnh giảm / tổng ≤ 0: không chi (`no_payment_due`), báo chủ chuỗi tự xử lý | Sổ "NCC nợ lại" và tự trừ số điều chỉnh vào hóa đơn gốc / hóa đơn kế tiếp (có duyệt, có biên bản bù trừ công nợ) |
 | Eval 36 ca × 3 cấu hình; `merchant-api`/`console-api`/`internal-api` là ba container cùng image | Scale ngang từng tiến trình theo tải |
 
 ## 6. Vì sao chi theo từng hóa đơn (D2)

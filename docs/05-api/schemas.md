@@ -28,7 +28,7 @@ Quy tắc: **không có trường số tiền nào được đọc từ `Untrust
 
 ```yaml
 InvoiceStatus: new | investigating | auto_pay_eligible | pending_approval | blocked | approved
-             | scheduled | paying | paid | payment_failed | escrow_held | rejected
+             | scheduled | paying | paid | payment_failed | escrow_held | no_payment_due | rejected
 
 InvoiceSource: email | upload | bill_pay | scenario
 
@@ -217,7 +217,7 @@ GateReason:
                                       # | CROSS_ALERT_UNVERIFIED | OFFICIAL_FRAUD_LIST | KILL_SWITCH | POLICY_UNAVAILABLE
                                       # | CHANNEL_NOT_ALLOWED | ALREADY_PAID | OUTSIDE_TIME_WINDOW | MANDATE_NOT_AUTO_PAY
                                       # | VENDOR_NOT_IN_AUTO_PAY | VENDOR_SUSPENDED | APPROVAL_MISSING | APPROVAL_STALE
-                                      # | ESCROW_MISMATCH
+                                      # | ESCROW_MISMATCH | NON_POSITIVE_AMOUNT
   layer: hard_rule | platform_policy | mandate
   detail: string                      # trusted (do Gate viết)
 

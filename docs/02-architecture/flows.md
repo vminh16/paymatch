@@ -8,6 +8,7 @@ Trạng thái: **Đã chốt (v0.3, 26/11/2026)**. Bám [problem-definition.md](
 new ──► investigating ──► auto_pay_eligible ──────────────┐
                       ├──► pending_approval ──► approved ─┼──► scheduled ──► paying ──► paid
                       └──► blocked (🔴) ──(gỡ nguyên nhân)─┘                       └──► payment_failed ──► pending_approval
+investigating ──(tổng ≤ 0 và 🟢/🟡: HĐ điều chỉnh giảm / chiết khấu / 0 đ)──► no_payment_due   (không chi; 🔴 vẫn blocked)
 pending_approval | blocked ──► rejected
 approved | scheduled | auto_pay_eligible ──(cảnh báo chéo mới, D8)──► pending_approval (approval cũ bị thay)
 approved | scheduled | pending_approval | blocked | payment_failed ──(điều tra lại)──► investigating

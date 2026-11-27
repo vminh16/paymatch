@@ -92,6 +92,8 @@ paths:
         - Đánh giá cọc tạm giữ (F7): truyền `{purchase_order_id, vendor_account_id, amount_vnd, tenant_id?}`.
         - Kênh do Gate tự chọn: hóa đơn có PO đang có escrow `held` → `escrow`; ngược lại theo `mandate.channel_rules`,
           mặc định `bank_transfer`.
+        - Luật cứng: số tiền ≤ 0 (hóa đơn điều chỉnh giảm, chiết khấu, hóa đơn 0 đ) luôn `DENY` với
+          `GateReason.code = NON_POSITIVE_AMOUNT`; áp cho intent hóa đơn, tạo cọc và giải ngân.
       tags: [Evaluate]
       parameters:
         - $ref: '#/components/parameters/Traceparent'

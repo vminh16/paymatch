@@ -26,6 +26,8 @@ Luồng step-up (một lần cho mỗi hành động nhạy cảm):
 | 🟡 | `pending_approval` | `pending_approval` | `pending_approval` |
 | 🔴 | `blocked` | `blocked` | `blocked` |
 
+**Hóa đơn tổng ≤ 0** (điều chỉnh giảm `TCHDon 2`, chiết khấu `TCHDon 5`, hóa đơn 0 đ): vẫn điều tra như thường (màu và mã lý do giữ nguyên để lộ hóa đơn giả), nhưng ở `:complete` core đặt `no_payment_due` thay cho 🟢/🟡 ở bảng trên; 🔴 vẫn `blocked`. `no_payment_due` không vào hàng chờ duyệt và `allowed_actions` không có `approve`/`schedule`/`pay_now`/`create_escrow`; Gate DENY `NON_POSITIVE_AMOUNT` là lưới an toàn. v1 **không tự trừ** số điều chỉnh vào hóa đơn khác: UI báo chủ chuỗi tự xử lý ([ux-flows.md](../06-ui/ux-flows.md)); hóa đơn gốc lấy từ `related_invoice`.
+
 `review_only` = PayMatch chỉ đối soát, không phát lệnh chi: `:approve`, `:schedule`, `:pay-now`, duyệt hàng loạt trả `409 INVALID_STATE` (kèm `current_status` và `errors: [{field: "mandate", code: "MANDATE_REVIEW_ONLY"}]`); chủ chuỗi tự trả bên ngoài và `:reject`/để nguyên.
 
 | Method | Path | Vai | Body → Kết quả |

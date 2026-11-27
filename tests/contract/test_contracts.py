@@ -491,7 +491,7 @@ def test_every_gate_reason_code_in_schemas_doc_appears_in_gate_spec():
     from paymatch_contracts import GateReason, gate
 
     doc_codes = _extract_gate_reason_codes_from_schemas_doc()
-    assert len(doc_codes) == 17
+    assert len(doc_codes) == 18
 
     gate_reason_schema = json.loads(
         (SCHEMAS_DIR / "gate-reason.schema.json").read_text(encoding="utf-8")

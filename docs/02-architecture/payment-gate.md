@@ -15,6 +15,7 @@ Gate là **code, không phải agent**. Gate là nơi duy nhất ra lệnh chi; 
    - mỗi hóa đơn chi tối đa một lần (unique invoice_id); mỗi PO tối đa một escrow đang mở (`pending`/`held`); mỗi approval tạo cọc chỉ cấp vốn cho tối đa một escrow vĩnh viễn (`UNIQUE approval_id → escrow_id`, sau hoàn/thất bại phải có approval mới)
    - approval phải khớp intent_hash hiện tại
    - hóa đơn `blocked` (🔴) không bao giờ ALLOW
+   - số tiền ≤ 0 (hóa đơn điều chỉnh giảm, chiết khấu, hóa đơn 0 đ) không bao giờ chi → DENY (`NON_POSITIVE_AMOUNT`); áp cho intent hóa đơn, tạo cọc và giải ngân
    - hóa đơn gắn PO đang có escrow `held` chỉ chi bằng giải ngân escrow; giải ngân yêu cầu `approved amount_vnd == escrow.amount_vnd` VÀ `approved payee_account_id == escrow.vendor_account_id`, đồng thời Gate kiểm lại `intent_hash` của approval `active` mới nhất và toàn bộ policy (kill switch, hard block, cảnh báo chéo); sai lệch → DENY (`ESCROW_MISMATCH`)
    - indicator trong `risk.hard_blocks` → DENY
    - indicator khớp cảnh báo chéo mà approval không ghi xác minh → DENY (D8)

@@ -81,6 +81,7 @@ Quy tắc phụ thuộc (có test kiểm tra import):
 | 7 | Tiền do code tính | Finding chứa số tiền khác số do tool tính → bị bỏ qua; Gate chỉ dùng số trong `invoices` |
 | — | Mức sàn theo mã lý do | bot ghi `HIDDEN_INSTRUCTION` kèm severity xanh → kết quả vẫn đỏ; `CROSS_ALERT_HIT` đơn lẻ → vàng |
 | — | 🔴 không chi | hóa đơn `blocked` → Gate DENY kể cả có approval |
+| — | Không chi số ≤ 0 | hóa đơn tổng âm hoặc 0 đ (kể cả có approval) → Gate DENY `NON_POSITIVE_AMOUNT`; core đặt `no_payment_due`, không vào hàng chờ duyệt |
 | — | Cảnh báo chéo sau duyệt | hóa đơn `scheduled` + cross_alert.published → quay về `investigating`; Gate DENY nếu approval không có xác minh |
 | — | Escrow | TK `escrow_only` nhận chuyển khoản thường → DENY; giải ngân thiếu phiếu nhập → DENY |
 | — | Trần nền tảng | mandate đặt 40 triệu/HĐ → tự chi vẫn chặn ở 30 triệu |
@@ -124,7 +125,7 @@ Quy tắc phụ thuộc (có test kiểm tra import):
 | Mức xanh/vàng/đỏ | `severity: green \| yellow \| red` |
 | Mã lý do / lý do / bằng chứng / nhãn nguồn | `reason_codes`, `reason`, `evidence`, `provenance` |
 | Kênh trả: lệnh chi / thẻ ảo / cọc tạm giữ | `bank_transfer`, `virtual_card`, `escrow` |
-| Trạng thái hóa đơn | `new`, `investigating`, `pending_approval`, `auto_pay_eligible`, `blocked`, `approved`, `scheduled`, `paying`, `paid`, `payment_failed`, `escrow_held`, `rejected` |
+| Trạng thái hóa đơn | `new`, `investigating`, `pending_approval`, `auto_pay_eligible`, `blocked`, `approved`, `scheduled`, `paying`, `paid`, `payment_failed`, `escrow_held`, `no_payment_due`, `rejected` |
 | Trạng thái TK NCC | `verified`, `escrow_only`, `retired` |
 | Trạng thái bot | `draft`, `pending_review`, `active`, `disabled`, `archived` (lộ trình: `shadow`) |
 | Trạng thái cọc | `held`, `released`, `refunded` |

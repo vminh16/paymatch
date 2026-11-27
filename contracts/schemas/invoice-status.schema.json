@@ -16,6 +16,7 @@
     "paid",
     "payment_failed",
     "escrow_held",
+    "no_payment_due",
     "rejected"
   ]
 }

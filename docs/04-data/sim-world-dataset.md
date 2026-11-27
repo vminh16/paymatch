@@ -474,7 +474,7 @@ Mỗi payload được nhúng vào đúng vị trí XML tương ứng trong `inb
 | `EDGE_XML_DUPLICATE_SHDON` | Gửi lại hóa đơn của `BRD_01` nhưng `SHDon` bỏ số 0 đầu (`"1425"` vs `"00001425"`) → kiểm chuẩn hóa khóa trùng | `red` | `["DUPLICATE_INVOICE"]` |
 | `EDGE_XML_ARITH_MISMATCH` | Hóa đơn có `ThTien` lệch vượt `max(1 đ, 0,05%)` so với `SLuong × DGia` | `yellow` | `["AMOUNT_MISMATCH"]` |
 | `EDGE_XML_EVN_EMPTY_DGIA` | Hóa đơn điện EVNHCMC 3 giá bình thường (`DGia` rỗng + `SBKe`) → phải xanh, không báo nhầm `AMOUNT_MISMATCH` | `green` | `["OK"]` |
-| `EDGE_XML_ADJUST_NEG` | Hóa đơn điều chỉnh giảm (`TCHDon = 2`, số âm, `PBan = 2.1.0`) tham chiếu hóa đơn trước → parse thành công | `yellow` | `["VAT_DEDUCTION_RISK"]` *(hoặc đối chiếu hóa đơn gốc)* |
+| `EDGE_XML_ADJUST_NEG` | Hóa đơn điều chỉnh giảm (`TCHDon = 2`, số âm, `PBan = 2.1.0`) tham chiếu hóa đơn trước → parse thành công | `yellow` | `["VAT_DEDUCTION_RISK"]` *(hoặc đối chiếu hóa đơn gốc)*; trạng thái `no_payment_due` (tổng −1.620.000 đ, HĐ gốc 1C26TTN/00001380 đã chi 12/11), không vào hàng chờ chi |
 | `EDGE_XML_C_EMPTY_MCCQT` | Hóa đơn ký hiệu `C` nhưng `<MCCQT/>` rỗng; cổng HĐĐT trả `processing_status_code = 1` (đang kiểm tra cấp mã) | `yellow` | `["VAT_DEDUCTION_RISK"]` |
 | `EDGE_THREE_WAY_SHORTAGE` | Hóa đơn ghi 50 thùng sữa nhưng `goods_receipt` xác nhận chỉ nhận 45 thùng | `yellow` | `["QUANTITY_ABOVE_NORM"]` |
 | `EDGE_NON_XML_PDF_SMALL` | Hóa đơn vật tư gửi dạng PDF (`1.450.000 đ` < 2 triệu) → `NON_XML_SOURCE`, đủ điều kiện `bulk_approvable` | `yellow` | `["NON_XML_SOURCE"]` |

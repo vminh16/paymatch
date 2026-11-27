@@ -402,6 +402,7 @@ class InvoiceStatus(StrEnum):
     paid = 'paid'
     payment_failed = 'payment_failed'
     escrow_held = 'escrow_held'
+    no_payment_due = 'no_payment_due'
     rejected = 'rejected'
 
 
@@ -1459,6 +1460,7 @@ class Code(StrEnum):
     APPROVAL_MISSING = 'APPROVAL_MISSING'
     APPROVAL_STALE = 'APPROVAL_STALE'
     ESCROW_MISMATCH = 'ESCROW_MISMATCH'
+    NON_POSITIVE_AMOUNT = 'NON_POSITIVE_AMOUNT'
 
 
 class Layer(StrEnum):

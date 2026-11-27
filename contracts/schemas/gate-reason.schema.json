@@ -30,7 +30,8 @@
         "VENDOR_SUSPENDED",
         "APPROVAL_MISSING",
         "APPROVAL_STALE",
-        "ESCROW_MISMATCH"
+        "ESCROW_MISMATCH",
+        "NON_POSITIVE_AMOUNT"
       ]
     },
     "layer": {
