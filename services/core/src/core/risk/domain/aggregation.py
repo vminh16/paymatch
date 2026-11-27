@@ -265,15 +265,20 @@ def extract_tool_floor_reason_codes(tool_calls: Iterable[Mapping[str, Any]]) -> 
     return list(dict.fromkeys(added))
 
 
+VALID_TAX_STATUS_CODES: frozenset[str] = frozenset(
+    {"00", "01", "02", "03", "04", "05", "06", "07", "09", "10"}
+)
+
+
 def is_tool_call_successful(
     tool_call: Mapping[str, Any],
     *,
     expected_tax_id: str | None = None,
     expected_invoice_id: str | None = None,
 ) -> bool:
-    """Evaluate tool-specific success semantics for mandatory prefetch coverage (B1).
+    """Evaluate tool-specific success semantics for mandatory prefetch coverage (B1, N4).
 
-    Never treats a generic truthy wrapper (e.g. `{"invoices": []}` or missing `status_code`) as successful.
+    Never treats a generic truthy wrapper (e.g. `{"invoices": []}` or invalid `status_code`) as successful.
     """
     if tool_call.get("error") is not None:
         return False
@@ -286,11 +291,11 @@ def is_tool_call_successful(
 
     if tool_id == "tax_id_lookup":
         status_code = output.get("status_code")
-        if not isinstance(status_code, str) or not status_code.strip():
+        if not isinstance(status_code, str) or status_code not in VALID_TAX_STATUS_CODES:
             return False
         if exp_tax is not None:
-            actual_tax = str(output.get("tax_id") or "").strip()
-            if actual_tax != exp_tax:
+            actual_tax = output.get("tax_id")
+            if not isinstance(actual_tax, str) or actual_tax.strip() != exp_tax:
                 return False
         return True
 

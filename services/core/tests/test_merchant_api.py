@@ -805,21 +805,51 @@ def test_i3_core_only_phone_masked_verification_bound_earlier_proof_and_post_loc
     assert r_slow_prev.status_code == 409
     assert r_slow_prev.json()["code"] == "INTENT_HASH_MISMATCH"
 
-    # 4. Post-lock proof expiry: fresh preview (300s TTL), short proof (30s exp), Gate stalls +60s ->
-    #    post-lock re-check MUST reject with 403 STEP_UP_INVALID!
+    # 4. Isolated post-lock proof expiry: proof is valid BEFORE lock (passes verify_auth_proof), then expires
+    #    while waiting on core.invoices FOR UPDATE lock -> post-lock check rejects with 403 STEP_UP_INVALID!
+    import threading
     prev3 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
     short_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=30)
-    advance_on_eval["seconds"] = 60
+    # Use a verifier that is still valid before lock; hold FOR UPDATE in another connection and advance sec_clock!
+    lock_held = threading.Event()
+    approve_result: dict[str, Any] = {}
+
+    def _hold_lock_and_expire() -> None:
+        with seeded_db.connect() as lconn:
+            with lconn.transaction():
+                lconn.execute(
+                    "SELECT * FROM core.invoices WHERE invoice_id = %s FOR UPDATE",
+                    (inv_id,),
+                ).fetchone()
+                lock_held.set()
+                time.sleep(0.25)
+                # Advance sec_clock past short_proof's 30s expiry while approve_invoice is waiting on FOR UPDATE!
+                sec_clock.advance(timedelta(seconds=60))
+
+    t_lock = threading.Thread(target=_hold_lock_and_expire)
+    t_lock.start()
+    lock_held.wait(timeout=5)
     r_slow_proof = client.post(
         f"/m/invoices/{inv_id}:approve",
         json={"intent_hash": prev3["intent_hash"], "job_id": job_id, "auth_proof": short_proof, "verification": ver_payload},
         headers={**owner_hdr, "Idempotency-Key": "idem-i3-slow-proof"},
     )
+    t_lock.join(timeout=10)
     assert r_slow_proof.status_code == 403
     assert r_slow_proof.json()["code"] == "STEP_UP_INVALID"
+    assert "hết hạn" in r_slow_proof.json()["detail"]
+
+    # 4b. Using preview's unverified action_hash when verification_required=True fails 403 STEP_UP_INVALID
+    prev4 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    unverified_ah_proof = idp.issue_auth_proof(OWNER_A, prev4["action_hash"], now_ts=int(sec_clock.now().timestamp()), exp_offset=300)
+    r_unver_hash = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": prev4["intent_hash"], "job_id": job_id, "auth_proof": unverified_ah_proof, "verification": ver_payload},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-unver-hash"},
+    )
+    assert r_unver_hash.status_code == 403 and r_unver_hash.json()["code"] == "STEP_UP_INVALID"
 
     # 5. Successful verification-bound approval: fresh preview + fresh proof -> 200 AND preview consumed once!
-    prev4 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
     good_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=300)
     r_ok = client.post(
         f"/m/invoices/{inv_id}:approve",
@@ -831,15 +861,40 @@ def test_i3_core_only_phone_masked_verification_bound_earlier_proof_and_post_loc
     assert r_ok.json()["approval"]["verification"]["result"] == "confirmed"
     with seeded_db.connect() as conn:
         leftover = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM core.approval_previews WHERE invoice_id = %s AND expires_at >= %s",
-            (inv_id, sec_clock.now()),
+            "SELECT COUNT(*) AS cnt FROM core.approval_previews WHERE invoice_id = %s",
+            (inv_id,),
         ).fetchone()["cnt"]
-        expired_left = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM core.approval_previews WHERE invoice_id = %s AND expires_at < %s",
-            (inv_id, sec_clock.now()),
-        ).fetchone()["cnt"]
-    assert expired_left == 0
-    assert leftover <= 1  # consumed prev4; earlier non-expired prev3 may remain until TTL
+    # Replaced prior previews on refresh AND consumed prev4 on commit -> 0 rows left!
+    assert leftover == 0
+
+    # 6. End-to-end non-verification flow using returned preview["action_hash"] directly + sub-second iat precision
+    coffee_xml = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    up2 = client.post(
+        "/m/invoices:upload",
+        files={"file": ("coffee_i3.xml", coffee_xml, "application/xml")},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-up2"},
+    ).json()
+    inv2_id, job2_id = up2["invoice_id"], up2["job_id"]
+    _complete_cups_job(seeded_db, job2_id, fixed_clock)
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'pending_approval', verification_required = FALSE WHERE invoice_id = %s",
+                (inv2_id,),
+            )
+    # Preview created at sub-second .800
+    sec_clock.advance(timedelta(microseconds=800_000))
+    prev_nv = client.get(f"/m/invoices/{inv2_id}/approval-preview", headers=owner_hdr).json()
+    assert prev_nv["verification_required"] is False
+    # Proof issued directly from returned prev_nv["action_hash"] -> succeeds end-to-end!
+    proof_nv = idp.issue_auth_proof(OWNER_A, prev_nv["action_hash"], now_ts=int(sec_clock.now().timestamp()), exp_offset=300)
+    r_nv = client.post(
+        f"/m/invoices/{inv2_id}:approve",
+        json={"intent_hash": prev_nv["intent_hash"], "job_id": job2_id, "auth_proof": proof_nv},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-nv-ok"},
+    )
+    assert r_nv.status_code == 200
+    assert r_nv.json()["invoice"]["status"] == "approved"
 
 
 @pytest.mark.db
@@ -884,23 +939,38 @@ def test_i2_i6_sse_reverse_commit_store_filter_session_expiry_and_asgi_upload_li
     ).json()["session_jwt"]
     owner_hdr = {"Authorization": f"Bearer {owner_jwt}"}
 
-    # --- I6a: Pre-multipart ASGI Content-Length guard rejects BEFORE auth or multipart parsing! ---
+    # --- N5: Default sse_max_idle_seconds is finite (300s) ---
+    assert CoreSettings().sse_max_idle_seconds == 300.0
+
+    # --- I6a & N10: Pre-multipart ASGI Content-Length guard rejects BEFORE auth/multipart AND preserves CORS headers! ---
     r_cl = client.post(
         "/m/invoices:upload",
         content=b"not-even-multipart",
-        headers={"Content-Length": str(cfg.max_invoice_bytes + 100_000), "Content-Type": "multipart/form-data; boundary=x"},
+        headers={
+            "Origin": "http://localhost:5173",
+            "Content-Length": str(cfg.max_invoice_bytes + 100_000),
+            "Content-Type": "multipart/form-data; boundary=x",
+        },
     )
     assert r_cl.status_code == 413
     assert r_cl.json()["code"] == "PAYLOAD_TOO_LARGE"
+    assert r_cl.headers.get("access-control-allow-origin") in {"*", "http://localhost:5173"}
 
-    # --- I6b: Pre-multipart ASGI chunked streaming guard (no Content-Length) aborts with 413 ---
-    async def _run_chunked_asgi() -> int:
+    # --- I6b: Pre-multipart ASGI chunked streaming guard (no Content-Length) aborts with 413 BEFORE reading later chunks ---
+    async def _run_chunked_asgi() -> tuple[int, int]:
         sent_status = 0
         part_hdr = (
             b'--abc\r\nContent-Disposition: form-data; name="file"; filename="big.pdf"\r\n'
             b"Content-Type: application/pdf\r\n\r\n"
         )
-        chunks = [part_hdr + b"A" * 100_000, b"B" * 100_000, b"C" * 100_000 + b"\r\n--abc--\r\n"]
+        # 5 chunks (500KB total); guard must abort on chunk 3 (>264KB) leaving chunks 4-5 UNREAD!
+        chunks = [
+            part_hdr + b"A" * 100_000,
+            b"B" * 100_000,
+            b"C" * 100_000,
+            b"D" * 100_000,
+            b"E" * 100_000 + b"\r\n--abc--\r\n",
+        ]
         idx = 0
 
         async def _recv():
@@ -931,9 +1001,11 @@ def test_i2_i6_sse_reverse_commit_store_filter_session_expiry_and_asgi_upload_li
             ],
         }
         await app(scope, _recv, _send)
-        return sent_status
+        return sent_status, idx
 
-    assert asyncio.run(_run_chunked_asgi()) == 413
+    st_chunk, chunks_read = asyncio.run(_run_chunked_asgi())
+    assert st_chunk == 413
+    assert chunks_read == 3, f"Expected middleware to abort on chunk 3 leaving 2 chunks unread, read {chunks_read}"
 
     # --- I6c: Poller propagates default_due_days and max_xml_elements into ingest_invoice ---
     xml_bytes = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()

@@ -41,7 +41,7 @@ class CoreSettings:
     sse_replay_window_seconds: int = 600  # 10 min
     sse_poll_interval_s: float = 0.25
     sse_keepalive_interval_s: float = 15.0
-    sse_max_idle_seconds: float | None = None
+    sse_max_idle_seconds: float | None = 300.0
     max_invoice_bytes: int = 5 * 1024 * 1024  # 5 MiB
     max_xml_elements: int = 10_000
     utility_outlier_ratio: str = "1.5"
@@ -84,7 +84,7 @@ class CoreSettings:
             sse_replay_window_seconds=int(os.getenv("SSE_REPLAY_WINDOW_SECONDS", "600")),
             sse_poll_interval_s=float(os.getenv("SSE_POLL_INTERVAL_S", "0.25")),
             sse_keepalive_interval_s=float(os.getenv("SSE_KEEPALIVE_INTERVAL_S", "15.0")),
-            sse_max_idle_seconds=float(sse_max_raw) if sse_max_raw else None,
+            sse_max_idle_seconds=float(sse_max_raw) if sse_max_raw else 300.0,
             max_invoice_bytes=int(os.getenv("MAX_INVOICE_BYTES", str(5 * 1024 * 1024))),
             max_xml_elements=int(os.getenv("MAX_XML_ELEMENTS", "10000")),
             utility_outlier_ratio=os.getenv("UTILITY_OUTLIER_RATIO", "1.5"),

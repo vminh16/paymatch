@@ -289,18 +289,19 @@ def create_merchant_app(
     )
 
     app = FastAPI(title="PayMatch Merchant API", version="0.1.0")
+    install_error_handlers(app)
+    # I6 & N10: Pure-ASGI upload body guard runs BEFORE multipart parsing/spooling and INSIDE CORSMiddleware
+    # so early 413 Problem responses still carry CORS headers for cross-origin frontends.
+    app.add_middleware(
+        _UploadBodyLimitMiddleware,
+        max_body_bytes=cfg.max_invoice_bytes + 65536,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-    )
-    install_error_handlers(app)
-    # I6: Outermost pure-ASGI middleware enforcing upload body size limit before multipart parsing/spooling
-    app.add_middleware(
-        _UploadBodyLimitMiddleware,
-        max_body_bytes=cfg.max_invoice_bytes + 65536,
     )
 
     app.state.settings = cfg
@@ -756,15 +757,18 @@ def create_merchant_app(
         sec_now = sec_clk.now()
         expires_at = sec_now + timedelta(seconds=cfg.approval_preview_ttl_seconds)
 
-        # I3 & Nit 1: Prune expired previews for this invoice and persist server-tracked approval preview record
+        # I3 & Nit 1: Replace prior unconsumed previews for this (user, invoice) so only the latest preview
+        # is valid, prune expired rows, and store sub-second created_at.
         with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
             with conn.transaction():
                 conn.execute(
                     """
                     DELETE FROM core.approval_previews
-                    WHERE tenant_id = %s AND invoice_id = %s AND expires_at < %s
+                    WHERE tenant_id = %s
+                      AND invoice_id = %s
+                      AND (expires_at < %s OR user_id = %s)
                     """,
-                    (principal.tenant_id, invoice_id, sec_now),
+                    (principal.tenant_id, invoice_id, sec_now, principal.user_id),
                 )
                 conn.execute(
                     """
@@ -1036,12 +1040,12 @@ def create_merchant_app(
                         "Job điều tra hoàn tất mới nhất đã thay đổi; vui lòng xem trước lại.",
                     )
 
-                # I3: Re-check proof expiry, preview TTL, and proof.iat >= preview.created_at AFTER taking invoice lock!
+                # I3: Re-check proof expiry, latest unconsumed preview TTL/binding/action_hash, and full-precision iat AFTER invoice lock!
                 post_lock_sec_now = sec_clk.now()
-                post_lock_ts = int(post_lock_sec_now.timestamp())
+                post_lock_ts = post_lock_sec_now.timestamp()
                 proof_exp = proof_claims.get("exp")
                 proof_iat = proof_claims.get("iat")
-                if not isinstance(proof_exp, int) or proof_exp <= post_lock_ts:
+                if not isinstance(proof_exp, (int, float)) or isinstance(proof_exp, bool) or proof_exp <= post_lock_ts:
                     raise ProblemError(
                         403,
                         "STEP_UP_INVALID",
@@ -1049,30 +1053,25 @@ def create_merchant_app(
                         "auth_proof đã hết hạn trước khi hoàn tất duyệt.",
                     )
 
+                # Select the LATEST unconsumed preview for this (user, invoice) without pre-filtering job/intent
                 locked_preview = conn.execute(
                     """
-                    SELECT preview_id, invoice_version, verification_required, created_at, expires_at
+                    SELECT preview_id, job_id, intent_hash, action_hash, invoice_version,
+                           verification_required, created_at, expires_at
                     FROM core.approval_previews
                     WHERE tenant_id = %s
                       AND invoice_id = %s
                       AND user_id = %s
-                      AND job_id = %s
-                      AND intent_hash = %s
-                      AND expires_at >= %s
                     ORDER BY created_at DESC
                     LIMIT 1
                     """,
-                    (
-                        principal.tenant_id,
-                        invoice_id,
-                        principal.user_id,
-                        body.job_id,
-                        body.intent_hash,
-                        post_lock_sec_now,
-                    ),
+                    (principal.tenant_id, invoice_id, principal.user_id),
                 ).fetchone()
                 if (
                     locked_preview is None
+                    or locked_preview["expires_at"] < post_lock_sec_now
+                    or locked_preview["job_id"] != body.job_id
+                    or locked_preview["intent_hash"] != body.intent_hash
                     or int(locked_preview["invoice_version"]) != int(locked_inv["version"])
                     or bool(locked_preview["verification_required"]) != effective_ver_req
                 ):
@@ -1084,8 +1083,37 @@ def create_merchant_app(
                         errors=[{"field": "preview", "code": "expired_or_stale"}],
                     )
 
-                preview_created_ts = int(locked_preview["created_at"].timestamp())
-                if not isinstance(proof_iat, int) or proof_iat < preview_created_ts:
+                # Verify stored preview action_hash matches the previewed intent (and exact expected_ah when verification is None)
+                expected_preview_ah = action_hash(
+                    "approve_invoice",
+                    invoice_id,
+                    payload_hash_approval(locked_preview["intent_hash"], None),
+                )
+                if locked_preview["action_hash"] != expected_preview_ah or (
+                    ver_dict is None and locked_preview["action_hash"] != expected_ah
+                ):
+                    raise ProblemError(
+                        403,
+                        "STEP_UP_INVALID",
+                        "Approval preview hash mismatch",
+                        "action_hash của bản xem trước duyệt không khớp.",
+                    )
+
+                # Full-precision iat comparison: sub-second float iat must be >= preview.created_at;
+                # whole-second JWT int iat must be >= int(preview.created_at) on the latest unconsumed preview.
+                preview_created_ts = locked_preview["created_at"].timestamp()
+                if not isinstance(proof_iat, (int, float)) or isinstance(proof_iat, bool):
+                    raise ProblemError(
+                        403,
+                        "STEP_UP_INVALID",
+                        "Missing step-up iat",
+                        "auth_proof thiếu thời điểm cấp phát hợp lệ (iat).",
+                    )
+                if isinstance(proof_iat, float):
+                    iat_ok = proof_iat >= preview_created_ts
+                else:
+                    iat_ok = proof_iat >= int(preview_created_ts)
+                if not iat_ok:
                     raise ProblemError(
                         403,
                         "STEP_UP_INVALID",
@@ -1536,8 +1564,20 @@ def create_merchant_app(
     def _format_sse(event_type: str, event_id: str, data: dict[str, Any]) -> str:
         return f"event: {event_type}\nid: {event_id}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
-    def _open_stream_conn() -> psycopg.Connection[dict[str, Any]]:
-        return psycopg.connect(database.dsn, row_factory=dict_row)
+    def _open_stream_conn_into(
+        holder: list[psycopg.Connection[dict[str, Any]]],
+    ) -> psycopg.Connection[dict[str, Any]]:
+        conn = psycopg.connect(database.dsn, row_factory=dict_row)
+        holder.append(conn)
+        return conn
+
+    def _close_stream_holder(holder: list[psycopg.Connection[dict[str, Any]]]) -> None:
+        while holder:
+            c = holder.pop()
+            try:
+                c.close()
+            except Exception:
+                pass
 
     @app.get("/m/jobs/{job_id}/events")
     async def stream_job_events(
@@ -1546,11 +1586,10 @@ def create_merchant_app(
         last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
         principal: SessionPrincipal = Depends(require_roles("owner", "accountant")),
     ) -> StreamingResponse:
-        now = clk.now()
-        min_time = now - timedelta(seconds=cfg.sse_replay_window_seconds)
-
-        # I2: Run initial DB validation in a worker thread (never block async event loop)
-        def _init_job_stream() -> tuple[bool, int]:
+        # I2 & N5: Run clk.now() (which may call sim-world HTTP in DEMO_MODE) AND initial DB checks
+        # inside asyncio.to_thread so no synchronous HTTP or DB I/O blocks the async event loop.
+        def _init_job_stream() -> tuple[bool, int, datetime]:
+            min_time = clk.now() - timedelta(seconds=cfg.sse_replay_window_seconds)
             with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
                 job = conn.execute(
                     "SELECT job_id, status FROM core.jobs WHERE tenant_id = %s AND job_id = %s",
@@ -1567,11 +1606,11 @@ def create_merchant_app(
                         (job_id, last_event_id),
                     ).fetchone()
                     if anchor is None or anchor["created_at"] < min_time:
-                        return True, 0
-                    return False, int(anchor["seq"])
-                return False, 0
+                        return True, 0, min_time
+                    return False, int(anchor["seq"]), min_time
+                return False, 0, min_time
 
-        resync_needed, start_seq = await asyncio.to_thread(_init_job_stream)
+        resync_needed, start_seq, min_time = await asyncio.to_thread(_init_job_stream)
 
         # I2: Single-statement CTE reads events + job status in ONE MVCC snapshot (LIMIT 100),
         # reusing one connection per stream with short read-only transactions.
@@ -1613,13 +1652,14 @@ def create_merchant_app(
                 yield _format_sse("resync", new_id("evt"), {"reason": "cursor_expired"})
                 return
 
-            stream_conn = await asyncio.to_thread(_open_stream_conn)
+            conn_holder: list[psycopg.Connection[dict[str, Any]]] = []
             try:
+                stream_conn = await asyncio.to_thread(_open_stream_conn_into, conn_holder)
                 last_seq = start_seq
                 last_yield = time.monotonic()
                 last_activity = last_yield
 
-                # I2/I9: Tail job SSE live in single-snapshot batches until terminal event, session expiry, or disconnect
+                # I2/N5: Tail job SSE live in single-snapshot batches until terminal event, session expiry, idle cap, or disconnect
                 while True:
                     if principal.session_exp and int(sec_clk.now().timestamp()) >= principal.session_exp:
                         return
@@ -1650,7 +1690,7 @@ def create_merchant_app(
 
                     await asyncio.sleep(cfg.sse_poll_interval_s)
             finally:
-                await asyncio.to_thread(stream_conn.close)
+                await asyncio.to_thread(_close_stream_holder, conn_holder)
 
         return StreamingResponse(
             _gen(),
@@ -1664,13 +1704,11 @@ def create_merchant_app(
         last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
         principal: SessionPrincipal = Depends(require_principal),
     ) -> StreamingResponse:
-        now = clk.now()
-        min_time = now - timedelta(seconds=cfg.sse_replay_window_seconds)
-
-        # I2: Run initial cursor lookup in worker thread
-        def _init_tenant_stream() -> tuple[bool, int]:
+        # I2 & N5: Run clk.now() and initial cursor lookup in worker thread (no sync HTTP/DB on async loop)
+        def _init_tenant_stream() -> tuple[bool, int, datetime]:
+            min_time = clk.now() - timedelta(seconds=cfg.sse_replay_window_seconds)
             if not last_event_id:
-                return False, 0
+                return False, 0, min_time
             with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
                 anchor = conn.execute(
                     """
@@ -1680,10 +1718,10 @@ def create_merchant_app(
                     (principal.tenant_id, last_event_id),
                 ).fetchone()
                 if anchor is None or anchor["created_at"] < min_time:
-                    return True, 0
-                return False, int(anchor["seq"])
+                    return True, 0, min_time
+                return False, int(anchor["seq"]), min_time
 
-        resync_needed, start_seq = await asyncio.to_thread(_init_tenant_stream)
+        resync_needed, start_seq, min_time = await asyncio.to_thread(_init_tenant_stream)
         batch_limit = 100
         store_ids_list = list(principal.store_ids)
 
@@ -1726,15 +1764,16 @@ def create_merchant_app(
                 yield _format_sse("resync", new_id("evt"), {"reason": "cursor_expired"})
                 return
 
-            stream_conn = await asyncio.to_thread(_open_stream_conn)
+            conn_holder: list[psycopg.Connection[dict[str, Any]]] = []
             try:
+                stream_conn = await asyncio.to_thread(_open_stream_conn_into, conn_holder)
                 floor_seq = start_seq
                 delivered_window: list[tuple[int, str, float]] = []  # (seq, event_id, delivered_mono)
                 delivered_set: set[str] = set()
                 last_yield = time.monotonic()
                 last_activity = last_yield
 
-                # I2/I9: Tail tenant SSE live until session expiry, disconnect, or idle cap
+                # I2/N5: Tail tenant SSE live until session expiry, idle cap, or disconnect
                 while True:
                     if principal.session_exp and int(sec_clk.now().timestamp()) >= principal.session_exp:
                         return
@@ -1783,7 +1822,7 @@ def create_merchant_app(
 
                     await asyncio.sleep(cfg.sse_poll_interval_s)
             finally:
-                await asyncio.to_thread(stream_conn.close)
+                await asyncio.to_thread(_close_stream_holder, conn_holder)
 
         return StreamingResponse(
             _gen(),

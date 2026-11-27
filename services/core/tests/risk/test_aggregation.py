@@ -239,6 +239,11 @@ def test_b1_tool_specific_coverage_and_partial_simo_hit() -> None:
         {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0999010001"}},
         expected_tax_id="0999010001",
     )
+    # N4: invalid status_code (e.g. "08" or "99" not in TT 90/2026) is NOT successful
+    assert not is_tool_call_successful(
+        {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0999010001", "status_code": "99"}},
+        expected_tax_id="0999010001",
+    )
     assert is_tool_call_successful(
         {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0999010001", "status_code": "00"}},
         expected_tax_id="0999010001",

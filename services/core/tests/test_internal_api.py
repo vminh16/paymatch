@@ -1723,3 +1723,65 @@ def test_b1_tax_target_binding_partial_simo_and_i4_concurrent_claim_and_i5_compl
         headers=agent_hdr,
     )
     assert hb_expired.status_code == 409 and hb_expired.json()["code"] == "LEASE_LOST"
+
+
+@pytest.mark.db
+def test_n4_malformed_or_mismatched_tax_upstream_responses_fail_closed(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """N4: tax_risk_list missing boolean `listed`, or tax_id_lookup returning mismatched `tax_id`/invalid `status_code`,
+    must error (never overwrite tax_id or coerce missing listed to False) and fail mandatory prefetch closed (yellow).
+    """
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+    inv_id, job_id = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+
+    class MalformedTaxSim(FakeSimWorld):
+        def lookup_taxpayer(self, *, tax_id: str):
+            # Upstream returns a DIFFERENT tax_id -> Core must NOT overwrite it!
+            return {"tax_id": "0111111111", "name": "Wrong Entity", "status_code": "00"}
+
+        def lookup_tax_risk_list(self, *, tax_id: str):
+            # Missing `listed` key -> must error, NOT coerce to False!
+            return {"list_name": None}
+
+    client, _ = _make_client(seeded_db, fixed_clock, sim=MalformedTaxSim())
+    claimed = client.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert claimed["job_id"] == job_id
+    sess = client.post(
+        f"/internal/jobs/{job_id}/session",
+        json={"worker_id": "w1", "attempt": 1},
+        headers=agent_hdr,
+    ).json()
+    tax_bot = next(b for b in sess["bots"] if b["bot_id"] == "tax")
+    thdr = {"Authorization": f"Bearer {tax_bot['capability_token']}"}
+
+    r_inv = client.post("/internal/tools/invoices:invoke", json={"input": {}}, headers=thdr)
+    r_ep = client.post("/internal/tools/einvoice_portal:invoke", json={"input": {}}, headers=thdr)
+    r_tl = client.post("/internal/tools/tax_id_lookup:invoke", json={"input": {"tax_id": "0999010001"}}, headers=thdr)
+    r_tr = client.post("/internal/tools/tax_risk_list:invoke", json={"input": {"tax_id": "0999010001"}}, headers=thdr)
+    assert r_inv.status_code == 200 and r_inv.json()["error"] is None
+    assert r_ep.status_code == 200 and r_ep.json()["error"] is None
+    assert r_tl.status_code == 200 and r_tl.json()["error"] is not None
+    assert r_tl.json()["error"]["code"] == "UPSTREAM_UNAVAILABLE"
+    assert r_tr.status_code == 200 and r_tr.json()["error"] is not None
+    assert r_tr.json()["error"]["code"] == "UPSTREAM_UNAVAILABLE"
+
+    # Bot tries to submit green OK despite malformed tax responses -> Core MUST floor yellow BOT_NOT_RUN!
+    f_res = client.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "tax",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:n4",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "Attempted clearance on malformed tax responses",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers=thdr,
+    )
+    assert f_res.status_code == 201
+    assert f_res.json()["severity"] == "yellow"
+    assert "BOT_NOT_RUN" in f_res.json()["reason_codes"]

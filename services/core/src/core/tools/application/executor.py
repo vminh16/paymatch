@@ -944,7 +944,7 @@ def _dispatch_tool(
             number=inv["number"],
         )
 
-    # ---- 15. tax_id_lookup (sim-world; B1: always bind to invoice seller_tax_id on investigations) ----
+    # ---- 15. tax_id_lookup (sim-world; B1/N4: bind to invoice seller_tax_id, strict upstream validation) ----
     if tool_id == "tax_id_lookup":
         if is_investigation:
             target_tax_id = (inv.get("seller_tax_id") or "").strip() if inv else ""
@@ -955,9 +955,24 @@ def _dispatch_tool(
         res = sim_world.lookup_taxpayer(tax_id=target_tax_id)
         if res is None:
             raise UpstreamToolError("NOT_FOUND", f"Taxpayer {target_tax_id} not found.")
-        return {**res, "tax_id": target_tax_id}
+        if not isinstance(res, dict):
+            raise UpstreamToolError("UPSTREAM_UNAVAILABLE", f"Malformed taxpayer response for {target_tax_id}.")
+        resp_tax_id = res.get("tax_id")
+        if not isinstance(resp_tax_id, str) or resp_tax_id.strip() != target_tax_id:
+            raise UpstreamToolError(
+                "UPSTREAM_UNAVAILABLE",
+                f"Taxpayer response tax_id {resp_tax_id!r} does not match requested {target_tax_id!r}.",
+            )
+        status_code = res.get("status_code")
+        valid_tax_statuses = {"00", "01", "02", "03", "04", "05", "06", "07", "09", "10"}
+        if not isinstance(status_code, str) or status_code not in valid_tax_statuses:
+            raise UpstreamToolError(
+                "UPSTREAM_UNAVAILABLE",
+                f"Malformed taxpayer status_code {status_code!r} for {target_tax_id}.",
+            )
+        return res
 
-    # ---- 16. tax_risk_list (sim-world; B1: always bind to invoice seller_tax_id on investigations) ----
+    # ---- 16. tax_risk_list (sim-world; B1/N4: bind to invoice seller_tax_id, strict boolean `listed`) ----
     if tool_id == "tax_risk_list":
         if is_investigation:
             target_tax_id = (inv.get("seller_tax_id") or "").strip() if inv else ""
@@ -966,9 +981,25 @@ def _dispatch_tool(
         else:
             target_tax_id = str(inp["tax_id"]).strip()
         res = sim_world.lookup_tax_risk_list(tax_id=target_tax_id)
+        if not isinstance(res, dict):
+            raise UpstreamToolError("UPSTREAM_UNAVAILABLE", f"Malformed tax_risk_list response for {target_tax_id}.")
+        if "listed" not in res or not isinstance(res["listed"], bool):
+            raise UpstreamToolError(
+                "UPSTREAM_UNAVAILABLE",
+                f"Malformed tax_risk_list response for {target_tax_id}: missing boolean 'listed'.",
+            )
+        if "tax_id" in res and res["tax_id"] is not None:
+            if not isinstance(res["tax_id"], str) or res["tax_id"].strip() != target_tax_id:
+                raise UpstreamToolError(
+                    "UPSTREAM_UNAVAILABLE",
+                    f"tax_risk_list response tax_id {res['tax_id']!r} does not match requested {target_tax_id!r}.",
+                )
+            out_tax_id = res["tax_id"].strip()
+        else:
+            out_tax_id = target_tax_id
         return {
-            "tax_id": target_tax_id,
-            "listed": bool(res.get("listed", False)),
+            "tax_id": out_tax_id,
+            "listed": res["listed"],
             "list_name": res.get("list_name"),
             "listed_on": res.get("listed_on"),
         }
