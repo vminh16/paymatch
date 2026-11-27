@@ -1179,3 +1179,259 @@ def test_b4_worker_ledger_migration_both_orders_isolated(
         finally:
             with psycopg.connect(pg_dsn, autocommit=True) as admin:
                 admin.execute(f"DROP DATABASE IF EXISTS {dbname}")
+
+
+@pytest.mark.db
+def test_n1_n2_n9_b3_per_intent_ordering_batch_skip_reused_approval_and_strict_gate(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """N1: deferred authorized defers executed for same intent on same tick; retry finishes paid.
+    N9: >batch_size deferred events never starve healthy intents on the same tick.
+    N2: same approval reused after AUTHORIZATION_TIMEOUT ranks by Gate created_at and upserts over stale local link.
+    B3 rest: Gate response with missing approval/invoice or tenant mismatch is rejected as unresolved.
+    """
+    _ensure_ledger_outbox(seeded_db)
+    xml_1 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    xml_2 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001430.xml").read_bytes()
+    xml_3 = (DEMO_DATA_DIR / "inbox/attachments/1C26TNX_00000744.xml").read_bytes()
+
+    with seeded_db.connect() as conn:
+        r1 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_1, filename="n1_1.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        r2 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_2, filename="n1_2.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        r3 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_3, filename="n2_3.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        va = conn.execute(
+            "SELECT vendor_account_id FROM core.vendor_accounts WHERE tenant_id = %s LIMIT 1",
+            (TENANT_A,),
+        ).fetchone()["vendor_account_id"]
+
+        apv1, apv2, apv3, apv3_stale = new_id("apv"), new_id("apv"), new_id("apv"), new_id("apv")
+        pi1, pi2 = new_id("pi"), new_id("pi")
+        evt_auth1, evt_exec1 = new_id("evt"), new_id("evt")
+        evt_auth2, evt_exec2 = new_id("evt"), new_id("evt")
+
+        with conn.transaction():
+            for r_obj, apv_id in [(r1, apv1), (r2, apv2), (r3, apv3)]:
+                conn.execute(
+                    "UPDATE core.jobs SET status = 'completed', completed_at = %s WHERE job_id = %s",
+                    (fixed_clock.now(), r_obj.job_id),
+                )
+                conn.execute(
+                    "UPDATE core.invoices SET status = 'scheduled', scheduled_for = %s WHERE invoice_id = %s",
+                    (fixed_clock.today(), r_obj.invoice_id),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO core.approvals (
+                        approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                        payee_account_id, channel, intent_hash, method, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                    """,
+                    (apv_id, TENANT_A, r_obj.invoice_id, r_obj.job_id, va, "a" * 64, fixed_clock.now()),
+                )
+            # Also insert a superseded approval for r3 to seed a stale misattributed local link
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at, superseded_at, superseded_reason
+                )
+                VALUES (%s, %s, %s, %s, 'superseded', 26500000, %s, 'bank_transfer', %s, 'single', %s, %s, 'NEW_JOB')
+                """,
+                (apv3_stale, TENANT_A, r3.invoice_id, r3.job_id, va, "b" * 64, fixed_clock.now(), fixed_clock.now()),
+            )
+
+            # N9: Insert 6 unresolved events (exceeds batch_size=4!) BEFORE healthy pi2 events,
+            # plus N1: pi1 authorized followed by pi1 executed!
+            for idx in range(6):
+                conn.execute(
+                    """
+                    INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                    VALUES (%s, 'payment.authorized', %s, %s, %s)
+                    """,
+                    (new_id("evt"), fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": r1.invoice_id})),
+                )
+            conn.execute(
+                """
+                INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'payment.authorized', %s, %s, %s),
+                       (%s, 'payment.executed', %s, %s, %s),
+                       (%s, 'payment.authorized', %s, %s, %s),
+                       (%s, 'payment.executed', %s, %s, %s)
+                """,
+                (
+                    evt_auth1, fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": pi1, "invoice_id": r1.invoice_id}),
+                    evt_exec1, fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": pi1, "invoice_id": r1.invoice_id}),
+                    evt_auth2, fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": pi2, "invoice_id": r2.invoice_id}),
+                    evt_exec2, fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": pi2, "invoice_id": r2.invoice_id}),
+                ),
+            )
+
+    # Gate fails on FIRST lookup of pi1 (authorized), would succeed on SECOND lookup (executed), and always knows pi2!
+    pi1_lookups = {"n": 0}
+
+    class FlakyAuthGate(RecordingGate):
+        def get_intent(self, *, payment_intent_id: str) -> dict[str, Any] | None:
+            if payment_intent_id == pi1:
+                pi1_lookups["n"] += 1
+                if pi1_lookups["n"] == 1:
+                    return None  # transient miss on authorized!
+                return {
+                    "payment_intent_id": pi1,
+                    "tenant_id": TENANT_A,
+                    "invoice_id": r1.invoice_id,
+                    "approval_id": apv1,
+                    "status": "settled",
+                    "created_at": fixed_clock.now().isoformat(),
+                }
+            if payment_intent_id == pi2:
+                return {
+                    "payment_intent_id": pi2,
+                    "tenant_id": TENANT_A,
+                    "invoice_id": r2.invoice_id,
+                    "approval_id": apv2,
+                    "status": "settled",
+                    "created_at": fixed_clock.now().isoformat(),
+                }
+            return None
+
+    flaky_gate = FlakyAuthGate()
+
+    # Tick 1 (batch_size=4, smaller than 6 stuck events!):
+    # - N9: skips all 6 stuck events AND processes pi2 (r2 -> paid!)
+    # - N1: pi1 authorized misses lookup -> BOTH evt_auth1 AND evt_exec1 are deferred (NO receipt, r1 stays scheduled!)
+    with worker_db.connect() as wconn:
+        n1 = process_ledger_outbox_once(wconn, gate_client=flaky_gate, clock=fixed_clock, batch_size=4)
+        st1 = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()["status"]
+        st2 = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r2.invoice_id,)).fetchone()["status"]
+        rcpts_pi1 = wconn.execute(
+            "SELECT event_id FROM core.outbox_receipts WHERE source = 'ledger.outbox' AND event_id = ANY(%s)",
+            ([evt_auth1, evt_exec1],),
+        ).fetchall()
+    assert n1 == 2
+    assert st2 == "paid"
+    assert st1 == "scheduled"
+    assert rcpts_pi1 == []
+    assert pi1_lookups["n"] == 1  # executed was deferred without even calling get_intent!
+
+    # Tick 2: Gate lookup for pi1 now succeeds -> authorized + executed BOTH run in order -> r1 ends PAID!
+    with worker_db.connect() as wconn:
+        n2 = process_ledger_outbox_once(wconn, gate_client=flaky_gate, clock=fixed_clock, batch_size=4)
+        st1_after = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()["status"]
+        apv1_after = wconn.execute("SELECT status FROM core.approvals WHERE approval_id = %s", (apv1,)).fetchone()["status"]
+    assert n2 == 2
+    assert st1_after == "paid"
+    assert apv1_after == "consumed"
+
+    # --- N2: Same approval reused after AUTHORIZATION_TIMEOUT + Gate UPSERT overrides stale local link ---
+    pi3_old = "pi_01ZZZZZZZZZZZZZZZZZZZZZZ"  # Deliberately lexicographically GREATER ULID than pi3_new!
+    pi3_new = "pi_01AAAAAAAAAAAAAAAAAAAAAA"
+    t_old = fixed_clock.now()
+    t_new = fixed_clock.now() + timedelta(minutes=5)
+
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r3.invoice_id,))
+            # Local cache has pi3_old -> apv3 (t_old) AND a stale misattributed pi3_new -> apv3_stale!
+            conn.execute(
+                """
+                INSERT INTO core.payment_intent_links (payment_intent_id, tenant_id, invoice_id, approval_id, created_at, gate_created_at)
+                VALUES (%s, %s, %s, %s, %s, %s),
+                       (%s, %s, %s, %s, %s, NULL)
+                """,
+                (
+                    pi3_old, TENANT_A, r3.invoice_id, apv3, t_old, t_old,
+                    pi3_new, TENANT_A, r3.invoice_id, apv3_stale, t_old,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'payment.expired', %s, %s, %s),
+                       (%s, 'payment.authorized', %s, %s, %s),
+                       (%s, 'payment.executed', %s, %s, %s)
+                """,
+                (
+                    new_id("evt"), t_old + timedelta(minutes=1), TENANT_A,
+                    Jsonb({"payment_intent_id": pi3_old, "invoice_id": r3.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
+                    new_id("evt"), t_new, TENANT_A,
+                    Jsonb({"payment_intent_id": pi3_new, "invoice_id": r3.invoice_id}),
+                    new_id("evt"), t_new + timedelta(seconds=5), TENANT_A,
+                    Jsonb({"payment_intent_id": pi3_new, "invoice_id": r3.invoice_id}),
+                ),
+            )
+
+    class ReusedApprovalGate(RecordingGate):
+        def get_intent(self, *, payment_intent_id: str) -> dict[str, Any] | None:
+            if payment_intent_id == pi3_old:
+                return {
+                    "payment_intent_id": pi3_old,
+                    "tenant_id": TENANT_A,
+                    "invoice_id": r3.invoice_id,
+                    "approval_id": apv3,
+                    "status": "expired",
+                    "created_at": t_old.isoformat(),
+                }
+            if payment_intent_id == pi3_new:
+                return {
+                    "payment_intent_id": pi3_new,
+                    "tenant_id": TENANT_A,
+                    "invoice_id": r3.invoice_id,
+                    "approval_id": apv3,  # Same approval reused! Overrides stale local apv3_stale!
+                    "status": "settled",
+                    "created_at": t_new.isoformat(),
+                }
+            return None
+
+    with worker_db.connect() as wconn:
+        process_ledger_outbox_once(wconn, gate_client=ReusedApprovalGate(), clock=fixed_clock, batch_size=20)
+        st3 = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r3.invoice_id,)).fetchone()["status"]
+        apv3_st = wconn.execute("SELECT status FROM core.approvals WHERE approval_id = %s", (apv3,)).fetchone()["status"]
+        link_new = wconn.execute(
+            "SELECT approval_id, gate_created_at FROM core.payment_intent_links WHERE payment_intent_id = %s",
+            (pi3_new,),
+        ).fetchone()
+    assert st3 == "paid"
+    assert apv3_st == "consumed"
+    assert link_new["approval_id"] == apv3
+    assert link_new["gate_created_at"] == t_new
+
+    # --- B3 rest: Gate response missing approval_id or tenant mismatch is rejected as unresolved (no fallback/link) ---
+    pi_bad = new_id("pi")
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'scheduled', scheduled_for = %s WHERE invoice_id = %s",
+                (fixed_clock.today(), r3.invoice_id),
+            )
+            conn.execute(
+                "UPDATE core.approvals SET status = 'active' WHERE approval_id = %s",
+                (apv3,),
+            )
+
+    class MalformedGate(RecordingGate):
+        def create_intent(self, *, invoice_id: str, approval_id: str) -> dict[str, Any]:
+            # Missing approval_id! Must NOT fall back to requested approval_id!
+            return {"payment_intent_id": pi_bad, "tenant_id": TENANT_A, "invoice_id": invoice_id, "status": "authorized"}
+
+    bad_gate = MalformedGate()
+    with worker_db.connect() as wconn:
+        execute_scheduled_payments_once(wconn, bad_gate, clock=fixed_clock)
+        bad_link = wconn.execute(
+            "SELECT * FROM core.payment_intent_links WHERE payment_intent_id = %s",
+            (pi_bad,),
+        ).fetchone()
+    assert bad_link is None
+    assert bad_gate.executed == []

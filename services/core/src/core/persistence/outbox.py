@@ -15,22 +15,24 @@ def fetch_unacknowledged_events(
     source: str,
     table: str,
     batch_size: int = 100,
+    after_seq: int = 0,
 ) -> list[dict[str, Any]]:
-    """Select committed outbox events that have no receipt in core.outbox_receipts."""
+    """Select committed outbox events (seq > after_seq) that have no receipt in core.outbox_receipts."""
     if table not in _ALLOWED_OUTBOX_TABLES:
         raise ValueError(f"Unsupported outbox table: {table!r}")
     return conn.execute(
         f"""
         SELECT o.seq, o.event_id, o.type, o.schema_version, o.occurred_at, o.tenant_id, o.trace_id, o.data
         FROM {table} o
-        WHERE NOT EXISTS (
+        WHERE o.seq > %s
+          AND NOT EXISTS (
             SELECT 1 FROM core.outbox_receipts r
             WHERE r.source = %s AND r.event_id = o.event_id
         )
         ORDER BY o.seq ASC
         LIMIT %s
         """,
-        (source, batch_size),
+        (after_seq, source, batch_size),
     ).fetchall()
 
 
