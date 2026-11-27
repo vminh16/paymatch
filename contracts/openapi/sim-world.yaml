@@ -1,0 +1,1991 @@
+openapi: 3.1.0
+info:
+  title: PayMatch sim-world API
+  version: 0.2.0
+  description: >
+    In-memory external world simulator for PayMatch demo and tests (identity,
+    payment rails, invoice inbox, utility bills, chat, einvoice portal, tax
+    registry, SIMO fraud indicators, MoMo revenue, and demo scenario controls).
+servers:
+  - url: http://localhost:8200
+    description: Local dev server
+security:
+  - ServiceKeyAuth: []
+
+tags:
+  - name: system
+    description: Health and readiness probes
+  - name: identity
+    description: Simulated MoMo ID, staff SSO, JWKS, and step-up OTP
+  - name: rails
+    description: Simulated payment rails (transfers, virtual cards, escrows, wallets)
+  - name: inbox
+    description: Simulated tenant invoice email inbox and attachments
+  - name: bills
+    description: Simulated MoMo electricity and water utility bills
+  - name: chat
+    description: Simulated Zalo supplier chat threads and messages
+  - name: lookups
+    description: Simulated official registries (einvoice portal, tax, SIMO, revenue)
+  - name: scenario
+    description: Demo scenario controls, reset, card swipe, and simulated clock
+
+paths:
+  /sim/healthz:
+    get:
+      tags: [system]
+      operationId: healthz
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+
+  /sim/readyz:
+    get:
+      tags: [system]
+      operationId: readyz
+      summary: Readiness probe
+      security: []
+      responses:
+        "200":
+          description: Dataset loaded and service is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+              example:
+                status: ready
+                dataset: demo
+                loaded_at: "2026-11-26T08:00:00+07:00"
+        "503":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/identity/.well-known/jwks.json:
+    get:
+      tags: [identity]
+      operationId: getJwks
+      summary: Public JWKS for verifying momo_token, sso_token, and auth_proof
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      responses:
+        "200":
+          description: JSON Web Key Set (EdDSA / OKP)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JwksResponse"
+              example:
+                keys:
+                  - kty: OKP
+                    crv: Ed25519
+                    alg: EdDSA
+                    use: sig
+                    kid: sim-ed25519-01
+                    x: "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/identity/merchant-tokens:
+    post:
+      tags: [identity]
+      operationId: issueMerchantToken
+      summary: Issue a demo momo_token for a seeded merchant user
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantTokenRequest"
+            example:
+              user_id: usr_01M885AXP309SER6BAC46N5FJT
+      responses:
+        "200":
+          description: Signed momo_token JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantTokenResponse"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/identity/staff-tokens:
+    post:
+      tags: [identity]
+      operationId: issueStaffToken
+      summary: Issue a demo sso_token for a seeded MoMo staff member
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffTokenRequest"
+            example:
+              staff_id: stf_01M88AJW8RJ1TCEHH0JBCXPD34
+      responses:
+        "200":
+          description: Signed sso_token JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffTokenResponse"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/identity/step-up-challenges:
+    post:
+      tags: [identity]
+      operationId: createStepUpChallenge
+      summary: Start a step-up OTP challenge bound to action_hash
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepUpChallengeRequest"
+            example:
+              momo_token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..."
+              action_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      responses:
+        "200":
+          description: Step-up challenge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StepUpChallengeResponse"
+              example:
+                challenge_id: chl_01M885AXP309SER6BAC46N5FJT
+                expires_at: "2026-11-26T08:05:00+07:00"
+                demo_otp: "123456"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/identity/step-up-challenges/{challenge_id}:verify:
+    post:
+      tags: [identity]
+      operationId: verifyStepUpChallenge
+      summary: Verify OTP and issue short-lived single-use auth_proof JWT
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      parameters:
+        - name: challenge_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepUpVerifyRequest"
+            example:
+              otp: "123456"
+      responses:
+        "200":
+          description: Signed auth_proof JWT (exp = 5 minutes, amr = ["otp"])
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StepUpVerifyResponse"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/transfers:
+    post:
+      tags: [rails]
+      operationId: createTransfer
+      summary: Execute an idempotent bank transfer from a tenant wallet (gate only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
+            example:
+              idempotency_key: pi_01M88H11Y0WR367CGNZZH603T5
+              from_wallet_id: wal_01M88AWF62TJ28TZPAQDR9KT4H
+              to:
+                bank_code: VNMB01
+                account_number: "990010000001"
+                account_name: CONG TY TNHH CA PHE RANG MOC TAY NGUYEN
+              amount_vnd: 26500000
+              memo: "0999010001 · 1C26TTN · 00001425"
+      responses:
+        "200":
+          description: Transfer result (idempotent by idempotency_key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferResponse"
+              example:
+                rail_txn_id: rtx_01M88H11Y0WR367CGNZZH603T5
+                status: settled
+                failure_code: null
+                settled_at: "2026-11-26T08:00:00+07:00"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/transfers/{idempotency_key}:
+    get:
+      tags: [rails]
+      operationId: getTransfer
+      summary: Look up transfer status by idempotency_key (gate only)
+      parameters:
+        - name: idempotency_key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transfer status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferResponse"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/cards:
+    post:
+      tags: [rails]
+      operationId: createCard
+      summary: Issue a single-use merchant-locked virtual card (gate only; v1 captures immediately)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCardRequest"
+            example:
+              idempotency_key: pi_01M8867BQMQG52GZYDE75JHF2V
+              from_wallet_id: wal_01M88AWF62TJ28TZPAQDR9KT4H
+              merchant_id: mrc_pos_cloud_01
+              amount_vnd: 12000000
+              single_use: true
+      responses:
+        "200":
+          description: Virtual card issued and captured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCardResponse"
+              example:
+                card_id: crd_01M8867BQMQG52GZYDE75JHF2V
+                last4: "4821"
+                status: captured
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/cards/{card_id}:
+    get:
+      tags: [rails]
+      operationId: getCard
+      summary: Get virtual card details, captures, and declined attempts (gate only)
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Virtual card state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardDetailResponse"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/escrows:
+    post:
+      tags: [rails]
+      operationId: createEscrow
+      summary: Hold funds in escrow (gate only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEscrowRequest"
+            example:
+              idempotency_key: esc_01M88A6SAP3R27VDQ55VAKCF0P
+              from_wallet_id: wal_01M88AWF62TJ28TZPAQDR9KT4H
+              to:
+                bank_code: VNMB02
+                account_number: "990090000002"
+                account_name: CONG TY TNHH THUONG MAI NGAN HA MAU
+              amount_vnd: 8800000
+              expires_on: "2026-12-10"
+      responses:
+        "200":
+          description: Escrow held
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEscrowResponse"
+              example:
+                rail_escrow_id: resc_01M88A6SAP3R27VDQ55VAKCF0P
+                status: held
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/escrows/{rail_escrow_id}:release:
+    post:
+      tags: [rails]
+      operationId: releaseEscrow
+      summary: Release a held escrow to the destination account (gate only)
+      parameters:
+        - name: rail_escrow_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscrowActionRequest"
+            example:
+              idempotency_key: rel_01M88A6SAP3R27VDQ55VAKCF0P
+      responses:
+        "200":
+          description: Escrow released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowActionResponse"
+              example:
+                status: released
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/escrows/{rail_escrow_id}:refund:
+    post:
+      tags: [rails]
+      operationId: refundEscrow
+      summary: Refund a held escrow back to the source wallet (gate only)
+      parameters:
+        - name: rail_escrow_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscrowActionRequest"
+            example:
+              idempotency_key: ref_01M88A6SAP3R27VDQ55VAKCF0P
+      responses:
+        "200":
+          description: Escrow refunded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowActionResponse"
+              example:
+                status: refunded
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/rails/wallets/{wallet_id}:
+    get:
+      tags: [rails]
+      operationId: getWallet
+      summary: Get wallet balance
+      parameters:
+        - name: wallet_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: wal_01M88AWF62TJ28TZPAQDR9KT4H
+      responses:
+        "200":
+          description: Wallet balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+              example:
+                wallet_id: wal_01M88AWF62TJ28TZPAQDR9KT4H
+                balance_vnd: 350000000
+                as_of: "2026-11-26T08:00:00+07:00"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/inbox/messages:
+    get:
+      tags: [inbox]
+      operationId: listInboxMessages
+      summary: List delivered invoice emails for a tenant mailbox
+      parameters:
+        - name: mailbox
+          in: query
+          required: true
+          schema:
+            type: string
+          example: hoadon@laxanh-fnb.example
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: ketoan@caphetaynguyen.example
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Page of inbox messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessagesPage"
+              example:
+                items:
+                  - message_id: msg_01M88H11Y0WR367CGNZZH603T5
+                    from: ketoan@caphetaynguyen.example
+                    subject: "Hóa đơn GTGT số 00001425 - Cà phê hạt đợt 4/11"
+                    body_text: "Kính gửi Phòng Kế toán Chuỗi Lá Xanh, gửi kèm HĐĐT XML đợt giao ngày 25/11/2026."
+                    received_at: "2026-11-26T08:05:00+07:00"
+                    attachments:
+                      - attachment_id: att_01M88474G49Q16H37SDXA9WJ36
+                        filename: 1C26TTN_00001425.xml
+                        content_type: application/xml
+                        size: 3200
+                next_cursor: null
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/inbox/messages/{message_id}/attachments/{attachment_id}:
+    get:
+      tags: [inbox]
+      operationId: getInboxAttachment
+      summary: Download raw attachment bytes (XML/PDF)
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Raw attachment bytes
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/bills:
+    get:
+      tags: [bills]
+      operationId: listBills
+      summary: List delivered utility bills (electricity / water) for a wallet
+      parameters:
+        - name: wallet_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: wal_01M88AWF62TJ28TZPAQDR9KT4H
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Page of utility bills
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillsPage"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/bills/{bill_id}/document:
+    get:
+      tags: [bills]
+      operationId: getBillDocument
+      summary: Download raw utility bill XML document (if available)
+      parameters:
+        - name: bill_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Raw XML document bytes
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/chat/threads:
+    get:
+      tags: [chat]
+      operationId: listChatThreads
+      summary: List supplier chat threads for a tenant
+      parameters:
+        - name: tenant_ref
+          in: query
+          required: true
+          schema:
+            type: string
+          example: ten_01M88D3C06B97Y4G0S9W8BVKNG
+        - name: counterparty_phone
+          in: query
+          required: false
+          schema:
+            type: string
+          example: "0900112233"
+      responses:
+        "200":
+          description: Matching chat threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatThread"
+              example:
+                - thread_id: thr_01M884PPZPHZFGW1W5TWXT7VA2
+                  counterparty_name: "Minh - Sale Sữa Đồng Xanh"
+                  counterparty_phone: "0900112233"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/chat/threads/{thread_id}/messages:
+    get:
+      tags: [chat]
+      operationId: listChatMessages
+      summary: List delivered messages in a chat thread
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: thr_01M884PPZPHZFGW1W5TWXT7VA2
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+              example:
+                - message_id: msg_01M88C0G1ZYZCZYVV2YJB4DSZE
+                  from: counterparty
+                  text: "Chị Lan ơi đơn sữa tuần 4/11 đã xuất hóa đơn 31 triệu gửi mail rồi ạ, kho đang chuẩn bị xe giao."
+                  sent_at: "2026-11-26T08:10:00+07:00"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/einvoice/invoices:
+    get:
+      tags: [lookups]
+      operationId: lookupEinvoice
+      summary: Look up invoice status on simulated e-invoice portal (hoadondientu.gdt.gov.vn)
+      parameters:
+        - name: seller_tax_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "0999010001"
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+          example: 1C26TTN
+        - name: number
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "00001425"
+      responses:
+        "200":
+          description: E-invoice portal lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinvoiceLookupResponse"
+              example:
+                found: true
+                invoice_status_code: 1
+                invoice_status_label: "Hóa đơn mới"
+                processing_status_code: 5
+                processing_status_label: "Đã cấp mã hóa đơn"
+                illegal_flag: false
+                tax_authority_code: "00A1B2C3D4E5F60718293A4B5C6D7E8F90"
+                total_vnd: 26500000
+                related_invoice: null
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/tax/taxpayers/{tax_id}:
+    get:
+      tags: [lookups]
+      operationId: getTaxpayer
+      summary: Look up taxpayer registration and TT 90/2026 status code
+      parameters:
+        - name: tax_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "0999010001"
+      responses:
+        "200":
+          description: Taxpayer record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxpayerResponse"
+              example:
+                tax_id: "0999010001"
+                name: "CÔNG TY TNHH CÀ PHÊ RANG MỘC TÂY NGUYÊN"
+                status_code: "00"
+                status_label: "NNT đã được cấp MST / Đang hoạt động"
+                status_reason_code: "02"
+                address: "Số 12 Đường Mẫu A, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/tax/risk-list/{tax_id}:
+    get:
+      tags: [lookups]
+      operationId: getTaxRiskList
+      summary: Check if a tax_id is on the high-risk tax enterprise list
+      parameters:
+        - name: tax_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "0999090001"
+      responses:
+        "200":
+          description: Tax risk list check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxRiskListResponse"
+              example:
+                listed: true
+                list_name: "CV-9901/CT-TTKT (danh sách DN rủi ro cao về thuế giả lập)"
+                listed_on: "2026-10-15"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/simo/indicators:check:
+    get:
+      tags: [lookups]
+      operationId: checkSimoIndicator
+      summary: Check if a hashed indicator is listed in SIMO official fraud list
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [account_hash, phone, tax_id]
+          example: account_hash
+        - name: value_hash
+          in: query
+          required: true
+          schema:
+            type: string
+          example: c7dfe487bab58ead104ced293dedb9d0c93415fb6d57829084a2f0caba57212a
+      responses:
+        "200":
+          description: SIMO indicator check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimoCheckResponse"
+              example:
+                listed: true
+                list_ref: SIMO-2026-00991
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/revenue:
+    get:
+      tags: [lookups]
+      operationId: getRevenue
+      summary: Get monthly MoMo QR revenue for a store
+      parameters:
+        - name: wallet_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: wal_01M88AWF62TJ28TZPAQDR9KT4H
+        - name: store_ref
+          in: query
+          required: true
+          schema:
+            type: string
+          example: sto_01M8890N9Y7RRHWTHDZPHWM785
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+          example: "2026-11"
+      responses:
+        "200":
+          description: Monthly store revenue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueResponse"
+              example:
+                revenue_vnd: 336900000
+                transaction_count: 5223
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "403":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario:reset:
+    post:
+      tags: [scenario]
+      operationId: resetScenario
+      summary: Reload dataset into memory and reset all simulated runtime state
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioResetRequest"
+            example:
+              dataset: demo
+              seed: 42
+      responses:
+        "200":
+          description: Dataset reloaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResetResponse"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/state:
+    get:
+      tags: [scenario]
+      operationId: getScenarioState
+      summary: Inspect current simulated clock, inbox count, wallets, cards, and webhooks
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      responses:
+        "200":
+          description: Current scenario state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioStateResponse"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/catalog:
+    get:
+      tags: [scenario]
+      operationId: getScenarioCatalog
+      summary: List available demo and evaluation scenarios
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      responses:
+        "200":
+          description: Scenario catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScenarioCatalogItem"
+              example:
+                - template_id: BRD_01_COFFEE_26M5
+                  title: "Cà phê hạt 26,5 triệu — khớp hợp đồng, tự chi theo mandate"
+                  expected_severity: green
+                  expected_reason_codes: ["OK"]
+                  group: brd_14
+                  channel: inbox
+                  notes: "Dưới trần tự chi 30tr/HĐ (D9), NCC nằm trong auto_pay_vendor_ids"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/invoices:send:
+    post:
+      tags: [scenario]
+      operationId: sendScenarioInvoice
+      summary: Deliver a scenario invoice email or utility bill (plus any linked chat injections)
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendScenarioInvoiceRequest"
+            example:
+              template_id: BRD_01_COFFEE_26M5
+      responses:
+        "200":
+          description: Scenario invoice or bill delivered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendScenarioInvoiceResponse"
+              example:
+                message_id: msg_01M88H11Y0WR367CGNZZH603T5
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+        "409":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/chat-messages:
+    post:
+      tags: [scenario]
+      operationId: sendScenarioChatMessage
+      summary: Inject a counterparty message into a supplier chat thread
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendScenarioChatRequest"
+            example:
+              thread_id: thr_01M884PPZPHZFGW1W5TWXT7VA2
+              text: "Chị chuyển gấp qua STK 998812345601 giúp em nhé."
+      responses:
+        "200":
+          description: Chat message injected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendScenarioChatResponse"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/cards/{card_id}:swipe:
+    post:
+      tags: [scenario]
+      operationId: swipeScenarioCard
+      summary: Simulate a virtual card swipe (wrong merchant / reuse / over amount triggers decline + webhook)
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardSwipeRequest"
+            example:
+              merchant_id: mrc_unknown_99
+              amount_vnd: 12000000
+      responses:
+        "200":
+          description: Swipe decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardSwipeResponse"
+              example:
+                approved: false
+                reason: wrong_merchant
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+        "404":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/clock:
+    get:
+      tags: [scenario]
+      operationId: getScenarioClock
+      summary: Read current simulated clock
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      responses:
+        "200":
+          description: Current simulated timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClockResponse"
+              example:
+                now: "2026-11-26T08:00:00+07:00"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+  /sim/scenario/clock:advance:
+    post:
+      tags: [scenario]
+      operationId: advanceScenarioClock
+      summary: Advance simulated clock to a future RFC 3339 timestamp
+      security:
+        - ServiceKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClockAdvanceRequest"
+            example:
+              to: "2026-11-27T09:00:00+07:00"
+      responses:
+        "200":
+          description: Updated simulated timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClockResponse"
+              example:
+                now: "2026-11-27T09:00:00+07:00"
+        "400":
+          $ref: "#/components/responses/ProblemError"
+        "401":
+          $ref: "#/components/responses/ProblemError"
+
+components:
+  securitySchemes:
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+
+  responses:
+    ProblemError:
+      description: RFC 9457 Problem Details error
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+  schemas:
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code, detail, instance]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              detail:
+                type: string
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    ReadyResponse:
+      type: object
+      required: [status, dataset, loaded_at]
+      properties:
+        status:
+          type: string
+          enum: [ready]
+        dataset:
+          type: string
+        loaded_at:
+          type: string
+          format: date-time
+
+    JwkKey:
+      type: object
+      required: [kty, crv, alg, use, kid, x]
+      properties:
+        kty:
+          type: string
+          enum: [OKP]
+        crv:
+          type: string
+          enum: [Ed25519]
+        alg:
+          type: string
+          enum: [EdDSA]
+        use:
+          type: string
+          enum: [sig]
+        kid:
+          type: string
+        x:
+          type: string
+
+    JwksResponse:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/JwkKey"
+
+    MerchantTokenRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+
+    MerchantTokenResponse:
+      type: object
+      required: [momo_token]
+      properties:
+        momo_token:
+          type: string
+
+    StaffTokenRequest:
+      type: object
+      required: [staff_id]
+      properties:
+        staff_id:
+          type: string
+
+    StaffTokenResponse:
+      type: object
+      required: [sso_token]
+      properties:
+        sso_token:
+          type: string
+
+    StepUpChallengeRequest:
+      type: object
+      required: [momo_token, action_hash]
+      properties:
+        momo_token:
+          type: string
+        action_hash:
+          type: string
+
+    StepUpChallengeResponse:
+      type: object
+      required: [challenge_id, expires_at]
+      properties:
+        challenge_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        demo_otp:
+          type: ["string", "null"]
+
+    StepUpVerifyRequest:
+      type: object
+      required: [otp]
+      properties:
+        otp:
+          type: string
+
+    StepUpVerifyResponse:
+      type: object
+      required: [auth_proof]
+      properties:
+        auth_proof:
+          type: string
+
+    BankAccountRef:
+      type: object
+      required: [bank_code, account_number, account_name]
+      properties:
+        bank_code:
+          type: string
+        account_number:
+          type: string
+        account_name:
+          type: string
+
+    TransferRequest:
+      type: object
+      required: [idempotency_key, from_wallet_id, to, amount_vnd, memo]
+      properties:
+        idempotency_key:
+          type: string
+        from_wallet_id:
+          type: string
+        to:
+          $ref: "#/components/schemas/BankAccountRef"
+        amount_vnd:
+          type: integer
+          minimum: 1
+        memo:
+          type: string
+
+    TransferResponse:
+      type: object
+      required: [rail_txn_id, status, failure_code, settled_at]
+      properties:
+        rail_txn_id:
+          type: string
+        status:
+          type: string
+          enum: [settled, failed]
+        failure_code:
+          type: ["string", "null"]
+          enum: [INSUFFICIENT_FUNDS, ACCOUNT_NOT_FOUND, NAME_MISMATCH, RAIL_DOWN, null]
+        settled_at:
+          type: ["string", "null"]
+          format: date-time
+
+    CreateCardRequest:
+      type: object
+      required: [idempotency_key, from_wallet_id, merchant_id, amount_vnd]
+      properties:
+        idempotency_key:
+          type: string
+        from_wallet_id:
+          type: string
+        merchant_id:
+          type: string
+        amount_vnd:
+          type: integer
+          minimum: 1
+        single_use:
+          type: boolean
+          default: true
+
+    CreateCardResponse:
+      type: object
+      required: [card_id, last4, status]
+      properties:
+        card_id:
+          type: string
+        last4:
+          type: string
+          pattern: "^\\d{4}$"
+        status:
+          type: string
+          enum: [issued, captured]
+
+    CardCapture:
+      type: object
+      required: [merchant_id, amount_vnd, captured_at]
+      properties:
+        merchant_id:
+          type: string
+        amount_vnd:
+          type: integer
+          minimum: 1
+        captured_at:
+          type: string
+          format: date-time
+
+    CardDeclinedAttempt:
+      type: object
+      required: [merchant_id, amount_vnd, reason, at]
+      properties:
+        merchant_id:
+          type: string
+        amount_vnd:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          enum: [wrong_merchant, already_used, over_amount]
+        at:
+          type: string
+          format: date-time
+
+    CardDetailResponse:
+      type: object
+      required: [card_id, status, captures, declined_attempts]
+      properties:
+        card_id:
+          type: string
+        status:
+          type: string
+          enum: [issued, captured]
+        captures:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardCapture"
+        declined_attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardDeclinedAttempt"
+
+    CreateEscrowRequest:
+      type: object
+      required: [idempotency_key, from_wallet_id, to, amount_vnd, expires_on]
+      properties:
+        idempotency_key:
+          type: string
+        from_wallet_id:
+          type: string
+        to:
+          $ref: "#/components/schemas/BankAccountRef"
+        amount_vnd:
+          type: integer
+          minimum: 1
+        expires_on:
+          type: string
+          format: date
+
+    CreateEscrowResponse:
+      type: object
+      required: [rail_escrow_id, status]
+      properties:
+        rail_escrow_id:
+          type: string
+        status:
+          type: string
+          enum: [held]
+
+    EscrowActionRequest:
+      type: object
+      required: [idempotency_key]
+      properties:
+        idempotency_key:
+          type: string
+
+    EscrowActionResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [released, refunded]
+
+    WalletResponse:
+      type: object
+      required: [wallet_id, balance_vnd, as_of]
+      properties:
+        wallet_id:
+          type: string
+        balance_vnd:
+          type: integer
+          minimum: 0
+        as_of:
+          type: string
+          format: date-time
+
+    InboxAttachmentMeta:
+      type: object
+      required: [attachment_id, filename, content_type, size]
+      properties:
+        attachment_id:
+          type: string
+        filename:
+          type: string
+        content_type:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+
+    InboxMessage:
+      type: object
+      required: [message_id, from, subject, body_text, received_at, attachments]
+      properties:
+        message_id:
+          type: string
+        from:
+          type: string
+        subject:
+          type: string
+        body_text:
+          type: string
+        received_at:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxAttachmentMeta"
+
+    InboxMessagesPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessage"
+        next_cursor:
+          type: ["string", "null"]
+
+    UtilityReadingLine:
+      type: object
+      required: [line_code, meter_serial, usage, unit, unit_price_vnd, amount_vnd, vat_rate_pct, vat_amount_vnd]
+      properties:
+        line_code:
+          type: string
+        meter_serial:
+          type: string
+        time_band:
+          type: ["string", "null"]
+        old_index:
+          type: ["string", "null"]
+        new_index:
+          type: ["string", "null"]
+        multiplier:
+          type: ["string", "null"]
+        usage:
+          type: string
+        unit:
+          type: string
+        unit_price_vnd:
+          type: integer
+        amount_vnd:
+          type: integer
+        vat_rate_pct:
+          type: integer
+        vat_amount_vnd:
+          type: integer
+
+    UtilityReadings:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilityReadingLine"
+
+    BillItem:
+      type: object
+      required: [bill_id, provider, customer_code, store_ref, period, amount_vnd, readings, xml_attachment_id]
+      properties:
+        bill_id:
+          type: string
+        provider:
+          type: string
+          enum: [electricity, water]
+        vendor_tax_id:
+          type: ["string", "null"]
+        customer_code:
+          type: string
+        store_ref:
+          type: string
+        period:
+          type: string
+          pattern: "^\\d{4}-\\d{2}$"
+        period_start:
+          type: ["string", "null"]
+          format: date
+        period_end:
+          type: ["string", "null"]
+          format: date
+        billing_days:
+          type: ["integer", "null"]
+        due_date:
+          type: ["string", "null"]
+          format: date
+        statement_no:
+          type: ["string", "null"]
+        total_usage:
+          type: ["string", "null"]
+        usage_unit:
+          type: ["string", "null"]
+        subtotal_vnd:
+          type: ["integer", "null"]
+        vat_total_vnd:
+          type: ["integer", "null"]
+        amount_vnd:
+          type: integer
+          minimum: 0
+        readings:
+          $ref: "#/components/schemas/UtilityReadings"
+        xml_attachment_id:
+          type: ["string", "null"]
+
+    BillsPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillItem"
+        next_cursor:
+          type: ["string", "null"]
+
+    ChatThread:
+      type: object
+      required: [thread_id, counterparty_name, counterparty_phone]
+      properties:
+        thread_id:
+          type: string
+        counterparty_name:
+          type: string
+        counterparty_phone:
+          type: string
+
+    ChatMessage:
+      type: object
+      required: [message_id, from, text, sent_at]
+      properties:
+        message_id:
+          type: string
+        from:
+          type: string
+          enum: [tenant, counterparty]
+        text:
+          type: string
+        sent_at:
+          type: string
+          format: date-time
+
+    RelatedInvoiceRef:
+      type: object
+      required: [symbol, number, issued_on]
+      properties:
+        symbol:
+          type: string
+        number:
+          type: string
+        issued_on:
+          type: string
+          format: date
+
+    EinvoiceLookupResponse:
+      type: object
+      required:
+        - found
+        - invoice_status_code
+        - invoice_status_label
+        - processing_status_code
+        - processing_status_label
+        - illegal_flag
+        - tax_authority_code
+        - total_vnd
+        - related_invoice
+      properties:
+        found:
+          type: boolean
+        invoice_status_code:
+          type: ["integer", "null"]
+          enum: [1, 2, 3, 4, 5, 6, null]
+        invoice_status_label:
+          type: ["string", "null"]
+        processing_status_code:
+          type: ["integer", "null"]
+          enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, null]
+        processing_status_label:
+          type: ["string", "null"]
+        illegal_flag:
+          type: ["boolean", "null"]
+        tax_authority_code:
+          type: ["string", "null"]
+        total_vnd:
+          type: ["integer", "null"]
+        related_invoice:
+          anyOf:
+            - $ref: "#/components/schemas/RelatedInvoiceRef"
+            - type: "null"
+
+    TaxpayerResponse:
+      type: object
+      required: [tax_id, name, status_code, status_label, status_reason_code, address]
+      properties:
+        tax_id:
+          type: string
+        name:
+          type: string
+        status_code:
+          type: string
+          enum: ["00", "01", "02", "03", "04", "05", "06", "07", "09", "10"]
+        status_label:
+          type: string
+        status_reason_code:
+          type: ["string", "null"]
+        address:
+          type: string
+
+    TaxRiskListResponse:
+      type: object
+      required: [listed, list_name, listed_on]
+      properties:
+        listed:
+          type: boolean
+        list_name:
+          type: ["string", "null"]
+        listed_on:
+          type: ["string", "null"]
+          format: date
+
+    SimoCheckResponse:
+      type: object
+      required: [listed, list_ref]
+      properties:
+        listed:
+          type: boolean
+        list_ref:
+          type: ["string", "null"]
+
+    RevenueResponse:
+      type: object
+      required: [revenue_vnd, transaction_count]
+      properties:
+        revenue_vnd:
+          type: integer
+          minimum: 0
+        transaction_count:
+          type: integer
+          minimum: 0
+
+    ScenarioResetRequest:
+      type: object
+      required: [dataset, seed]
+      properties:
+        dataset:
+          type: string
+          default: demo
+        seed:
+          type: integer
+          default: 42
+
+    ScenarioResetResponse:
+      type: object
+      required: [loaded_at, counts]
+      properties:
+        loaded_at:
+          type: string
+          format: date-time
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+
+    WebhookRecord:
+      type: object
+      required: [event_id, type, occurred_at, data, delivered]
+      properties:
+        event_id:
+          type: string
+        type:
+          type: string
+          enum: [card.authorization_declined, transfer.settled, transfer.failed]
+        occurred_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+        delivered:
+          type: boolean
+        error:
+          type: ["string", "null"]
+
+    ScenarioWalletSummary:
+      type: object
+      required: [wallet_id, tenant_id, balance_vnd, as_of]
+      properties:
+        wallet_id:
+          type: string
+        tenant_id:
+          type: string
+        balance_vnd:
+          type: integer
+        as_of:
+          type: string
+          format: date-time
+
+    ScenarioCardSummary:
+      type: object
+      required: [card_id, merchant_id, amount_vnd, last4, status, captures_count, declined_attempts_count]
+      properties:
+        card_id:
+          type: string
+        merchant_id:
+          type: string
+        amount_vnd:
+          type: integer
+        last4:
+          type: string
+        status:
+          type: string
+          enum: [issued, captured]
+        captures_count:
+          type: integer
+        declined_attempts_count:
+          type: integer
+
+    ScenarioStateResponse:
+      type: object
+      required: [dataset, seed, loaded_at, clock, inbox_count, bills_count, wallets, cards, escrows_count, transfers_count, webhooks]
+      properties:
+        dataset:
+          type: string
+        seed:
+          type: integer
+        loaded_at:
+          type: string
+          format: date-time
+        clock:
+          type: string
+          format: date-time
+        inbox_count:
+          type: integer
+        bills_count:
+          type: integer
+        wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScenarioWalletSummary"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScenarioCardSummary"
+        escrows_count:
+          type: integer
+        transfers_count:
+          type: integer
+        webhooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookRecord"
+
+    ScenarioCatalogItem:
+      type: object
+      required: [template_id, title, expected_severity, expected_reason_codes]
+      properties:
+        template_id:
+          type: string
+        title:
+          type: string
+        expected_severity:
+          type: ["string", "null"]
+          enum: [green, yellow, red, null]
+        expected_reason_codes:
+          type: array
+          items:
+            type: string
+        group:
+          type: string
+        channel:
+          type: string
+        notes:
+          type: string
+
+    SendScenarioInvoiceRequest:
+      type: object
+      required: [template_id]
+      properties:
+        template_id:
+          type: string
+        overrides:
+          type: ["object", "null"]
+          additionalProperties: true
+
+    SendScenarioInvoiceResponse:
+      type: object
+      properties:
+        message_id:
+          type: ["string", "null"]
+        bill_id:
+          type: ["string", "null"]
+        extra_message_ids:
+          type: array
+          items:
+            type: string
+        chat_message_ids:
+          type: array
+          items:
+            type: string
+
+    SendScenarioChatRequest:
+      type: object
+      required: [thread_id, text]
+      properties:
+        thread_id:
+          type: string
+        text:
+          type: string
+          minLength: 1
+
+    SendScenarioChatResponse:
+      type: object
+      required: [message_id, thread_id, from, text, sent_at]
+      properties:
+        message_id:
+          type: string
+        thread_id:
+          type: string
+        from:
+          type: string
+          enum: [tenant, counterparty]
+        text:
+          type: string
+        sent_at:
+          type: string
+          format: date-time
+
+    CardSwipeRequest:
+      type: object
+      required: [merchant_id, amount_vnd]
+      properties:
+        merchant_id:
+          type: string
+        amount_vnd:
+          type: integer
+          minimum: 1
+
+    CardSwipeResponse:
+      type: object
+      required: [approved, reason]
+      properties:
+        approved:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+          enum: [wrong_merchant, already_used, over_amount, null]
+
+    ClockResponse:
+      type: object
+      required: [now]
+      properties:
+        now:
+          type: string
+          format: date-time
+
+    ClockAdvanceRequest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+          format: date-time

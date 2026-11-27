@@ -22,8 +22,8 @@ Dữ liệu nạp từ `services/sim-world/data/` vào bộ nhớ; `POST /sim/sc
 |---|---|---|---|
 | POST | `/sim/rails/transfers` | gate | `{idempotency_key, from_wallet_id, to: {bank_code, account_number, account_name}, amount_vnd, memo}` → `{rail_txn_id, status: settled \| failed, failure_code: INSUFFICIENT_FUNDS \| ACCOUNT_NOT_FOUND \| NAME_MISMATCH \| RAIL_DOWN \| null, settled_at}`. Cùng key → cùng kết quả |
 | GET | `/sim/rails/transfers/{idempotency_key}` | gate | trạng thái (dùng khi timeout) |
-| POST | `/sim/rails/cards` | gate | `{idempotency_key, from_wallet_id, merchant_id, amount_vnd, single_use: true}` → `{card_id, last4, status: issued \| captured}` |
-| GET | `/sim/rails/cards/{card_id}` | gate | `{card_id, status: issued \| captured \| declined_attempts, captures: [..]}` |
+| POST | `/sim/rails/cards` | gate | `{idempotency_key, from_wallet_id, merchant_id, amount_vnd, single_use: true}` → `{card_id, last4, status: issued \| captured}` (v1 trừ ví và thu tiền ngay cho `merchant_id` với `amount_vnd`, ghi 1 bản ghi trong `captures`, trả `status: captured`) |
+| GET | `/sim/rails/cards/{card_id}` | gate | `{card_id, status: issued \| captured, captures: [{merchant_id, amount_vnd, captured_at}], declined_attempts: [{merchant_id, amount_vnd, reason, at}]}` |
 | POST | `/sim/rails/escrows` | gate | `{idempotency_key, from_wallet_id, to: {...}, amount_vnd, expires_on}` → `{rail_escrow_id, status: held}` |
 | POST | `/sim/rails/escrows/{rail_escrow_id}:release` | gate | `{idempotency_key}` → `{status: released}` |
 | POST | `/sim/rails/escrows/{rail_escrow_id}:refund` | gate | `{idempotency_key}` → `{status: refunded}` |
@@ -77,3 +77,19 @@ Sự kiện phía rail (thẻ bị quẹt sai, chuyển khoản xong) được s
 | POST | `/sim/scenario/cards/{card_id}:swipe` | `{merchant_id, amount_vnd}` → `{approved: boolean, reason}`. Sai merchant/lần hai → từ chối + webhook `card.authorization_declined` |
 | GET | `/sim/scenario/clock` | `{now: Timestamp}` |
 | POST | `/sim/scenario/clock:advance` | `{to: Timestamp}` → `{now}`. Ở `DEMO_MODE`, port `Clock` của core và gate đọc giờ từ đây để lịch chi chạy được trong buổi demo |
+
+## 7. Biến môi trường
+
+Không đặt secret cứng trong mã nguồn; mọi khóa và địa chỉ lấy từ biến môi trường:
+
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `SIM_PORT` | `8200` | Cổng HTTP khi chạy `sim-world` |
+| `SIM_DATA_DIR` | `services/sim-world/data` | Thư mục gốc chứa các bộ dữ liệu (`demo/`, …) |
+| `SIM_DATASET` | `demo` | Tên bộ dữ liệu nạp khi khởi động |
+| `SIM_SEED` | `42` | Seed mặc định khi khởi động |
+| `DEMO_MODE` | `false` | Khi `true`, mở `/sim/identity/*` và `/sim/scenario*` không cần `X-Service-Key` (và trả `demo_otp` ở step-up) |
+| `SIM_CORE_SERVICE_KEY` | *(rỗng)* | Khóa `X-Service-Key` dành cho `core-*` |
+| `SIM_GATE_SERVICE_KEY` | *(rỗng)* | Khóa `X-Service-Key` dành cho `gate` |
+| `CORE_INTERNAL_URL` | *(rỗng)* | Địa chỉ `internal-api` (vd `http://internal-api:8003/internal`) để đẩy webhook `/webhooks/rails`. Nếu để trống, sự kiện chỉ được ghi trong `/sim/scenario/state` và không gọi HTTP |
+| `SIM_WEBHOOK_SERVICE_KEY` | *(rỗng)* | Khóa gửi trong header `X-Service-Key` khi gọi `CORE_INTERNAL_URL/webhooks/rails` |

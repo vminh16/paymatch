@@ -3,7 +3,20 @@ name = "sim-world"
 version = "0.1.0"
 description = "Giả lập thế giới bên ngoài (chỉ demo/test)"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
+    "pyjwt>=2.10",
+    "cryptography>=44",
+]
+
+[dependency-groups]
+dev = [
+    "openapi-spec-validator>=0.7",
+    "jsonschema>=4.23",
+    "pyyaml>=6.0",
+]
 
 [build-system]
 requires = ["hatchling"]

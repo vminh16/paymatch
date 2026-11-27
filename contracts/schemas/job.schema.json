@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/job.schema.json",
+  "title": "Job",
+  "description": "Trạng thái một lượt chạy của agent-runtime (điều tra hóa đơn, hỏi đáp, báo cáo).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "task_type",
+    "tenant_id",
+    "subject",
+    "status",
+    "attempt",
+    "bots_called",
+    "bot_states",
+    "created_at",
+    "started_at",
+    "completed_at"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "task_type": {
+      "$ref": "./task-type.schema.json"
+    },
+    "tenant_id": {
+      "type": "string",
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "subject": {
+      "oneOf": [
+        {
+          "title": "InvoiceJobSubject",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invoice_id"
+          ],
+          "properties": {
+            "invoice_id": {
+              "type": "string",
+              "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        },
+        {
+          "title": "QuestionJobSubject",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conversation_id",
+            "message_id"
+          ],
+          "properties": {
+            "conversation_id": {
+              "type": "string",
+              "pattern": "^cnv_[0-9A-HJKMNP-TV-Z]{26}$"
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^cmg_[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        },
+        {
+          "title": "ReportJobSubject",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "report_id"
+          ],
+          "properties": {
+            "report_id": {
+              "type": "string",
+              "pattern": "^rpt_[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "$ref": "./job-status.schema.json"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "bots_called": {
+      "type": "array",
+      "items": {
+        "title": "BotCallSummary",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bot_id",
+          "bot_version",
+          "times"
+        ],
+        "properties": {
+          "bot_id": {
+            "type": "string"
+          },
+          "bot_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "times": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "bot_states": {
+      "type": "array",
+      "items": {
+        "title": "BotState",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bot_id",
+          "state",
+          "severity"
+        ],
+        "properties": {
+          "bot_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed",
+              "timeout"
+            ]
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "./severity.schema.json"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    },
+    "started_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "completed_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

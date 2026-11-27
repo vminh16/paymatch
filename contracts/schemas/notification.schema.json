@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/notification.schema.json",
+  "title": "Notification",
+  "description": "Thông báo gửi tới người dùng merchant; title và body sinh từ mẫu cố định trong code theo kind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notification_id",
+    "kind",
+    "invoice_ids",
+    "title",
+    "body",
+    "read_at",
+    "created_at"
+  ],
+  "properties": {
+    "notification_id": {
+      "type": "string",
+      "pattern": "^ntf_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "kind": {
+      "$ref": "./notification-kind.schema.json"
+    },
+    "invoice_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+      }
+    },
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "read_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

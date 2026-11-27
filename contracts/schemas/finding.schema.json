@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/finding.schema.json",
+  "title": "Finding",
+  "description": "Kết luận điều tra của một bot hoặc kiểm tra hệ thống cho một hóa đơn.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "job_id",
+    "attempt",
+    "bot_id",
+    "bot_version",
+    "skill_version",
+    "prompt_hash",
+    "severity",
+    "severity_reported",
+    "reason_codes",
+    "reason",
+    "evidence",
+    "provenance",
+    "proposed_channel",
+    "proposed_pay_on",
+    "created_at"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^fnd_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "bot_id": {
+      "type": "string"
+    },
+    "bot_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "skill_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prompt_hash": {
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "./severity.schema.json"
+    },
+    "severity_reported": {
+      "$ref": "./severity.schema.json"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "reason": {
+      "$ref": "./untrusted-text.schema.json"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "./evidence-ref.schema.json"
+      }
+    },
+    "provenance": {
+      "$ref": "./provenance.schema.json"
+    },
+    "proposed_channel": {
+      "anyOf": [
+        {
+          "$ref": "./channel.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_pay_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

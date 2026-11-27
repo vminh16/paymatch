@@ -156,3 +156,16 @@ Mọi lỗi trả `application/problem+json` (RFC 9457) có thêm `code` (enum �
 | Dữ liệu gốc | `POST /m/vendors` (step-up) · `POST /m/vendors/{id}:change-phone` (step-up) · `POST /m/vendor-contracts` · `POST /m/vendor-contracts/{id}:activate` (step-up) |
 | F12 đổi TK NCC | `POST /m/vendors/{id}/account-changes` · `POST /m/vendor-verifications/{id}:record-callback` · `:approve` · `:reject` → `vendor_account.changed` → hóa đơn bị khóa vì `PAYEE_CHANGE_REQUEST` quay về `investigating` |
 | Demo | `POST /sim/scenario:reset` · `POST /sim/scenario/invoices:send` · `POST /sim/scenario/clock:advance` · `POST /m/demo:reset` (chỉ khi `DEMO_MODE=true`) |
+
+## 8. Chạy mock server cho frontend
+
+Frontend (`apps/merchant`) có thể chạy trực tiếp trên OpenAPI contract mà chưa cần backend:
+
+```bash
+make mock
+```
+
+Lệnh này chạy Prism (`npx @stoplight/prism-cli mock -p 8001 contracts/openapi/core-merchant.yaml`) trên cổng **8001** (prefix `/m`), trả về các `examples` lấy từ bộ dữ liệu demo `services/sim-world/data/demo/` (hàng chờ duyệt, hóa đơn xanh cà phê, hóa đơn vàng cốc nhựa shrinkflation, hóa đơn đỏ si-rô NCC mới…).
+
+- Chọn example cụ thể bằng header Prism: `Prefer: example=<tên_example>` (ví dụ `Prefer: example=yellow_cups_shrinkflation` hoặc `Prefer: example=red_syrup_new_vendor_fraud` trên `GET /m/invoices/{invoice_id}`), hoặc chọn mã lỗi bằng `Prefer: code=409`.
+- **Giới hạn SSE:** hai endpoint `GET /m/jobs/{job_id}/events` và `GET /m/events` được khai báo đầy đủ tên sự kiện và cấu trúc `data` trong `core-merchant.yaml`, nhưng Prism không hỗ trợ giữ kết nối stream `text/event-stream` (chỉ trả một response mẫu tĩnh rồi đóng). Trong lúc phát triển trên mock, frontend nên tạm fallback sang **polling** (`GET /m/jobs/{job_id}` cho tiến trình điều tra, `GET /m/approval-queue` / `GET /m/invoices` / `GET /m/notifications` cho hàng chờ) hoặc dùng một bộ phát sự kiện cục bộ (mock `EventSource`/MSW) bật theo biến môi trường phía client, sau đó nối lại `@microsoft/fetch-event-source` khi chạy cùng `merchant-api` thật.

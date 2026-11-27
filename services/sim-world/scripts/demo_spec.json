@@ -146,7 +146,7 @@
   "staff_users": [
     {"key": "stf_01", "name": "Trần Minh Quân", "staff_roles": ["risk_analyst"]},
     {"key": "stf_02", "name": "Lê Bảo Ngọc", "staff_roles": ["risk_lead"]},
-    {"key": "stf_03", "name": "Phạm Hoàng Anh", "staff_roles": ["cskh"]},
+    {"key": "stf_03", "name": "Phạm Hoàng Anh", "staff_roles": ["support_agent"]},
     {"key": "stf_04", "name": "Nguyễn Đức Thịnh", "staff_roles": ["platform_admin"]}
   ],
   "vendors_primary": [

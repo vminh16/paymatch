@@ -5,7 +5,8 @@ Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. Mỗi mục ở đ
 ## 1. Kiểu nền
 
 ```yaml
-MoneyVnd: integer            # đồng, >= 0 trừ khi ghi rõ
+MoneyVnd: integer            # đồng, >= 0
+SignedMoneyVnd: integer      # đồng, có thể âm (chỉ dùng cho hóa đơn điều chỉnh TCHDon 2/4)
 Decimal: string              # pattern ^-?\d{1,15}(\.\d{1,6})?$; parser cắt chữ số 0 thừa cuối phần thập phân (vd 0.000000000 → "0") trước khi kiểm mẫu; chữ số khác 0 sau vị trí thứ 6 được giữ nguyên ở parser domain (không tự làm tròn/cắt) và sẽ không khớp mẫu này ở tầng schema/API
 Timestamp: string            # RFC 3339, có offset
 LocalDate: string            # YYYY-MM-DD, giờ Việt Nam
@@ -39,7 +40,7 @@ InvoiceSummary:                       # dòng trong danh sách, hàng chờ
   number: string                      # SHDon
   issued_on: LocalDate | null         # null với PDF/ảnh chưa nhập tay
   invoice_type: InvoiceType
-  total_vnd: MoneyVnd | null          # null với PDF/ảnh chưa nhập tay; chưa có thì không duyệt được
+  total_vnd: SignedMoneyVnd | null    # null với PDF/ảnh chưa nhập tay; chưa có thì không duyệt được; có thể âm ở HĐ điều chỉnh (TCHDon 2/4)
   status: InvoiceStatus
   severity: Severity | null           # null khi chưa điều tra xong
   reason_codes: [ReasonCode]
@@ -55,8 +56,8 @@ Invoice: InvoiceSummary +
   document: {document_id, format: xml | pdf | image, sha256, received_at}
   buyer_tax_id: string
   currency: VND                       # v1 chỉ nhận VND; khác → XML_UNPARSEABLE
-  subtotal_vnd, vat_total_vnd, total_vnd: MoneyVnd   # TgTCThue, TgTThue, TgTTTBSo
-  vat_breakdown: [{vat_rate: string, taxable_vnd, vat_vnd}]   # LTSuat; vat_rate theo PL V: "8%", "KCT"...
+  subtotal_vnd, vat_total_vnd, total_vnd: SignedMoneyVnd | null   # TgTCThue, TgTThue, TgTTTBSo; null với PDF/ảnh chưa nhập tay; có thể âm ở HĐ điều chỉnh
+  vat_breakdown: [{vat_rate: string, taxable_vnd: SignedMoneyVnd, vat_vnd: SignedMoneyVnd}]   # LTSuat; vat_rate theo PL V: "8%", "KCT"...
   tax_authority_code: string | null   # MCCQT
   einvoice_provider_tax_id: string | null   # MSTTCGP
   related_invoice: {relation: replace | adjust | replace_multiple | adjust_multiple | trade_discount, symbol, number, issued_on} | null   # TTHDLQuan (TCHDon 1..5)
@@ -84,8 +85,8 @@ InvoiceLine:
   unit: UntrustedText | null          # DVTinh
   quantity: Decimal | null            # SLuong
   unit_price: Decimal | null          # DGia
-  discount_vnd: MoneyVnd | null       # STCKhau
-  amount_vnd: MoneyVnd | null         # ThTien (null khi kind = note)
+  discount_vnd: SignedMoneyVnd | null # STCKhau
+  amount_vnd: SignedMoneyVnd | null   # ThTien (null khi kind = note; có thể âm ở HĐ điều chỉnh)
   vat_rate: string | null             # TSuat
   arithmetic_ok: boolean              # code kiểm quantity × unit_price − discount = amount
 ```
@@ -152,13 +153,15 @@ ApprovalMethod: single | bulk | mandate
 
 ApprovalPreview:                      # GET /m/invoices/{id}/approval-preview
   invoice_id
+  job_id: string                      # job điều tra mà người duyệt đang xem
   intent_hash: string                 # xem "Cách tính hash" dưới
-  payee: {vendor_account_id, bank_name, account_number_masked, account_name}   # từ registry, không từ hóa đơn
+  payee: {vendor_account_id, bank_name: string | null, account_number_masked: string | null, merchant_id: string | null, account_name} | null   # từ registry, không từ hóa đơn; null chỉ khi gate_decision = DENY và chưa có TK trong registry; merchant_id có khi kind = card_merchant
   amount_vnd: MoneyVnd                # = invoice.total_vnd (D3)
   channel: Channel
   gate_decision: ALLOW | REQUIRE_APPROVAL | DENY
   allowed_methods: [single | bulk]
   verification_required: boolean
+  phone_on_file_masked: string | null # chỉ khác null khi verification_required = true; SĐT lấy từ registry
   gate_reasons: [GateReason]
   action_hash: string                 # đưa vào step-up challenge
   expires_at: Timestamp               # 5 phút; sau đó xem trước lại

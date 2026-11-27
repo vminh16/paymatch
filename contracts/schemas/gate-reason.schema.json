@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/gate-reason.schema.json",
+  "title": "GateReason",
+  "description": "Lý do đánh giá của Payment Gate (trusted, do Gate tạo bằng code).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "layer",
+    "detail"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "BLOCKED_INVOICE",
+        "PAYEE_NOT_VERIFIED",
+        "ABOVE_PER_INVOICE_LIMIT",
+        "ABOVE_DAILY_LIMIT",
+        "CROSS_ALERT_UNVERIFIED",
+        "OFFICIAL_FRAUD_LIST",
+        "KILL_SWITCH",
+        "POLICY_UNAVAILABLE",
+        "CHANNEL_NOT_ALLOWED",
+        "ALREADY_PAID",
+        "OUTSIDE_TIME_WINDOW",
+        "MANDATE_NOT_AUTO_PAY",
+        "VENDOR_NOT_IN_AUTO_PAY",
+        "VENDOR_SUSPENDED",
+        "APPROVAL_MISSING",
+        "APPROVAL_STALE"
+      ]
+    },
+    "layer": {
+      "type": "string",
+      "enum": [
+        "hard_rule",
+        "platform_policy",
+        "mandate"
+      ]
+    },
+    "detail": {
+      "type": "string"
+    }
+  }
+}

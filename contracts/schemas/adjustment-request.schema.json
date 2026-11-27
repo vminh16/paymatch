@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/adjustment-request.schema.json",
+  "title": "AdjustmentRequest",
+  "description": "Mẫu yêu cầu điều chỉnh hóa đơn do code điền từ con số tool tính (trusted); chủ chuỗi tự gửi.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adjustment_request_id",
+    "invoice_id",
+    "to_vendor_id",
+    "channel_hint",
+    "subject",
+    "body",
+    "cited_lines"
+  ],
+  "properties": {
+    "adjustment_request_id": {
+      "type": "string",
+      "pattern": "^adj_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "to_vendor_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "channel_hint": {
+      "type": "string",
+      "enum": [
+        "email",
+        "chat"
+      ]
+    },
+    "subject": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "cited_lines": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^lin_[0-9A-HJKMNP-TV-Z]{26}$"
+      }
+    }
+  }
+}

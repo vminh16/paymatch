@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice-summary.schema.json",
+  "title": "InvoiceSummary",
+  "description": "Tóm tắt hóa đơn cho danh sách và hàng chờ duyệt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invoice_id",
+    "store_id",
+    "vendor_id",
+    "vendor_name",
+    "seller_tax_id",
+    "symbol",
+    "number",
+    "issued_on",
+    "invoice_type",
+    "total_vnd",
+    "status",
+    "severity",
+    "reason_codes",
+    "verification_required",
+    "due_on",
+    "scheduled_for",
+    "updated_at"
+  ],
+  "properties": {
+    "invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "store_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sto_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Chỉ từ vendor registry; null khi NCC chưa có (UI hiển thị untrusted.seller_name)."
+    },
+    "seller_tax_id": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "KHMSHDon + KHHDon, ví dụ 1C26TTN."
+    },
+    "number": {
+      "type": "string",
+      "description": "SHDon."
+    },
+    "issued_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "invoice_type": {
+      "$ref": "./invoice-type.schema.json"
+    },
+    "total_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null với PDF/ảnh chưa nhập tay; có thể âm trên hóa đơn điều chỉnh (TCHDon 2/4)."
+    },
+    "status": {
+      "$ref": "./invoice-status.schema.json"
+    },
+    "severity": {
+      "anyOf": [
+        {
+          "$ref": "./severity.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "due_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scheduled_for": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "updated_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

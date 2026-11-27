@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/escrow-status.schema.json",
+  "title": "EscrowStatus",
+  "description": "Trạng thái cọc tạm giữ (escrow).",
+  "type": "string",
+  "enum": [
+    "pending",
+    "held",
+    "released",
+    "refunded",
+    "failed"
+  ]
+}

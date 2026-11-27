@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/page.schema.json",
+  "title": "Page",
+  "description": "Phong bì phân trang cursor chuẩn {items, next_cursor}.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "next_cursor"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {}
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

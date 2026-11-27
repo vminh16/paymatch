@@ -1,0 +1,567 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice.schema.json",
+  "title": "Invoice",
+  "description": "Chi tiết hóa đơn đầy đủ, tách bạch dữ liệu số trusted và trường chữ untrusted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invoice_id",
+    "store_id",
+    "vendor_id",
+    "vendor_name",
+    "seller_tax_id",
+    "symbol",
+    "number",
+    "issued_on",
+    "invoice_type",
+    "total_vnd",
+    "status",
+    "severity",
+    "reason_codes",
+    "verification_required",
+    "due_on",
+    "scheduled_for",
+    "updated_at",
+    "source",
+    "duplicate_of",
+    "manual_fields",
+    "document",
+    "buyer_tax_id",
+    "currency",
+    "subtotal_vnd",
+    "vat_total_vnd",
+    "vat_breakdown",
+    "tax_authority_code",
+    "einvoice_provider_tax_id",
+    "related_invoice",
+    "lines",
+    "untrusted",
+    "brief",
+    "findings_summary",
+    "approval",
+    "payment",
+    "escrow",
+    "allowed_actions",
+    "etag"
+  ],
+  "properties": {
+    "invoice_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "store_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sto_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "seller_tax_id": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "number": {
+      "type": "string"
+    },
+    "issued_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "invoice_type": {
+      "$ref": "./invoice-type.schema.json"
+    },
+    "total_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "$ref": "./invoice-status.schema.json"
+    },
+    "severity": {
+      "anyOf": [
+        {
+          "$ref": "./severity.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "due_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scheduled_for": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "updated_at": {
+      "$ref": "./timestamp.schema.json"
+    },
+    "source": {
+      "$ref": "./invoice-source.schema.json"
+    },
+    "duplicate_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "manual_fields": {
+      "anyOf": [
+        {
+          "title": "ManualFieldsMeta",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entered_by",
+            "entered_at"
+          ],
+          "properties": {
+            "entered_by": {
+              "type": "string",
+              "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$"
+            },
+            "entered_at": {
+              "$ref": "./timestamp.schema.json"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "document": {
+      "title": "InvoiceDocumentMeta",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "format",
+        "sha256",
+        "received_at"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "pattern": "^doc_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "xml",
+            "pdf",
+            "image"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "received_at": {
+          "$ref": "./timestamp.schema.json"
+        }
+      }
+    },
+    "buyer_tax_id": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string",
+      "const": "VND"
+    },
+    "subtotal_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vat_total_vnd": {
+      "anyOf": [
+        {
+          "$ref": "./signed-money-vnd.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vat_breakdown": {
+      "type": "array",
+      "items": {
+        "title": "VatBreakdownItem",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vat_rate",
+          "taxable_vnd",
+          "vat_vnd"
+        ],
+        "properties": {
+          "vat_rate": {
+            "type": "string"
+          },
+          "taxable_vnd": {
+            "$ref": "./signed-money-vnd.schema.json"
+          },
+          "vat_vnd": {
+            "$ref": "./signed-money-vnd.schema.json"
+          }
+        }
+      }
+    },
+    "tax_authority_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "einvoice_provider_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "related_invoice": {
+      "anyOf": [
+        {
+          "title": "RelatedInvoice",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "relation",
+            "symbol",
+            "number",
+            "issued_on"
+          ],
+          "properties": {
+            "relation": {
+              "type": "string",
+              "enum": [
+                "replace",
+                "adjust",
+                "replace_multiple",
+                "adjust_multiple",
+                "trade_discount"
+              ]
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "number": {
+              "type": "string"
+            },
+            "issued_on": {
+              "$ref": "./local-date.schema.json"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "$ref": "./invoice-line.schema.json"
+      }
+    },
+    "untrusted": {
+      "title": "InvoiceUntrustedFields",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seller_name",
+        "seller_address",
+        "seller_bank_account",
+        "payment_terms",
+        "other_info",
+        "messages"
+      ],
+      "properties": {
+        "seller_name": {
+          "$ref": "./untrusted-text.schema.json"
+        },
+        "seller_address": {
+          "$ref": "./untrusted-text.schema.json"
+        },
+        "seller_bank_account": {
+          "anyOf": [
+            {
+              "title": "UntrustedSellerBankAccount",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "number",
+                "bank_name"
+              ],
+              "properties": {
+                "number": {
+                  "type": "string"
+                },
+                "bank_name": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_terms": {
+          "anyOf": [
+            {
+              "$ref": "./untrusted-text.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other_info": {
+          "type": "array",
+          "items": {
+            "title": "UntrustedOtherInfoItem",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "value"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "value": {
+                "$ref": "./untrusted-text.schema.json"
+              }
+            }
+          }
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "title": "UntrustedMessageItem",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "message_id",
+              "channel",
+              "received_at",
+              "body"
+            ],
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "pattern": "^msg_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "channel": {
+                "type": "string",
+                "enum": [
+                  "email",
+                  "chat"
+                ]
+              },
+              "received_at": {
+                "$ref": "./timestamp.schema.json"
+              },
+              "body": {
+                "$ref": "./untrusted-text.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "brief": {
+      "anyOf": [
+        {
+          "$ref": "./brief.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "findings_summary": {
+      "type": "array",
+      "items": {
+        "title": "FindingSummaryItem",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bot_id",
+          "severity",
+          "reason_codes"
+        ],
+        "properties": {
+          "bot_id": {
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "./severity.schema.json"
+          },
+          "reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "./reason-code.schema.json"
+            }
+          }
+        }
+      }
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "./approval-summary.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payment": {
+      "anyOf": [
+        {
+          "title": "InvoicePaymentSummary",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "payment_intent_id",
+            "status",
+            "channel",
+            "settled_at"
+          ],
+          "properties": {
+            "payment_intent_id": {
+              "type": "string",
+              "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+            },
+            "status": {
+              "$ref": "./payment-intent-status.schema.json"
+            },
+            "channel": {
+              "$ref": "./channel.schema.json"
+            },
+            "settled_at": {
+              "anyOf": [
+                {
+                  "$ref": "./timestamp.schema.json"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "escrow": {
+      "anyOf": [
+        {
+          "title": "InvoiceEscrowSummary",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "escrow_id",
+            "status"
+          ],
+          "properties": {
+            "escrow_id": {
+              "type": "string",
+              "pattern": "^esc_[0-9A-HJKMNP-TV-Z]{26}$"
+            },
+            "status": {
+              "$ref": "./escrow-status.schema.json"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "approve",
+          "reject",
+          "schedule",
+          "pay_now",
+          "cancel_payment",
+          "reinvestigate",
+          "enter_manual_fields",
+          "create_escrow",
+          "open_account_change"
+        ]
+      }
+    },
+    "etag": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/job-status.schema.json",
+  "title": "JobStatus",
+  "description": "Trạng thái job của agent-runtime.",
+  "type": "string",
+  "enum": [
+    "queued",
+    "running",
+    "completed",
+    "failed"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/invoice-status.schema.json",
+  "title": "InvoiceStatus",
+  "description": "Trạng thái vòng đời của hóa đơn.",
+  "type": "string",
+  "enum": [
+    "new",
+    "investigating",
+    "auto_pay_eligible",
+    "pending_approval",
+    "blocked",
+    "approved",
+    "scheduled",
+    "paying",
+    "paid",
+    "payment_failed",
+    "escrow_held",
+    "rejected"
+  ]
+}
