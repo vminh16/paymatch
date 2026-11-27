@@ -11,3 +11,5 @@ Phòng kế toán ảo gồm nhiều AI agent chuyên môn hóa theo nghề, ki�
 make install   # uv sync toàn workspace
 make test
 ```
+
+> Lưu ý Postgres local (`docker compose`): `infra/init-gate-role.sql` chỉ chạy khi khởi tạo volume Postgres mới; nếu đã có volume cũ, chạy `docker compose down -v` trước khi `up`.
