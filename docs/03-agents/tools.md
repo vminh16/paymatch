@@ -49,7 +49,7 @@ ToolResult:
 
 | Tool | Dùng bởi | Trả về | Provenance |
 |---|---|---|---|
-| `invoices` | procurement, accounts-payable, tax | hóa đơn chuẩn hóa: phần số + phần chữ | số: trusted, chữ: untrusted |
+| `invoices` | procurement, accounts-payable, fraud-control, tax | hóa đơn chuẩn hóa: phần số + phần chữ | số: trusted, chữ: untrusted |
 | `vendor_contracts` | procurement | mặt hàng, quy cách, đơn giá hợp đồng | trusted |
 | `price_check` | procurement | đơn giá/đơn vị trên hóa đơn vs hợp đồng, chênh lệch % (bot chỉ ánh xạ dòng hàng → sku; quy cách lấy từ hợp đồng và do code parse từ hóa đơn) | trusted |
 | `official_fraud_list` | fraud-control | TK/SĐT/MST của hóa đơn có trong danh sách chính thức (SIMO) | trusted |

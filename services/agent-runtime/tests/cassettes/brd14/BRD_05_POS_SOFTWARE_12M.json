@@ -1,0 +1,133 @@
+{
+  "entries": {
+    "00789db33beff0c14e35d4ec2efe0f7cf7d2942c88aa62ba1d4d37ef1fa0a922": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn phần mềm POS 12.000.000 đ (16 điểm, KCT) hợp lệ toàn bộ.\", \"Thủ quỹ đề xuất cấp thẻ ảo virtual_card khóa theo merchant POS.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3QC23SS8E5TJNYA2DFJMED5X7Y\", \"tool_call_id\": \"tcl_3QC23SS8E5TJNYA2DFJMED5X7Y\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\", \"tool_call_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\"}]}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "2aeee2cd086e9cca63f7bc17d21ee618f0be28ef735b202d9c7175f1b7e52dca": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Hóa đơn phần mềm KCT hợp lệ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "31b20e9745a4c6c2f5d8d0fa22c8523213c3a2f389966539ed49707868239821": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "mappings": [
+                {
+                  "line_id": "lin_00000000000000000000000039",
+                  "sku": "POS-CLOUD-16"
+                }
+              ]
+            },
+            "id": "pc_1",
+            "name": "price_check"
+          }
+        ]
+      }
+    },
+    "9031a04d6c75464437a67f41232825e6b44edc146a7a874cd6b50ac89916023d": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "tax_id": "0999010045"
+            },
+            "id": "tx_1",
+            "name": "tax_id_lookup"
+          },
+          {
+            "arguments": {
+              "tax_id": "0999010045"
+            },
+            "id": "tx_2",
+            "name": "tax_risk_list"
+          }
+        ]
+      }
+    },
+    "9cd2a8a58a1f0b63fa89bf73e53f5a9e38f2fbda0ddb2c49a6522e4adec6f934": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư; đề xuất thẻ ảo virtual_card cho hóa đơn phần mềm.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\", \"tool_call_id\": \"tcl_303B9DZ2B1FE7EGGSC1B3PHP1R\"}], \"provenance\": \"trusted\", \"proposed_channel\": \"virtual_card\", \"proposed_pay_on\": \"2026-11-26\"}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "c4b6ef23c160b8218adf68350390705a383043e63ff2c60b1fcf8db281d50b5c": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Khớp hợp đồng 16 điểm × 750.000 đ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "da4b8052c65d04b040138071abd283135650bc3f08015e61d8bbc85b12e4848d": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"NCC hợp lệ, không rủi ro gian lận.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "e299c607f9ce27ca4003b3e104166c0f71ff0479e031a306efa7248f5c967750": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000039"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000039"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000039"
+            },
+            "id": "sup_2",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000039"
+            },
+            "id": "sup_3",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000039"
+            },
+            "id": "sup_4",
+            "name": "ask_treasury"
+          }
+        ]
+      }
+    }
+  },
+  "version": 1
+}

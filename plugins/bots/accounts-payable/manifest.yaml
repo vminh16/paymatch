@@ -1,0 +1,18 @@
+id: accounts-payable
+name: Công nợ phải trả
+description: Đối chiếu 3 chứng từ (đơn đặt hàng, phiếu nhập kho, hóa đơn), kiểm tra trùng thanh toán và công nợ nhà cung cấp.
+skills:
+  - accounts_payable_checklist@1
+tools:
+  - invoices
+  - purchase_orders
+  - goods_receipts
+  - three_way_match
+  - payables_ledger
+task_types:
+  - investigate_invoice
+triggers:
+  invoice_types:
+    - goods
+required_for:
+  - goods

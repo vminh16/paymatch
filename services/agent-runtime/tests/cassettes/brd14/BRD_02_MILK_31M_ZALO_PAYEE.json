@@ -1,0 +1,162 @@
+{
+  "entries": {
+    "0eecf0e0b0136f3fcedef59e75a1f4caa52617aef4de0b72e687a4bf5a634bc9": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Giá sữa đúng hợp đồng.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "3359d100bb3be29cb3b9cbe8998182373426bd0ed8b5561d0073d6557b16d6e4": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "mappings": [
+                {
+                  "line_id": "lin_00000000000000000000000036",
+                  "sku": "MLK-UHT-1L"
+                }
+              ]
+            },
+            "id": "pc_1",
+            "name": "price_check"
+          }
+        ]
+      }
+    },
+    "3ba2b4bf784a8b5f5e65762e568869b5a028fbf35d697da80482229ee4f244f0": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "tax_id": "0999010002"
+            },
+            "id": "tx_1",
+            "name": "tax_id_lookup"
+          },
+          {
+            "arguments": {
+              "tax_id": "0999010002"
+            },
+            "id": "tx_2",
+            "name": "tax_risk_list"
+          }
+        ]
+      }
+    },
+    "7972c56a32109d0cc1b8c3387bfbdc27ef1fc9f159488acf351822009d2fa1f8": {
+      "response": {
+        "content": "{\"severity_reported\": \"yellow\", \"reason_codes\": [\"OVER_LIMIT\"], \"reason\": \"Tổng 31.000.000 đ vượt trần tự chi 30.000.000 đ/hóa đơn.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_1WW8A0732FJT68V6NSQA75Y2GG\", \"tool_call_id\": \"tcl_1WW8A0732FJT68V6NSQA75Y2GG\"}], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-12-03\"}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "8f834d428bbe3fd7aa89a1aff75db095c2b036dc616716786e0d5aefb5570598": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn sữa 31.000.000 đ bị cảnh báo đỏ: PAYEE_CHANGE_REQUEST và PERSONAL_ACCOUNT.\", \"Phát hiện URGENCY_PRESSURE qua Zalo và OVER_LIMIT vượt trần tự chi mỗi hóa đơn.\", \"Đề xuất gọi lại số trong danh bạ NCC để xác minh (F12) trước khi xử lý.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_45HSGP7E1YEJZ03HBBTP2GYC1M\", \"tool_call_id\": \"tcl_45HSGP7E1YEJZ03HBBTP2GYC1M\"}, {\"kind\": \"message\", \"ref_id\": \"msg_01M88J1F4C6M6Z3SJHB4DNQKQQ\", \"tool_call_id\": \"tcl_6TARZQN7EV41ZZSJZ3ZWG6N54S\"}, {\"kind\": \"tool_call\", \"ref_id\": \"tcl_1WW8A0732FJT68V6NSQA75Y2GG\", \"tool_call_id\": \"tcl_1WW8A0732FJT68V6NSQA75Y2GG\"}]}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "9331d62510ca57f1d11cd7d4690c040dfee43665824d12c56c4db23824a53a83": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {},
+            "id": "fc_1",
+            "name": "chat_messages"
+          }
+        ]
+      }
+    },
+    "96cbaed62d9d29ce996045ce4c4e9d45da7b6633f3540e3caf23819d278e7de5": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Thuế hợp lệ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "c5fc14c72ef1ea31a48784c7f72fb75de5f3121e66a1a143bcfd55b2ce94ae1e": {
+      "response": {
+        "content": "{\"severity_reported\": \"red\", \"reason_codes\": [\"PAYEE_CHANGE_REQUEST\", \"PERSONAL_ACCOUNT\", \"URGENCY_PRESSURE\"], \"reason\": \"Zalo giả sale đòi đổi sang TK cá nhân 998812345601 và hối chuyển trong 15 phút.\", \"evidence\": [{\"kind\": \"message\", \"ref_id\": \"msg_01M88J1F4C6M6Z3SJHB4DNQKQQ\", \"tool_call_id\": \"tcl_6TARZQN7EV41ZZSJZ3ZWG6N54S\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "d33fcc2e998a67f7c7c0a8dfe017cf226d45c6f0838519ee4e98aecd3c8bcdb1": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Khớp 3 chứng từ.\", \"evidence\": [], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "d4c1af38919eb907778ecfe727658019852a124a5ab851d559e65589170be25b": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_2",
+            "name": "ask_accounts-payable"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_3",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_4",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000036"
+            },
+            "id": "sup_5",
+            "name": "ask_treasury"
+          }
+        ]
+      }
+    }
+  },
+  "version": 1
+}

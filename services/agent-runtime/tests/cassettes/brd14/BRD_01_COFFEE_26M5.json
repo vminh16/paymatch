@@ -1,0 +1,148 @@
+{
+  "entries": {
+    "0ae153f5767d8d60dcff2a68873832859efbecde0a7ebefe85f6c68993e53a8d": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_0",
+            "name": "invoice_explain"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_1",
+            "name": "ask_procurement"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_2",
+            "name": "ask_accounts-payable"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_3",
+            "name": "ask_fraud-control"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_4",
+            "name": "ask_tax"
+          },
+          {
+            "arguments": {
+              "invoice_id": "inv_00000000000000000000000035"
+            },
+            "id": "sup_5",
+            "name": "ask_treasury"
+          }
+        ]
+      }
+    },
+    "0e693549cb6c54c72062b1d86238abdd2134e3e45eb12476d8dcb410fbc4a693": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đủ số dư và nằm dưới trần tự chi; đề xuất chuyển khoản bank_transfer.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\", \"tool_call_id\": \"tcl_13RBR84B4MFVN54D4GT4BGG469\"}], \"provenance\": \"trusted\", \"proposed_channel\": \"bank_transfer\", \"proposed_pay_on\": \"2026-11-26\"}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "157f9a2aa77e98ea03c18291bb8079b8caea8fc400e52d3e1b65d712c45f5e1d": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Khớp đối chiếu 3 chiều PO, GRN và hóa đơn; không trùng công nợ.\", \"evidence\": [{\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "4fdfd5e2535c9aaf5c8aa5a147e1283ea6a7c7836298b9692d5d20590ecaafbd": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "tax_id": "0999010001"
+            },
+            "id": "tx_1",
+            "name": "tax_id_lookup"
+          },
+          {
+            "arguments": {
+              "tax_id": "0999010001"
+            },
+            "id": "tx_2",
+            "name": "tax_risk_list"
+          }
+        ]
+      }
+    },
+    "67eb9a8c5ce12eca5af7387583035058bd92d46f380b007f2b5db3f6f24acd86": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"Đơn giá và quy cách cà phê hạt khớp 100% hợp đồng khung.\", \"evidence\": [{\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "7565369d76da21810a25365baaa6ee64914e56e6c69c017cf3ac67ba965a2e2e": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"MST 0999010001 mã 00 đang hoạt động, HĐ hợp lệ trên cổng HĐĐT.\", \"evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_6SG03HV5JDTHRREAEE5TTRRBDK\", \"tool_call_id\": \"tcl_6SG03HV5JDTHRREAEE5TTRRBDK\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "8159e9abec28bf21e176c31361a92af2f6ffafbccc16162e8699435e87b7eac3": {
+      "response": {
+        "content": "{\"severity_reported\": \"green\", \"reason_codes\": [\"OK\"], \"reason\": \"TK trùng danh bạ verified, không có cảnh báo chéo hay SIMO.\", \"evidence\": [{\"kind\": \"vendor_account\", \"ref_id\": \"vac_00000000000000000000000035\", \"tool_call_id\": \"tcl_3RNCR3KZBTFXP28QDHD8ZKNEBS\"}], \"provenance\": \"untrusted\", \"proposed_channel\": null, \"proposed_pay_on\": null}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "c524a2e731e8e95a99ab6086b0d54841702f102b0c3857ca357700cceac5f0e6": {
+      "response": {
+        "content": "{\"lines\": [\"Hóa đơn cà phê hạt 1C26TTN/00001425 tổng 26.500.000 đ hợp lệ trên cả 5 bot.\", \"Khớp đơn giá hợp đồng, đủ PO/GRN, MST hoạt động và dưới trần tự chi.\"], \"cited_evidence\": [{\"kind\": \"tool_call\", \"ref_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\", \"tool_call_id\": \"tcl_3EX4GBSMQ2D8H1C65FGFR87D9B\"}, {\"kind\": \"invoice_line\", \"ref_id\": \"lin_00000000000000000000000035\", \"tool_call_id\": \"tcl_7DPHKWH7SSEP99DWBBCS0VY8TV\"}, {\"kind\": \"goods_receipt\", \"ref_id\": \"grn_00000000000000000000000035\", \"tool_call_id\": \"tcl_5YAMC5WQAW0KRFPXHHSQ3CZBSD\"}]}",
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": []
+      }
+    },
+    "ebc39667a342f36a18e0bf698237fe645df5b6152e6f7448e5b25cd5eb85e6bf": {
+      "response": {
+        "content": null,
+        "model": "demo-replay-v1",
+        "parsed": null,
+        "tool_calls": [
+          {
+            "arguments": {
+              "mappings": [
+                {
+                  "line_id": "lin_00000000000000000000000035",
+                  "sku": "COF-ROB-1KG"
+                }
+              ]
+            },
+            "id": "pc_1",
+            "name": "price_check"
+          }
+        ]
+      }
+    }
+  },
+  "version": 1
+}
