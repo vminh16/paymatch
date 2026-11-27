@@ -80,6 +80,8 @@
 
 ### 3.1. Chuẩn hành vi từ MoMo & Ngân hàng số Việt Nam (QĐ 2345 & TT 53/2026)
 
+> **Chưa kiểm chứng:** nhóm chưa đối chiếu lại QĐ 2345/QĐ-NHNN và TT 53/2026 với văn bản gốc. Step-up OTP trong demo là giả lập của `sim-world`; không tuyên bố tuân thủ các văn bản này.
+
 | Khía cạnh | Quy chuẩn thực tế tại Việt Nam | Thiết kế áp dụng cho PayMatch | Kiểm chứng & Nguồn |
 |---|---|---|---|
 | **Màn hình Xác nhận giao dịch (Pre-Confirmation Sheet)** | MoMo, Vietcombank, Techcombank đều tách riêng một màn hình/bottom-sheet **Tóm tắt giao dịch** hiển thị cố định: Số tiền, Tên người nhận, Ngân hàng & STK thụ hưởng, Nội dung chuyển khoản, Nguồn tiền trước khi gọi lớp xác thực. | Khi bấm `Duyệt`, mở `StepUpApprovalDialog` lấy dữ liệu trực tiếp từ `GET /m/invoices/{id}/approval-preview` (`payee` từ danh bạ `trusted`, không bao giờ lấy từ XML), hiển thị nội dung chuyển khoản chuẩn `MST · ký hiệu · số HĐ` (`D2`). | ✅ [S59], [S60] |

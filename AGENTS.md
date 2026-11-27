@@ -12,6 +12,7 @@ Read the relevant doc before writing code; code follows the docs.
 - Endpoints, ports, error codes, events, shared schemas: `docs/05-api/`
 - Agents, guardrails, reason codes, tools: `docs/03-agents/`
 - Sample data and the e-invoice XML format: `docs/04-data/`
+- UI reference, not spec (names and numbers still come from the docs above): `docs/06-ui/`
 
 Once `contracts/` holds OpenAPI/JSON Schema, it is the source of truth for APIs.
 

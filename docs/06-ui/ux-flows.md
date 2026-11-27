@@ -1,6 +1,14 @@
 # Đề xuất Luồng UX & Màn hình v1 cho PayMatch
 
 > **Trạng thái:** Tài liệu tham chiếu kỹ thuật–nghiệp vụ (*evidence-backed UX reference*), đối chiếu trực tiếp với [problem-definition.md](../01-requirements/problem-definition.md), [flows.md](../02-architecture/flows.md), [merchant-api.md](../05-api/merchant-api.md), [console-api.md](../05-api/console-api.md), [events.md](../05-api/events.md), [schemas.md](../05-api/schemas.md), [sim-world-dataset.md](../04-data/sim-world-dataset.md) và file hợp đồng hiện có `contracts/openapi/core-merchant.yaml` (v0.1.0). Không sửa `contracts/`; mọi khoảng trống hợp đồng được gom thành đề xuất ở **Mục 8**.
+>
+> **Mức ràng buộc.** Chỉ 5 bất biến dưới đây là bắt buộc (đến từ spec an toàn, đổi phải sửa spec trước). Mọi thứ còn lại (bố cục, component, chữ hiển thị, màu, hiệu ứng, chu kỳ polling, thứ tự màn hình, wireframe) là **gợi ý**, FE tinh chỉnh tự do khi dựng. Số cụ thể trong wireframe chỉ để minh họa từ bộ dữ liệu demo; UI luôn hiển thị số API trả về, không chép số từ tài liệu này. Thời gian/ngân sách bot, số bot bắt buộc và hạn mức đọc từ API/spec, không viết cứng ở client.
+>
+> 1. **Người nhận và SĐT gọi xác minh chỉ lấy từ danh bạ** (`ApprovalPreview.payee`, `phone_on_file_masked`), không bao giờ từ hóa đơn, email hay Zalo ([F12](../02-architecture/flows.md)). STK/SĐT trong tin nhắn chỉ được hiện ở khung `untrusted`.
+> 2. **Mọi số tiền, đơn giá, % lệch, màu do backend tính**; UI chỉ định dạng (kể cả không tự nhân VAT). Giá hợp đồng và `price_check` là giá **chưa VAT** ([schemas.md](../05-api/schemas.md) `ContractItem`).
+> 3. **🔴 không có nút duyệt đè** (D5); nút Duyệt chỉ bật khi `gate_decision = REQUIRE_APPROVAL` và preview còn hạn.
+> 4. **`UntrustedText` chỉ render text thuần** (§1.1).
+> 5. **Đọc lỗi theo `code` rồi `errors[].code`** ([README §5](../05-api/README.md)): ví dụ `409 INVALID_STATE` + `MANDATE_REVIEW_ONLY`.
 
 ## 1. Kiến trúc thông tin (Information Architecture) & Nguyên tắc nền
 
@@ -15,6 +23,8 @@
 | **Ranh giới `UntrustedText`** | Component `<UntrustedTextBlock />` | Mọi trường kiểu `UntrustedText` hoặc nằm trong `Invoice.untrusted` chỉ render text thuần (React auto-escape), **cấm `dangerouslySetInnerHTML` / Markdown / link bấm được**, có viền/nhãn phân biệt rõ với dữ liệu `trusted` từ `vendor_registry` và `Payment Gate`. |
 
 ### 1.2. Cấu trúc 2 ứng dụng + Thanh điều khiển Demo
+
+> **Chưa chốt:** sơ đồ dưới theo bảng cổng ở [README §1](../05-api/README.md) (`apps/merchant` + `apps/console`). Nhóm đang cân nhắc gộp thành một app; khi chốt, ghi vào [architecture.md §9](../02-architecture/architecture.md) rồi sửa README và mục này.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -105,16 +115,16 @@ Mỗi thẻ duyệt tuân thủ nghiêm ngặt quy tắc **tối đa 5 dòng t�
 │ TỜ TRÌNH KẾ TOÁN TRƯỞNG (5 dòng · [Nhãn: Tổng hợp tự động, bấm chip để soi]) │
 │  1. HĐ 1C26TNX/00000744 (40 thùng ly PP 500ml) tổng 22.400.000 đ cần duyệt. │
 │  2. Quy cách giảm từ 1.000 cái/thùng (hợp đồng) xuống 800 cái/thùng — đơn    │
-│     giá thực tế tăng từ 575 đ/cái lên 700 đ/cái (+21,74%).                   │
+│     giá chưa VAT tăng từ 532 đ/cái lên 648 đ/cái (+21,74%).                  │
 │  3. Khớp 3 chiều PO & phiếu nhập 40 thùng tại Bếp TT; MST & mã CQT hợp lệ.   │
 │  4. TK trên HĐ khớp TK danh bạ ****0003 (NH Mẫu Nam Việt); không đổi TK.     │
 │  5. Đề xuất: Từ chối để yêu cầu HĐ điều chỉnh, hoặc Duyệt nếu đã thỏa thuận. │
 │                                                                              │
-│  Bằng chứng gốc: [📄 Dòng HĐ #1] [📑 Hợp đồng 575đ/cái] [📦 Phiếu nhập 40th]│
+│  Bằng chứng gốc: [📄 Dòng HĐ #1] [📑 Hợp đồng 532đ/cái] [📦 Phiếu nhập 40th]│
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ SO SÁNH NHANH DO CODE TÍNH (Trusted) ───────────────────────────────────┐ │
-│ │ Hợp đồng khung: Thùng 1.000 cái · 575.000 đ/thùng  =>  575 đ / cái       │ │
-│ │ Hóa đơn này:    Thùng   800 cái · 560.000 đ/thùng  =>  700 đ / cái (+21,7%)│
+│ ┌─ SO SÁNH NHANH DO CODE TÍNH (Trusted · chưa VAT) ────────────────────────┐ │
+│ │ Hợp đồng khung: Thùng 1.000 cái · 532.407 đ/thùng  =>  532,41 đ / cái    │ │
+│ │ Hóa đơn này:    Thùng   800 cái · 518.519 đ/thùng  =>  648,15 đ / cái (+21,7%)
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 │ NGƯỜI NHẬN TỪ DANH BẠ (Gate REQUIRE_APPROVAL · Kênh: Chuyển khoản 1-1):      │
 │ 🏦 CONG TY TNHH BAO BI NHUA XANH VIET · NH Mẫu Nam Việt · ****0003          │
@@ -123,7 +133,7 @@ Mỗi thẻ duyệt tuân thủ nghiêm ngặt quy tắc **tối đa 5 dòng t�
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Biến thể 🟡 có `CROSS_ALERT_HIT` (`verification_required = true`, kịch bản `TRAP_02`):** Giữa khung Người nhận và nút Duyệt chèn thêm hộp cảnh báo cam `⚠️ CẢNH BÁO CHÉO MẠNG LƯỚI MOMO: Bắt buộc gọi xác minh qua SĐT lưu sẵn 0280***003 trước khi mở khóa nút Duyệt`.
+> **Biến thể 🟡 có `CROSS_ALERT_HIT` (`verification_required = true`, kịch bản `TRAP_02`):** Giữa khung Người nhận và nút Duyệt chèn thêm hộp cảnh báo cam `⚠️ CẢNH BÁO CHÉO MẠNG LƯỚI MOMO: Bắt buộc gọi xác minh qua SĐT lưu sẵn 0900***001 trước khi mở khóa nút Duyệt` (SĐT lấy từ `phone_on_file_masked` của NCC trong danh bạ Chuỗi B).
 
 ### 3.3. Wireframe trạng thái 🔴 ĐỎ — Bị khóa cứng, không có nút Duyệt đè (`BRD_04_SYRUP_NEW_VENDOR_FRAUD`)
 
@@ -153,7 +163,7 @@ Mỗi thẻ duyệt tuân thủ nghiêm ngặt quy tắc **tối đa 5 dòng t�
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-*(Với `BRD_02` Sữa 31tr bị khóa do `PAYEE_CHANGE_REQUEST`, nút bên phải tự đổi thành `[ 📞 Xác minh đổi TK qua SĐT lưu sẵn 0900***233 (F12) ]`. Với `SCAM_SIMO_HARD_BLOCK` hoặc `DUPLICATE_INVOICE`, ẩn hoàn toàn nút gỡ — chỉ còn nút `[ ✕ Từ chối hóa đơn ]`).*
+*(Với `BRD_02` Sữa 31tr bị khóa do `PAYEE_CHANGE_REQUEST`, nút bên phải tự đổi thành `[ 📞 Xác minh đổi TK qua SĐT lưu sẵn 0280***002 (F12) ]`. Số này là `phone_on_file` của NCC sữa trong danh bạ, **không phải** số Zalo `0900***233` vừa nhắn đổi TK: đó chính là kênh kẻ gian đang chiếm, gọi vào đó là xác minh với kẻ gian. Với `SCAM_SIMO_HARD_BLOCK` hoặc `DUPLICATE_INVOICE`, ẩn hoàn toàn nút gỡ — chỉ còn nút `[ ✕ Từ chối hóa đơn ]`).*
 
 ### 3.4. Wireframe trạng thái 🟢 XANH — Đã tự chi theo Mandate (`BRD_01` / `BRD_05`)
 
@@ -182,9 +192,9 @@ Mỗi thẻ duyệt tuân thủ nghiêm ngặt quy tắc **tối đa 5 dòng t�
 
 | Sự kiện SSE | Payload `data` | Cập nhật trạng thái UI & Hiệu ứng `Motion` |
 |---|---|---|
-| *(Mở trang)* | `GET /m/jobs/{job_id}` | Khởi tạo cây điều phối + 5 hoặc 6 thẻ bot theo `invoice_type` (`goods`: 5 bot; `utility`: `branch-operations` + `treasury` + `tax` + `fraud-control`). Nối `@microsoft/fetch-event-source` kèm `Last-Event-ID`. |
+| *(Mở trang)* | `GET /m/jobs/{job_id}` | Khởi tạo cây điều phối và thẻ bot từ `Job.bot_states` (không viết cứng số bot). Bot bắt buộc theo `invoice_type` ở [agent-lifecycle-and-memory.md](../03-agents/agent-lifecycle-and-memory.md): hiện `goods` 5 bot, `utility` chỉ `branch-operations` + `treasury`; bot khác chỉ hiện khi điều phối thật sự gọi. Nối `@microsoft/fetch-event-source` kèm `Last-Event-ID`. |
 | `supervisor.step` | `{job_id, step, at}` | Nút trung tâm **Kế toán trưởng (`chief-accountant`)** sáng nhịp xung (`pulse`), tăng bộ đếm `Bước điều phối #step/12`. |
-| `bot.started` | `{job_id, bot_id, at}` | Thẻ bot tương ứng chuyển từ `pending` (viền xám) sang `running` (viền xanh dương nhấp nháy, đồng hồ đếm giây `0.0s / 20s`). |
+| `bot.started` | `{job_id, bot_id, at}` | Thẻ bot tương ứng chuyển từ `pending` (viền xám) sang `running` (viền xanh dương nhấp nháy, đồng hồ đếm giây; mốc ngân sách lấy theo [agent-runtime.md §2](../03-agents/agent-runtime.md), hiện `investigate_invoice` 30 s, không viết cứng ở client). |
 | `bot.tool_called` | `{job_id, bot_id, tool_id, at}` | Thêm chip công cụ trượt mượt (`AnimatePresence`) vào chân thẻ bot bằng tên tiếng Việt dễ hiểu: `price_check` → *"Đang tính đơn giá cơ sở vs hợp đồng"*, `einvoice_portal` → *"Tra cổng HĐĐT Tổng cục Thuế"*, `chat_messages` → *"Quét luồng tin nhắn NCC"*. **Không hiển thị chữ `untrusted` trên SSE**. |
 | `bot.finished` | `{job_id, bot_id, severity, at}` | Khóa thời gian chạy, đổi huy hiệu thẻ bot sang `🟢 OK` / `🟡 Chú ý` / `🔴 Chặn`; thu gọn danh sách tool thành số đếm `Đã kiểm 3 nguồn`. |
 | `bot.failed` | `{job_id, bot_id, reason_code, at}` | Thẻ bot đổi sang **🟡 Vàng an toàn** (`BOT_TIMEOUT` / `BOT_INVALID_OUTPUT`), hiển thị rõ chú thích *"Bot quá hạn/lỗi → hệ thống tự nâng lên mức Vàng (Bất biến #9)"*. |
@@ -229,7 +239,7 @@ Chủ chuỗi mở HĐ 🟡 ──► GET /approval-preview (Core hỏi Gate /ev
         ▼ (Bấm "Duyệt chi")
   Mở StepUpApprovalDialog:
   1. Nếu verification_required = true (CROSS_ALERT_HIT):
-     Bắt buộc tích "Đã gọi SĐT lưu sẵn 0280***003 → NCC xác nhận đúng (confirmed)"
+     Bắt buộc tích "Đã gọi SĐT lưu sẵn 0900***001 → NCC xác nhận đúng (confirmed)" (số từ phone_on_file_masked)
      (Nếu chọn not_reachable / denied_by_vendor → chỉ mở nút "Từ chối")
   2. Hiển thị: Số tiền + Bằng chữ + TK danh bạ (****0003) + Nội dung CK chuẩn D2
   3. Gọi /sim/identity/step-up-challenges {momo_token, action_hash}
@@ -251,7 +261,7 @@ Chủ chuỗi mở HĐ 🟡 ──► GET /approval-preview (Core hỏi Gate /ev
 | Tình huống | Trạng thái `Invoice` / `Escrow` | Những gì UI hiển thị | Thao tác được phép trên UI |
 |---|---|---|---|
 | **Đỏ có thể gỡ bằng đổi TK (`BRD_02` Sữa 31tr)** | `invoice: blocked` (`PAYEE_CHANGE_REQUEST`) | Thẻ đỏ chỉ rõ xung đột giữa TK Zalo cá nhân (`998812345601`) và TK công ty đã lưu; hiện SĐT lưu sẵn `phone_on_file_masked`. | `Mở xác minh đổi TK (F12)` (gọi SĐT lưu sẵn → `record-callback` → `owner` step-up `:approve` → tự điều tra lại) hoặc `Từ chối`. |
-| **Đỏ từ NCC mới / rủi ro (`BRD_04` Si-rô 8,8tr)** | `invoice: blocked` (`UNKNOWN_VENDOR`, `PERSONAL_ACCOUNT`, `TAX_RISK_LIST`, `HIDDEN_INSTRUCTION`) | Chặn chuyển thẳng; cảnh báo rủi ro mất khấu trừ VAT nếu trả TK cá nhân; mở nút sang luồng cọc an toàn. | `Đặt cọc tạm giữ (F7)`: nhập **TK công ty** đúng tên + MST (`target_status = escrow_only`; nhập TK cá nhân bị chặn `422 PERSONAL_ACCOUNT_NOT_ALLOWED`) → gắn `PO` → khóa cọc hoặc `Từ chối`. |
+| **Đỏ từ NCC mới / rủi ro (`BRD_04` Si-rô 8,8tr)** | `invoice: blocked` (`UNKNOWN_VENDOR`, `PERSONAL_ACCOUNT`, `TAX_RISK_LIST`, `HIDDEN_INSTRUCTION`) | Chặn chuyển thẳng; cảnh báo rủi ro mất khấu trừ VAT nếu trả TK cá nhân; mở nút sang luồng cọc an toàn. | `Đặt cọc tạm giữ (F7)`: nhập **TK công ty** đúng tên + MST (`target_status = escrow_only`; nhập TK cá nhân bị chặn `422 VALIDATION_FAILED`, `errors[].code = PERSONAL_ACCOUNT_NOT_ALLOWED`) → gắn `PO` → khóa cọc hoặc `Từ chối`. |
 | **Đang giữ tiền cọc tạm giữ (`F7` giữa kỳ)** | `invoice: escrow_held`, `escrow: held` | Thanh tiến trình **3 bước của Cọc tạm giữ**: `[✓ 1. Đã khóa tiền tại NH đối tác]` → `[⏳ 2. Duyệt HĐ giao hàng (kênh escrow)]` → `[⏳ 3. Quản lý quán/bếp xác nhận Phiếu nhập kho (GRN)]` + ngày hết hạn `expires_on`. | Quản lý quán/bếp bấm `Xác nhận nhận đủ hàng (POST /m/goods-receipts)`; Chủ chuỗi bấm `Duyệt HĐ giao hàng` → đủ cả 2 thì Gate tự giải ngân (`released` / `paid`), quá hạn tự hoàn (`refunded`). |
 | **Chặn cứng không thể gỡ (`SIMO` / Trùng HĐ)** | `invoice: blocked` (`OFFICIAL_FRAUD_LIST` hoặc `DUPLICATE_INVOICE`) | Khung khiên đỏ sẫm **"CHẶN CỨNG THEO DANH SÁCH CHÍNH THỨC / HÓA ĐƠN TRÙNG"** (với trùng HĐ có link mở `duplicate_of` gốc để đối chiếu). | **Chỉ duy nhất nút `Từ chối hóa đơn`** (ẩn mọi wizard F7/F12). |
 | **Cảnh báo chéo sau khi đã duyệt (`D8`, `TRAP_02`)** | Đang `approved`/`scheduled` → tự lùi về `pending_approval` (`verification_required: true`) | Banner vàng cam đầu thẻ: *"Phê duyệt trước đó đã hết hiệu lực (`superseded`) do chỉ báo vừa bị gắn Cảnh báo chéo trên mạng lưới MoMo."* | Bắt buộc gọi `phone_on_file_masked` + ký duyệt lại có `verification`. |
@@ -264,15 +274,15 @@ Chủ chuỗi mở HĐ 🟡 ──► GET /approval-preview (Core hỏi Gate /ev
 |---|---|---|
 | **Hàng chờ duyệt (`M1`) trống** | `Empty` (`groups: []`) | Minh họa khiên xanh + dòng chữ: *"Không có hóa đơn vàng/đỏ nào chờ chị Lan quyết. Hôm nay đã tự động thanh toán X hóa đơn xanh (tổng Y đ) trong hạn mức an toàn."* + nút `Xem lịch sử đã chi`. |
 | **Đang tải danh sách / chi tiết** | `Loading` | Dùng `Skeleton` đúng kích thước 5 dòng của `ApprovalCard` và dải 6 ô bot (tránh nhảy bố cục `CLS = 0`). |
-| **Đang điều tra (`investigating`)** | `Streaming` | Khóa khu vực nút `Duyệt` bằng dải trạng thái `Đang chờ 6 bot hoàn tất kiểm tra (~20s)...`, tự bung `LiveInvestigationView` ngay phía trên. |
+| **Đang điều tra (`investigating`)** | `Streaming` | Khóa khu vực nút `Duyệt` bằng dải trạng thái `Đang chờ các bot bắt buộc hoàn tất kiểm tra...`, tự bung `LiveInvestigationView` ngay phía trên. |
 | **Upload trùng đúng file (`200`) vs khác file cùng số HĐ (`409 DUPLICATE_INVOICE`)** | `Idempotent` / `Error 409` | • `200`: Toast thông tin *"File này đã có trên hệ thống — đang mở hóa đơn hiện có."*<br>• `409`: `Alert` đỏ kèm nút **`Mở hóa đơn gốc (existing_invoice_id)`** để so sánh vì sao cùng ký hiệu/số mà nội dung byte khác nhau. |
 | **Upload XML hỏng cấu trúc (`422 XML_UNPARSEABLE`)** | `Error 422` | Báo rõ *"File XML không đúng chuẩn HĐĐT QĐ 1233/QĐ-CT hoặc khác đơn vị VND — hệ thống không lưu."* Gợi ý tải lại đúng bản gốc XML từ NCC. |
 | **Upload PDF / ảnh (`NON_XML_SOURCE`)** | `Pending Input` | Hóa đơn có `total_vnd = null`; khóa nút Duyệt, hiện form gọn `Nhập số liệu kiểm tra từ PDF` (`PATCH /manual-fields`) và báo trước hóa đơn này luôn giữ mức ≥ 🟡 Vàng. |
 | **Gate không phản hồi (`503 UPSTREAM_UNAVAILABLE`)** | `Fail-Closed` | Khóa cứng nút `Duyệt`, hiện hộp xám–đỏ: *"Không kết nối được Khóa an toàn Payment Gate (timeout 2s). Theo nguyên tắc an toàn fail-closed, tạm khóa duyệt chi."* + nút `Kiểm tra lại`. |
 | **Hóa đơn đổi dữ liệu lúc đang mở modal (`409 INTENT_HASH_MISMATCH`)** | `Stale Preview` | Đóng hộp OTP, hiện thông báo *"Kết quả điều tra của hóa đơn vừa được cập nhật. Hệ thống đã tải lại bản mới nhất để bạn xem trước khi ký."* |
-| **Mandate đang ở `review_only` (`409 MANDATE_REVIEW_ONLY`)** | `Policy Info` | Ẩn/khóa nút `Duyệt chi qua PayMatch`, đổi nhãn thành *"Chế độ Chỉ đối soát: Chị tự chuyển khoản bên ngoài sau khi xem kết quả"* + link sang cài đặt `Mandate`. |
+| **Mandate đang ở `review_only` (`409 INVALID_STATE`, `errors[].code = MANDATE_REVIEW_ONLY`)** | `Policy Info` | Ẩn/khóa nút `Duyệt chi qua PayMatch`, đổi nhãn thành *"Chế độ Chỉ đối soát: Chị tự chuyển khoản bên ngoài sau khi xem kết quả"* + link sang cài đặt `Mandate`. |
 | **Vi phạm 2 người trên Console (`409 MAKER_CHECKER_VIOLATION`)** | `Error 409` | Trên `web-console`, nếu cùng `staff_id` vừa tạo đề xuất gỡ `KillSwitch` / `HardBlock` vừa bấm duyệt: khóa nút `Approve` ngay trên client kèm tooltip *"Cần Trưởng nhóm Rủi ro (RL) khác người đề xuất phê duyệt."* |
-| **Thiếu mã ticket CSKH (`403 TICKET_REQUIRED`)** | `Guard` | Nút `Tra cứu bằng chứng` trên tab CSKH bị `disabled` cho tới khi ô `Mã Ticket khiếu nại` khớp định dạng (ví dụ `TCK-2026-XXXX`), ghi rõ *"Mọi lượt xem đều lưu nhật ký kiểm toán `access_log`."* |
+| **Thiếu mã ticket CSKH (`403 TICKET_REQUIRED`)** | `Guard` | Nút `Tra cứu bằng chứng` trên tab CSKH bị `disabled` cho tới khi ô `Mã Ticket khiếu nại` có giá trị (định dạng ticket chưa chốt trong [console-api.md §5](../05-api/console-api.md); FE chỉ chặn ô rỗng, để backend kiểm định dạng), ghi rõ *"Mọi lượt xem đều lưu nhật ký kiểm toán `access_log`."* |
 
 ---
 
@@ -283,9 +293,9 @@ Chủ chuỗi mở HĐ 🟡 ──► GET /approval-preview (Core hỏi Gate /ev
 | Mốc giờ | Kịch bản `sim-world` sử dụng | Thao tác của Driver trên màn hình | Lời dẫn ngắn gọn của Speaker & Điểm "Wow" chấm điểm |
 |---|---|---|---|
 | **0:00 – 0:25**<br>*(25s)*<br>**Mở màn & Tự chi êm** | `BRD_01_COFFEE_26M5` (🟢 26,5tr) + `BRD_05_POS_SOFTWARE_12M` (🟢 12tr thẻ ảo) | Mở **M1 Hàng chờ duyệt** của Chị Lan. Chỉ vào thanh KPI đầu ngày (`2 HĐ xanh 38,5tr đã tự chi`, `còn 3 HĐ vàng/đỏ cần xem`), mở nhanh 3 giây biên lai `BRD_05` cấp thẻ ảo 1 lần. | *"Chuỗi F&B 16 điểm nhận 550 hóa đơn/tháng. Với PayMatch trên MoMo Doanh Nghiệp, cà phê 26,5 triệu và phần mềm POS 12 triệu khớp 100% hợp đồng đã tự trả bằng lệnh chi 1-1 và thẻ ảo 1 lần. Chị Lan không tốn một giây nào cho hóa đơn đúng."* |
-| **0:25 – 1:05**<br>*(40s)*<br>**Bắt đắt ngầm & Rò nước** | `BRD_03_CUPS_SHRINKFLATION` (🟡 22,4tr) + `BRD_06_WATER_STORE3_4M2` (🟡 4,21tr) | 1) Bấm vào thẻ 🟡 **Cốc nhựa 22,4tr**: chỉ ô Diff `1.000 → 800 cái/thùng (+21,74%/cái)` trên Thẻ duyệt 5 dòng → bấm `Từ chối` → hiện ngay **Mẫu yêu cầu HĐ điều chỉnh** → bấm `Sao chép`.<br>2) Lướt nhanh thẻ 🟡 **Nước Quán 3**: thấy biểu đồ `144 m³ (6× trung vị 24 m³)` trong khi doanh thu QR MoMo đi ngang. | *"Cái khó bắt nhất là ăn gian quy cách: giá thùng giảm nhẹ từ 575k xuống 560k, nhưng rút ruột từ 1.000 xuống 800 cái — đắt hơn 21,7%! Bot Thu mua đọc quy cách, code tính đơn giá từng cái, bấm Từ chối có sẵn công văn đòi điều chỉnh. Cạnh đó, tiền nước Quán 3 vọt gấp 6 lần dù doanh thu QR MoMo không tăng — báo ngay nghi rò ống nước!"* |
+| **0:25 – 1:05**<br>*(40s)*<br>**Bắt đắt ngầm & Rò nước** | `BRD_03_CUPS_SHRINKFLATION` (🟡 22,4tr) + `BRD_06_WATER_STORE3_4M2` (🟡 4,21tr) | 1) Bấm vào thẻ 🟡 **Cốc nhựa 22,4tr**: chỉ ô Diff `1.000 → 800 cái/thùng (+21,74%/cái)` trên Thẻ duyệt 5 dòng → bấm `Từ chối` → hiện ngay **Mẫu yêu cầu HĐ điều chỉnh** → bấm `Sao chép`.<br>2) Lướt nhanh thẻ 🟡 **Nước Quán 3**: thấy biểu đồ `144 m³ (6× trung vị 24 m³)` trong khi doanh thu QR MoMo đi ngang. | *"Cái khó bắt nhất là ăn gian quy cách: giá thùng gồm VAT giảm nhẹ từ 575k xuống 560k, nhưng rút ruột từ 1.000 xuống 800 cái — đắt hơn 21,7%! Bot Thu mua đọc quy cách, code tính đơn giá từng cái, bấm Từ chối có sẵn công văn đòi điều chỉnh. Cạnh đó, tiền nước Quán 3 vọt gấp 6 lần dù doanh thu QR MoMo không tăng — báo ngay nghi rò ống nước!"* |
 | **1:05 – 2:00**<br>*(55s)*<br>**Live 6 Bot & Chặn Prompt Injection + Đổi TK** | `BRD_04_SYRUP_NEW_VENDOR_FRAUD` (🔴 8,8tr, `PI_01`/`PI_03`) + nhắc nhanh `BRD_02_MILK_31M_ZALO_PAYEE` (🔴 31tr) | Từ `Demo Toolbar (Alt+D)`, bắn trực tiếp kịch bản **`BRD_04` Si-rô NCC mới** (hoặc mở lại live replay `15s`) → mở **M2.1 Sơ đồ 6 Bot SSE** đang chạy song song → nhảy ra kết quả **🔴 ĐÃ CHẶN CỨNG**. Bấm chip `[🛡️ Xem câu lệnh giấu TTKhac]` làm sáng dòng lệnh lừa AI trong XML; chỉ vào nút `Duyệt` đã biến mất, chỉ mở hướng `Cọc tạm giữ (F7)` vào TK công ty. | *"Xem 6 kế toán AI làm việc trực tiếp khi hóa đơn si-rô mới vừa rơi vào hộp thư! Kẻ gian vừa đòi cọc vào TK cá nhân, vừa nhét câu lệnh giấu ngay trong thẻ `<TTKhac>` của XML bảo AI bỏ qua kiểm tra và chấm Xanh. Vô ích: Kế toán trưởng không đọc chữ bẩn, `fraud-control` bắt sống `HIDDEN_INSTRUCTION`, `tax` phát hiện DN rủi ro thuế, và `Payment Gate` bằng code khóa cứng — không có nút duyệt đè!"* |
-| **2:00 – 2:45**<br>*(45s)*<br>**Cao trào Bẫy cuối trên toàn mạng MoMo** | `TRAP_01_CARD_MISUSE` + `TRAP_02_CROSS_ALERT_TENANT_B` (`F3`, `F8`) | Chuyển sang chế độ **Split-Screen**: Trái = **MoMo Risk Console (`C1`)**, Phải = **App Chuỗi B — Bếp Phố Xanh**. 1) Bấm nút giả lập kẻ gian quẹt trộm thẻ ảo POS ở merchant lạ (`TRAP_01`) → bị từ chối, nảy cảnh báo trên Console. 2) Chuyên viên MoMo chọn cảnh báo NCC si-rô `0999090001` → bấm **`Phát cảnh báo chéo`**. Ngay lập tức bên phải (Chuỗi B), hóa đơn cùng NCC si-rô tự nhảy sang **🟡 `CROSS_ALERT_HIT` — Bắt buộc gọi xác minh SĐT lưu sẵn**! | *"Và đây là lý do PayMatch phải nằm trên MoMo: kẻ gian lấy số thẻ ảo quẹt ở nơi khác lập tức bị từ chối. Khi chuyên viên rủi ro MoMo bấm Cảnh báo chéo cho NCC si-rô lừa đảo, ngay tức khắc mọi cửa hàng khác trên mạng lưới như Chuỗi Bếp Phố Xanh được thu hồi lệnh duyệt cũ và buộc xác minh lại trước khi tiền kịp rời ví!"* |
+| **2:00 – 2:45**<br>*(45s)*<br>**Cao trào Bẫy cuối trên toàn mạng MoMo** | `TRAP_01_CARD_MISUSE` + `TRAP_02_CROSS_ALERT_TENANT_B` (`F3`, `F8`) | Chuyển sang chế độ **Split-Screen**: Trái = **MoMo Risk Console (`C1`)**, Phải = **App Chuỗi B — Bếp Phố Xanh**. 1) Bấm nút giả lập kẻ gian quẹt trộm thẻ ảo POS ở merchant lạ (`TRAP_01`) → bị từ chối, nảy cảnh báo trên Console. 2) Chuyên viên MoMo chọn cảnh báo người bán si-rô BRD_04 (`0999090001`) → bấm **`Phát cảnh báo chéo`** theo indicator SĐT `0900***001`. Ngay lập tức bên phải (Chuỗi B), hóa đơn si-rô của NCC `0999090013` (công ty khác, giấy tờ sạch, nhưng dùng chung SĐT với người bán BRD_04) tự nhảy sang **🟡 `CROSS_ALERT_HIT` — Bắt buộc gọi xác minh SĐT lưu sẵn**! | *"Và đây là lý do PayMatch phải nằm trên MoMo: kẻ gian lấy số thẻ ảo quẹt ở nơi khác lập tức bị từ chối. Khi chuyên viên rủi ro MoMo bấm Cảnh báo chéo cho người bán si-rô lừa đảo, ngay cả công ty bình phong khác tên, khác MST nhưng chung số điện thoại cũng bị lộ: mọi cửa hàng khác trên mạng lưới như Chuỗi Bếp Phố Xanh được thu hồi lệnh duyệt cũ và buộc xác minh lại trước khi tiền kịp rời ví!"* |
 | **2:45 – 3:00**<br>*(15s)*<br>**Chốt hạ quy mô & an toàn** | *(Tổng kết trên màn hình)* | Quay lại màn hình chính sạch gọn, mở nhanh ngăn `Mandate` (`30tr/HĐ · 50tr/ngày`) + câu khẩu hiệu. | *"AI đọc và điều tra; con người chỉ quyết vài ca lạ; khóa an toàn bằng code mới được chi tiền. PayMatch — Khớp rồi mới chi!"* |
 
 > **Kịch bản dự phòng hỏi–đáp giám khảo (Q&A 1 chạm từ `Demo Toolbar`):**
