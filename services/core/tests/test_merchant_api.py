@@ -702,3 +702,368 @@ def test_i7_i3_i2_i10_auth_proof_preview_expiry_escrow_concurrent_change_and_upl
     )
     assert r_esc.status_code == 409
     assert r_esc.json()["code"] == "INVALID_STATE"
+
+
+@pytest.mark.db
+def test_i3_core_only_phone_masked_verification_bound_earlier_proof_and_post_lock_ttl(
+    seeded_db: Database,
+    merchant_db: Database,
+    fixed_clock: FixedClock,
+) -> None:
+    """I3 & Nit 1: Core-only verification_required returns phone_on_file_masked; earlier proof (iat < preview.created_at)
+    is rejected; post-lock preview/proof expiry is rejected; verification-bound approval succeeds and consumes preview once.
+    """
+    sec_clock = FixedClock(fixed_clock.now())
+    idp = FakeIdentityProvider()
+    advance_on_eval: dict[str, int] = {"seconds": 0}
+
+    class AdvancingGate(StubGate):
+        def evaluate_invoice(self, *, invoice_id: str, tenant_id: str) -> GateEvaluation:
+            res = super().evaluate_invoice(invoice_id=invoice_id, tenant_id=tenant_id)
+            if advance_on_eval["seconds"] > 0:
+                sec_clock.advance(timedelta(seconds=advance_on_eval["seconds"]))
+                advance_on_eval["seconds"] = 0
+            return res
+
+    gate = AdvancingGate(db=seeded_db)
+    cfg = CoreSettings(
+        database_url=merchant_db.dsn,
+        demo_mode=False,
+        approval_preview_ttl_seconds=300,
+    )
+    app = create_merchant_app(
+        cfg,
+        db=merchant_db,
+        sim_world=StubSim(),
+        gate_client=gate,
+        jwks_verifier=StaticJwksVerifier(idp.jwks(), expected_issuer="sim-world", clock=sec_clock),
+        clock=fixed_clock,
+        security_clock=sec_clock,
+    )
+    client = TestClient(app)
+    sec_ts = int(sec_clock.now().timestamp())
+    owner_jwt = client.post(
+        "/m/auth/session", json={"momo_token": idp.issue_momo_token(OWNER_A, TENANT_A, now_ts=sec_ts)}
+    ).json()["session_jwt"]
+    owner_hdr = {"Authorization": f"Bearer {owner_jwt}"}
+
+    cups_xml = (DEMO_DATA_DIR / "inbox/attachments/1C26TNX_00000744.xml").read_bytes()
+    up = client.post(
+        "/m/invoices:upload",
+        files={"file": ("cups_i3.xml", cups_xml, "application/xml")},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-up"},
+    ).json()
+    inv_id, job_id = up["invoice_id"], up["job_id"]
+    _complete_cups_job(seeded_db, job_id, fixed_clock)
+
+    # Set verification_required=True ONLY on Core invoice (StubGate returns verification_required=False!)
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET verification_required = TRUE WHERE invoice_id = %s",
+                (inv_id,),
+            )
+
+    # 1. Preview MUST return verification_required=True AND non-null phone_on_file_masked from vendor registry!
+    prev1 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    assert prev1["verification_required"] is True
+    assert prev1["phone_on_file_masked"] is not None and "*" in prev1["phone_on_file_masked"]
+    ih = prev1["intent_hash"]
+
+    ver_payload = {
+        "called_phone_on_file": True,
+        "result": "confirmed",
+        "note": "Đã gọi lại kế toán trưởng NCC",
+        "at": "2026-11-26T09:00:00+07:00",
+    }
+    bound_ah = action_hash("approve_invoice", inv_id, payload_hash_approval(ih, ver_payload))
+
+    # 2. Mint an earlier proof at t0, then advance clock +10s and create a NEWER preview at t1 ->
+    #    t0 proof MUST be rejected (403 STEP_UP_INVALID: predates preview)!
+    earlier_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=600)
+    sec_clock.advance(timedelta(seconds=10))
+    prev2 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    assert prev2["intent_hash"] == ih
+
+    r_early = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": ih, "job_id": job_id, "auth_proof": earlier_proof, "verification": ver_payload},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-early-proof"},
+    )
+    assert r_early.status_code == 403
+    assert r_early.json()["code"] == "STEP_UP_INVALID"
+
+    # 3. Post-lock preview expiry: preview is fresh at request start, Gate evaluation stalls +350s past preview TTL ->
+    #    post-lock re-check MUST reject with 409 INTENT_HASH_MISMATCH!
+    fresh_proof_slow = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=600)
+    advance_on_eval["seconds"] = 350
+    r_slow_prev = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": ih, "job_id": job_id, "auth_proof": fresh_proof_slow, "verification": ver_payload},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-slow-prev"},
+    )
+    assert r_slow_prev.status_code == 409
+    assert r_slow_prev.json()["code"] == "INTENT_HASH_MISMATCH"
+
+    # 4. Post-lock proof expiry: fresh preview (300s TTL), short proof (30s exp), Gate stalls +60s ->
+    #    post-lock re-check MUST reject with 403 STEP_UP_INVALID!
+    prev3 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    short_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=30)
+    advance_on_eval["seconds"] = 60
+    r_slow_proof = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": prev3["intent_hash"], "job_id": job_id, "auth_proof": short_proof, "verification": ver_payload},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-slow-proof"},
+    )
+    assert r_slow_proof.status_code == 403
+    assert r_slow_proof.json()["code"] == "STEP_UP_INVALID"
+
+    # 5. Successful verification-bound approval: fresh preview + fresh proof -> 200 AND preview consumed once!
+    prev4 = client.get(f"/m/invoices/{inv_id}/approval-preview", headers=owner_hdr).json()
+    good_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=300)
+    r_ok = client.post(
+        f"/m/invoices/{inv_id}:approve",
+        json={"intent_hash": prev4["intent_hash"], "job_id": job_id, "auth_proof": good_proof, "verification": ver_payload},
+        headers={**owner_hdr, "Idempotency-Key": "idem-i3-ok"},
+    )
+    assert r_ok.status_code == 200
+    assert r_ok.json()["invoice"]["status"] == "approved"
+    assert r_ok.json()["approval"]["verification"]["result"] == "confirmed"
+    with seeded_db.connect() as conn:
+        leftover = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM core.approval_previews WHERE invoice_id = %s AND expires_at >= %s",
+            (inv_id, sec_clock.now()),
+        ).fetchone()["cnt"]
+        expired_left = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM core.approval_previews WHERE invoice_id = %s AND expires_at < %s",
+            (inv_id, sec_clock.now()),
+        ).fetchone()["cnt"]
+    assert expired_left == 0
+    assert leftover <= 1  # consumed prev4; earlier non-expired prev3 may remain until TTL
+
+
+@pytest.mark.db
+def test_i2_i6_sse_reverse_commit_store_filter_session_expiry_and_asgi_upload_limit(
+    seeded_db: Database,
+    merchant_db: Database,
+    worker_db: Database,
+    fixed_clock: FixedClock,
+) -> None:
+    """I2: tenant SSE delivers reverse-committed lower-seq events, filters store_manager in SQL, closes on session expiry.
+    I6: pre-multipart ASGI guard rejects oversized Content-Length & chunked streams with 413; poller forwards parser config.
+    """
+    import asyncio
+    import threading
+    from psycopg.types.json import Jsonb
+    from core.ingest.application.poller import InboxAttachment, InboxMessage, poll_sources_once
+
+    sec_clock = FixedClock(fixed_clock.now())
+    idp = FakeIdentityProvider()
+    cfg = CoreSettings(
+        database_url=merchant_db.dsn,
+        demo_mode=False,
+        max_invoice_bytes=200_000,
+        session_ttl_seconds=60,
+        sse_poll_interval_s=0.05,
+        sse_keepalive_interval_s=0.2,
+        sse_max_idle_seconds=5.0,
+    )
+    app = create_merchant_app(
+        cfg,
+        db=merchant_db,
+        sim_world=StubSim(),
+        gate_client=StubGate(db=seeded_db),
+        jwks_verifier=StaticJwksVerifier(idp.jwks(), expected_issuer="sim-world", clock=sec_clock),
+        clock=fixed_clock,
+        security_clock=sec_clock,
+    )
+    client = TestClient(app)
+    sec_ts = int(sec_clock.now().timestamp())
+    owner_jwt = client.post(
+        "/m/auth/session", json={"momo_token": idp.issue_momo_token(OWNER_A, TENANT_A, now_ts=sec_ts)}
+    ).json()["session_jwt"]
+    owner_hdr = {"Authorization": f"Bearer {owner_jwt}"}
+
+    # --- I6a: Pre-multipart ASGI Content-Length guard rejects BEFORE auth or multipart parsing! ---
+    r_cl = client.post(
+        "/m/invoices:upload",
+        content=b"not-even-multipart",
+        headers={"Content-Length": str(cfg.max_invoice_bytes + 100_000), "Content-Type": "multipart/form-data; boundary=x"},
+    )
+    assert r_cl.status_code == 413
+    assert r_cl.json()["code"] == "PAYLOAD_TOO_LARGE"
+
+    # --- I6b: Pre-multipart ASGI chunked streaming guard (no Content-Length) aborts with 413 ---
+    async def _run_chunked_asgi() -> int:
+        sent_status = 0
+        part_hdr = (
+            b'--abc\r\nContent-Disposition: form-data; name="file"; filename="big.pdf"\r\n'
+            b"Content-Type: application/pdf\r\n\r\n"
+        )
+        chunks = [part_hdr + b"A" * 100_000, b"B" * 100_000, b"C" * 100_000 + b"\r\n--abc--\r\n"]
+        idx = 0
+
+        async def _recv():
+            nonlocal idx
+            if idx < len(chunks):
+                b = chunks[idx]
+                idx += 1
+                return {"type": "http.request", "body": b, "more_body": idx < len(chunks)}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def _send(msg):
+            nonlocal sent_status
+            if msg["type"] == "http.response.start":
+                sent_status = msg["status"]
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/m/invoices:upload",
+            "raw_path": b"/m/invoices:upload",
+            "query_string": b"",
+            "headers": [
+                (b"content-type", b"multipart/form-data; boundary=abc"),
+                (b"authorization", f"Bearer {owner_jwt}".encode("ascii")),
+            ],
+        }
+        await app(scope, _recv, _send)
+        return sent_status
+
+    assert asyncio.run(_run_chunked_asgi()) == 413
+
+    # --- I6c: Poller propagates default_due_days and max_xml_elements into ingest_invoice ---
+    xml_bytes = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    with worker_db.connect() as wconn:
+        mb_a = wconn.execute("SELECT mailbox FROM core.tenants WHERE tenant_id = %s", (TENANT_A,)).fetchone()["mailbox"]
+
+    class OneMsgSource:
+        def list_inbox_messages(self, mailbox: str, after: str | None = None):
+            if mailbox != mb_a or after is not None:
+                return [], None
+            return [
+                InboxMessage(
+                    message_id="msg_cfg_1",
+                    from_address="v@test",
+                    subject="Inv",
+                    body_text="Body",
+                    received_at=fixed_clock.now(),
+                    attachments=(
+                        InboxAttachment(
+                            attachment_id="att_cfg",
+                            filename="1C26TTN_00001425.xml",
+                            content_type="application/xml",
+                            raw_bytes=xml_bytes,
+                        ),
+                    ),
+                )
+            ], None
+
+        def list_bills(self, wallet_id: str, after: str | None = None):
+            return [], None
+
+        def fetch_bill_document(self, bill_id: str) -> bytes | None:
+            return None
+
+    # Tiny max_xml_elements=5 rejects the XML attachment cleanly (0 ingested)
+    with worker_db.connect() as wconn:
+        res_tiny = poll_sources_once(wconn, OneMsgSource(), clock=fixed_clock, max_xml_elements=5)
+        assert res_tiny == []
+    # Reset cursor via seeded_db so next poll sees the message with default_due_days=15
+    with seeded_db.connect() as sconn:
+        with sconn.transaction():
+            sconn.execute("DELETE FROM core.poll_cursors WHERE tenant_id = %s", (TENANT_A,))
+    with worker_db.connect() as wconn:
+        res_ok = poll_sources_once(wconn, OneMsgSource(), clock=fixed_clock, default_due_days=15)
+        assert len(res_ok) == 1
+        inv_due = wconn.execute(
+            "SELECT issued_on, due_on FROM core.invoices WHERE invoice_id = %s",
+            (res_ok[0].invoice_id,),
+        ).fetchone()
+    assert inv_due["due_on"] == inv_due["issued_on"] + timedelta(days=15)
+
+    # --- I2a: Tenant SSE delivers reversed-commit lower-seq event AND closes promptly on session expiry ---
+    evt_low = new_id("evt")
+    evt_high = new_id("evt")
+
+    def _reversed_commit_and_expire() -> None:
+        with seeded_db.connect() as c1, seeded_db.connect() as c2:
+            # c1 allocates lower seq N (uncommitted)
+            c1.execute(
+                """
+                INSERT INTO core.sse_events (event_id, stream_type, stream_key, tenant_id, store_id, event_type, data, created_at)
+                VALUES (%s, 'tenant', %s, %s, NULL, 'notification.created', %s, %s)
+                """,
+                (evt_low, TENANT_A, TENANT_A, Jsonb({"tag": "low_seq"}), fixed_clock.now()),
+            )
+            # c2 allocates higher seq N+1 and commits FIRST
+            c2.execute(
+                """
+                INSERT INTO core.sse_events (event_id, stream_type, stream_key, tenant_id, store_id, event_type, data, created_at)
+                VALUES (%s, 'tenant', %s, %s, NULL, 'notification.created', %s, %s)
+                """,
+                (evt_high, TENANT_A, TENANT_A, Jsonb({"tag": "high_seq"}), fixed_clock.now()),
+            )
+            c2.commit()
+            # Let SSE stream poll and deliver high_seq first
+            time.sleep(0.20)
+            # Now c1 commits lower seq N!
+            c1.commit()
+            time.sleep(0.20)
+            # Expire session on sec_clock -> stream MUST close promptly instead of waiting 5s!
+            sec_clock.advance(timedelta(seconds=120))
+
+    t0 = time.monotonic()
+    bg = threading.Thread(target=_reversed_commit_and_expire, daemon=True)
+    bg.start()
+    sse_resp = client.get("/m/events", headers=owner_hdr)
+    bg.join(timeout=10)
+    elapsed = time.monotonic() - t0
+    assert sse_resp.status_code == 200
+    assert evt_high in sse_resp.text
+    assert evt_low in sse_resp.text, f"Lower-seq late commit {evt_low} was skipped! Body: {sse_resp.text}"
+    assert elapsed < 3.0, f"SSE stream did not close promptly on session expiry (took {elapsed:.2f}s)"
+
+    # --- I2b: Store-manager SQL filtering delivers ONLY assigned store's events ---
+    with seeded_db.connect() as conn:
+        sm = conn.execute(
+            "SELECT user_id, store_ids FROM core.users WHERE tenant_id = %s AND role = 'store_manager' LIMIT 1",
+            (TENANT_A,),
+        ).fetchone()
+        other_store = conn.execute(
+            "SELECT store_id FROM core.stores WHERE tenant_id = %s AND NOT (store_id = ANY(%s)) LIMIT 1",
+            (TENANT_A, list(sm["store_ids"])),
+        ).fetchone()
+        ev_mine = new_id("evt")
+        ev_other = new_id("evt")
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO core.sse_events (event_id, stream_type, stream_key, tenant_id, store_id, event_type, data, created_at)
+                VALUES (%s, 'tenant', %s, %s, %s, 'notification.created', %s, %s),
+                       (%s, 'tenant', %s, %s, %s, 'notification.created', %s, %s)
+                """,
+                (
+                    ev_other, TENANT_A, TENANT_A, other_store["store_id"], Jsonb({"tag": "other"}), fixed_clock.now(),
+                    ev_mine, TENANT_A, TENANT_A, sm["store_ids"][0], Jsonb({"tag": "mine"}), fixed_clock.now(),
+                ),
+            )
+    sm_ts = int(sec_clock.now().timestamp())
+    sm_jwt = client.post(
+        "/m/auth/session", json={"momo_token": idp.issue_momo_token(sm["user_id"], TENANT_A, now_ts=sm_ts)}
+    ).json()["session_jwt"]
+
+    def _expire_sm() -> None:
+        time.sleep(0.25)
+        sec_clock.advance(timedelta(seconds=120))
+
+    bg2 = threading.Thread(target=_expire_sm, daemon=True)
+    bg2.start()
+    sm_sse = client.get("/m/events", headers={"Authorization": f"Bearer {sm_jwt}"})
+    bg2.join(timeout=10)
+    assert sm_sse.status_code == 200
+    assert ev_mine in sm_sse.text
+    assert ev_other not in sm_sse.text

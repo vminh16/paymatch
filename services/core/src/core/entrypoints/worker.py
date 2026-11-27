@@ -1366,6 +1366,9 @@ def run_worker_tick(
     source_port: InvoiceSourcePort | None,
     gate_client: GateClientPort,
     clock: Clock | None = None,
+    max_invoice_bytes: int = 5 * 1024 * 1024,
+    max_xml_elements: int = 10_000,
+    default_due_days: int = 7,
 ) -> dict[str, int]:
     """Run one complete tick of core-worker (poller, core.outbox, ledger.outbox, scheduled payments, preview prune)."""
     clk = clock or SystemClock()
@@ -1377,7 +1380,14 @@ def run_worker_tick(
     with db.connect() as conn:
         if source_port is not None:
             try:
-                ingested = poll_sources_once(conn, source_port, clock=clk)
+                ingested = poll_sources_once(
+                    conn,
+                    source_port,
+                    clock=clk,
+                    max_invoice_bytes=max_invoice_bytes,
+                    max_xml_elements=max_xml_elements,
+                    default_due_days=default_due_days,
+                )
                 ingested_count = sum(1 for r in ingested if not r.already_existed)
             except Exception:
                 logger.warning("poll_sources_once failed; continuing outbox dispatch", exc_info=True)
@@ -1419,7 +1429,15 @@ def main() -> None:
     logger.info("Starting core-worker loop (interval=%.1fs)", cfg.worker_poll_interval_s)
     while True:
         try:
-            stats = run_worker_tick(db, source_port=source_port, gate_client=gate_client, clock=clk)
+            stats = run_worker_tick(
+                db,
+                source_port=source_port,
+                gate_client=gate_client,
+                clock=clk,
+                max_invoice_bytes=cfg.max_invoice_bytes,
+                max_xml_elements=cfg.max_xml_elements,
+                default_due_days=cfg.default_due_days,
+            )
             if any(stats.values()):
                 logger.info("core-worker tick: %s", stats)
         except Exception:

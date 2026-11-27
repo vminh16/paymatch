@@ -1616,6 +1616,29 @@ def create_internal_app(
                     (now, now, tid, job_id),
                 )
                 msg_id = job["subject"].get("message_id") or new_id("cmg")
+                # I2: Emit job.completed to core.sse_events & core.outbox for question/report jobs too
+                jc_evt_id = new_id("evt")
+                jc_data: dict[str, Any] = {
+                    "job_id": job_id,
+                    "task_type": job["task_type"],
+                    "message_id": msg_id if job["task_type"] == "question" else None,
+                    "report_id": job["subject"].get("report_id") if job["task_type"] == "report" else None,
+                    "at": fmt_ts(now),
+                }
+                conn.execute(
+                    """
+                    INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, trace_id, data)
+                    VALUES (%s, 'job.completed', 1, %s, %s, %s, %s)
+                    """,
+                    (jc_evt_id, now, tid, trace_id, Jsonb(jc_data)),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO core.sse_events (event_id, stream_type, stream_key, tenant_id, event_type, data, created_at)
+                    VALUES (%s, 'job', %s, %s, 'job.completed', %s, %s)
+                    """,
+                    (jc_evt_id, job_id, tid, Jsonb(jc_data), now),
+                )
                 return {
                     "status": "completed",
                     "message_id": msg_id,
@@ -1672,6 +1695,19 @@ def create_internal_app(
                         WHERE tenant_id = %s AND job_id = %s
                         """,
                         (Jsonb(err_payload), now, now, tid, job_id),
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO core.sse_events (event_id, stream_type, stream_key, tenant_id, event_type, data, created_at)
+                        VALUES (%s, 'job', %s, %s, 'job.failed', %s, %s)
+                        """,
+                        (
+                            new_id("evt"),
+                            job_id,
+                            tid,
+                            Jsonb({"job_id": job_id, "task_type": job["task_type"], "error_code": body.error_code, "at": fmt_ts(now)}),
+                            now,
+                        ),
                     )
                 return {"will_retry": False}
 

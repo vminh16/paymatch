@@ -170,6 +170,9 @@ def poll_sources_once(
     source_port: InvoiceSourcePort,
     *,
     clock: Clock | None = None,
+    max_invoice_bytes: int = 5 * 1024 * 1024,
+    max_xml_elements: int = 10_000,
+    default_due_days: int = 7,
 ) -> list[IngestResult]:
     """Poll sim-world inbox & bills for every tenant and ingest any new invoices."""
     clk = clock or SystemClock()
@@ -205,10 +208,13 @@ def poll_sources_once(
                                 received_at=msg.received_at,
                             ),
                             clock=clk,
+                            max_invoice_bytes=max_invoice_bytes,
+                            max_xml_elements=max_xml_elements,
+                            default_due_days=default_due_days,
                         )
                         results.append(res)
                     except ProblemError:
-                        # Unparseable attachment on inbox should not crash the poller loop
+                        # Unparseable or oversized attachment on inbox should not crash the poller loop
                         continue
             # I8: checkpoint terminal page using last processed message_id when next_cursor is None
             effective_inbox_cursor = next_inbox_cursor or (messages[-1].message_id if messages else None)
@@ -242,6 +248,9 @@ def poll_sources_once(
                             due_on_hint=bill.due_date,
                         ),
                         clock=clk,
+                        max_invoice_bytes=max_invoice_bytes,
+                        max_xml_elements=max_xml_elements,
+                        default_due_days=default_due_days,
                     )
                     results.append(res)
                 except ProblemError:
