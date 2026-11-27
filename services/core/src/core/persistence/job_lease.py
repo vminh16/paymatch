@@ -1,8 +1,7 @@
-"""Atomic lease fencing and narrow cross-tenant claim helpers for internal-api (B1, B6)."""
+"""Atomic lease fencing and narrow cross-tenant claim helpers for internal-api (B1, B6, I4)."""
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import psycopg
@@ -26,14 +25,13 @@ def claim_next_job(
     *,
     worker_id: str,
     allowed_types: list[str],
-    lease_until: datetime,
-    now: datetime,
+    lease_seconds: int,
     max_concurrent_per_tenant: int,
 ) -> dict[str, Any] | None:
-    """Atomically claim next queued or expired job via narrow SECURITY DEFINER function (B1)."""
+    """Atomically claim next queued or expired job via narrow SECURITY DEFINER function using DB clock_timestamp() (B1, I4)."""
     return conn.execute(
-        "SELECT * FROM core.claim_next_job(%s, %s, %s, %s, %s)",
-        (worker_id, allowed_types, lease_until, now, max_concurrent_per_tenant),
+        "SELECT * FROM core.claim_next_job(%s, %s, %s, %s)",
+        (worker_id, allowed_types, int(lease_seconds), int(max_concurrent_per_tenant)),
     ).fetchone()
 
 
@@ -44,9 +42,8 @@ def lock_active_job_lease(
     tenant_id: str,
     worker_id: str,
     attempt: int,
-    now: datetime,
 ) -> dict[str, Any]:
-    """Acquire FOR UPDATE lock on core.jobs ONLY if job is still actively leased to (worker_id, attempt) at now (B6).
+    """Acquire FOR UPDATE lock on core.jobs ONLY if job is still actively leased at DB clock_timestamp() (B6, I4).
 
     Must be called inside an open transaction (`with conn.transaction():`) so the lock serializes
     the subsequent write (tool_call, finding, bot_answer, progress, complete, fail) against
@@ -60,10 +57,10 @@ def lock_active_job_lease(
           AND status = 'running'
           AND worker_id = %s
           AND attempt = %s
-          AND lease_expires_at >= %s
+          AND lease_expires_at >= clock_timestamp()
         FOR UPDATE
         """,
-        (job_id, tenant_id, worker_id, attempt, now),
+        (job_id, tenant_id, worker_id, attempt),
     ).fetchone()
     if job is not None:
         return job
@@ -89,9 +86,8 @@ def verify_active_job_lease_readonly(
     tenant_id: str,
     worker_id: str,
     attempt: int,
-    now: datetime,
 ) -> dict[str, Any]:
-    """Non-locking lease check for read-only endpoints (GET /internal/tools) or pre-HTTP check."""
+    """Non-locking lease check against DB clock_timestamp() for read-only endpoints or pre-HTTP checks."""
     job = conn.execute(
         """
         SELECT * FROM core.jobs
@@ -100,9 +96,9 @@ def verify_active_job_lease_readonly(
           AND status = 'running'
           AND worker_id = %s
           AND attempt = %s
-          AND lease_expires_at >= %s
+          AND lease_expires_at >= clock_timestamp()
         """,
-        (job_id, tenant_id, worker_id, attempt, now),
+        (job_id, tenant_id, worker_id, attempt),
     ).fetchone()
     if job is not None:
         return job
@@ -128,23 +124,23 @@ def renew_job_lease(
     tenant_id: str,
     worker_id: str,
     attempt: int,
-    now: datetime,
-    new_lease: datetime,
+    lease_seconds: int,
 ) -> dict[str, Any]:
-    """Atomically extend lease_expires_at guarded by active holder/attempt/expiry in a single UPDATE (B6)."""
+    """Atomically extend lease_expires_at guarded by DB clock_timestamp() in a single UPDATE (B6, I4)."""
     updated = conn.execute(
         """
         UPDATE core.jobs
-        SET lease_expires_at = %s, updated_at = %s
+        SET lease_expires_at = clock_timestamp() + make_interval(secs => %s),
+            updated_at = clock_timestamp()
         WHERE job_id = %s
           AND tenant_id = %s
           AND status = 'running'
           AND worker_id = %s
           AND attempt = %s
-          AND lease_expires_at >= %s
+          AND lease_expires_at >= clock_timestamp()
         RETURNING *
         """,
-        (new_lease, now, job_id, tenant_id, worker_id, attempt, now),
+        (max(int(lease_seconds), 1), job_id, tenant_id, worker_id, attempt),
     ).fetchone()
     if updated is not None:
         return updated

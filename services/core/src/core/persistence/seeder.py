@@ -21,7 +21,13 @@ def _load_json(seed_dir: pathlib.Path, filename: str) -> dict[str, Any]:
 
 
 def truncate_all(conn: psycopg.Connection) -> None:
-    """Clear all core, control, and risk data tables for a clean demo reset."""
+    """Clear all core, control, and risk data tables via narrow SECURITY DEFINER function when available."""
+    has_fn = conn.execute(
+        "SELECT to_regprocedure('core.truncate_for_demo_reset()') AS fn"
+    ).fetchone()
+    if has_fn is not None and has_fn["fn"] is not None:
+        conn.execute("SELECT core.truncate_for_demo_reset()")
+        return
     conn.execute(
         """
         TRUNCATE TABLE

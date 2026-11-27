@@ -19,8 +19,8 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
 
 @dataclass(frozen=True)
 class CoreSettings:
-    database_url: str = "postgresql://paymatch:paymatch@localhost:5432/paymatch"
-    admin_database_url: str | None = None
+    database_url: str = ""
+    demo_reset_database_url: str | None = None
     sim_url: str = "http://localhost:8200/sim"
     gate_url: str = "http://localhost:8100/gate"
     demo_mode: bool = False
@@ -50,17 +50,23 @@ class CoreSettings:
 
     @classmethod
     def from_env(cls) -> CoreSettings:
+        db_url = os.getenv("DATABASE_URL", "").strip()
+        if not db_url:
+            raise RuntimeError(
+                "DATABASE_URL must be explicitly configured with a least-privilege role DSN (no bootstrap default)."
+            )
+        demo_mode = _parse_bool(os.getenv("DEMO_MODE"), default=False)
+        # I7: never load demo_reset credentials when DEMO_MODE is false
+        demo_reset_dsn = (os.getenv("DEMO_RESET_DATABASE_URL") or "").strip() or None if demo_mode else None
         seed_raw = os.getenv("CORE_SEED_DIR")
         seed_dir = Path(seed_raw).resolve() if seed_raw else DEFAULT_SEED_DIR
         sse_max_raw = os.getenv("SSE_MAX_IDLE_SECONDS")
         return cls(
-            database_url=os.getenv(
-                "DATABASE_URL", "postgresql://paymatch:paymatch@localhost:5432/paymatch"
-            ),
-            admin_database_url=os.getenv("ADMIN_DATABASE_URL") or None,
+            database_url=db_url,
+            demo_reset_database_url=demo_reset_dsn,
             sim_url=os.getenv("SIM_URL", "http://localhost:8200/sim").rstrip("/"),
             gate_url=os.getenv("GATE_URL", "http://localhost:8100/gate").rstrip("/"),
-            demo_mode=_parse_bool(os.getenv("DEMO_MODE"), default=False),
+            demo_mode=demo_mode,
             sim_core_service_key=os.getenv("SIM_CORE_SERVICE_KEY", ""),
             gate_core_service_key=os.getenv("GATE_CORE_SERVICE_KEY", ""),
             internal_agent_service_key=os.getenv("INTERNAL_AGENT_SERVICE_KEY", ""),

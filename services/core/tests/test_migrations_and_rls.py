@@ -264,3 +264,120 @@ def test_b1_i5_non_superuser_service_roles_rls_and_narrow_grants(
     with migrator_db.connect() as conn:
         counts = load_core_seed(conn, seed_dir=DEMO_SEED_DIR, reset=True)
     assert counts["tenants"] == 2
+
+
+@pytest.mark.db
+def test_i1_i7_backfill_receipts_staff_kill_switch_and_demo_reset_role(
+    pg_dsn: str,
+    seeded_db: Database,
+    demo_reset_db: Database,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """I1 & I7: pre-006 processed_events backfill into outbox_receipts; staff kill_switch.engaged/released; narrow demo_reset role; no bootstrap DSN default."""
+    from urllib.parse import urlparse, urlunparse
+    from core.shared.config import CoreSettings
+
+    # I7: CoreSettings.from_env() fails closed when DATABASE_URL is unset and ignores DEMO_RESET_DATABASE_URL outside DEMO_MODE
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("DEMO_RESET_DATABASE_URL", "postgresql://demo_reset:demo_reset_dev@localhost:5432/paymatch")
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        CoreSettings.from_env()
+    monkeypatch.setenv("DATABASE_URL", "postgresql://merchant_api:merchant_api_dev@localhost:5432/paymatch")
+    cfg_prod = CoreSettings.from_env()
+    assert cfg_prod.demo_reset_database_url is None
+    monkeypatch.setenv("DEMO_MODE", "true")
+    cfg_demo = CoreSettings.from_env()
+    assert cfg_demo.demo_reset_database_url is not None and "demo_reset" in cfg_demo.demo_reset_database_url
+
+    # I7: staff CAN insert contracted kill_switch.engaged and kill_switch.released, CANNOT insert kill_switch.updated
+    with seeded_db.connect(role="staff") as conn:
+        with conn.transaction():
+            for ev_type in ("kill_switch.engaged", "kill_switch.released"):
+                conn.execute(
+                    """
+                    INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+                    VALUES (%s, %s, 1, now(), NULL, '{}'::jsonb)
+                    """,
+                    (new_id("evt"), ev_type),
+                )
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute(
+                """
+                INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+                VALUES (%s, 'kill_switch.updated', 1, now(), NULL, '{}'::jsonb)
+                """,
+                (new_id("evt"),),
+            )
+        conn.rollback()
+
+    # I7: demo_reset role is non-superuser, CAN run seed reset via core.truncate_for_demo_reset(), CANNOT DDL or direct TRUNCATE
+    with seeded_db.connect() as conn:
+        dr_role = conn.execute(
+            "SELECT rolsuper FROM pg_roles WHERE rolname = 'demo_reset'"
+        ).fetchone()
+        assert dr_role is not None and dr_role["rolsuper"] is False
+
+    with demo_reset_db.connect() as conn:
+        counts = load_core_seed(conn, seed_dir=DEMO_SEED_DIR, reset=True)
+        assert counts["tenants"] == 2
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("TRUNCATE TABLE core.invoices CASCADE")
+        conn.rollback()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("ALTER TABLE core.invoices ADD COLUMN evil TEXT")
+        conn.rollback()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("DROP TABLE core.approval_previews")
+        conn.rollback()
+
+    # I1: Upgrade from 001..005 with existing core.processed_events backfills core.outbox_receipts in 006
+    migrations_dir = pathlib.Path(__file__).resolve().parents[1] / "migrations"
+    upgrade_db = "test_i1_upgrade_backfill"
+    with psycopg.connect(pg_dsn, autocommit=True) as admin_conn:
+        admin_conn.execute(f"DROP DATABASE IF EXISTS {upgrade_db}")
+        admin_conn.execute(f"CREATE DATABASE {upgrade_db}")
+    parsed = urlparse(pg_dsn)
+    upgrade_dsn = urlunparse(parsed._replace(path=f"/{upgrade_db}"))
+    try:
+        with psycopg.connect(upgrade_dsn, row_factory=dict_row) as uconn:
+            with uconn.transaction():
+                uconn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS core_schema_migrations (
+                        filename TEXT PRIMARY KEY,
+                        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                    """
+                )
+            for sql_path in sorted(migrations_dir.glob("*.sql")):
+                if sql_path.name.startswith("006_"):
+                    break
+                with uconn.transaction():
+                    uconn.execute(sql_path.read_text(encoding="utf-8"))
+                    uconn.execute(
+                        "INSERT INTO core_schema_migrations (filename) VALUES (%s)",
+                        (sql_path.name,),
+                    )
+            # Simulate pre-006 worker having processed events in core.processed_events
+            hist_evt = new_id("evt")
+            with uconn.transaction():
+                uconn.execute(
+                    """
+                    INSERT INTO core.processed_events (outbox_name, event_id, processed_at)
+                    VALUES ('core', %s, now()), ('ledger', 'evt_01HISTLEDGER00000000000000', now())
+                    """,
+                    (hist_evt,),
+                )
+            # Now apply remaining migrations (006+)
+            applied = apply_migrations(uconn)
+            assert any(f.startswith("006_") for f in applied)
+            receipts = {
+                (r["source"], r["event_id"])
+                for r in uconn.execute("SELECT source, event_id FROM core.outbox_receipts").fetchall()
+            }
+            assert ("core", hist_evt) in receipts
+            assert ("ledger", "evt_01HISTLEDGER00000000000000") in receipts
+    finally:
+        with psycopg.connect(pg_dsn, autocommit=True) as admin_conn:
+            admin_conn.execute(f"DROP DATABASE IF EXISTS {upgrade_db}")

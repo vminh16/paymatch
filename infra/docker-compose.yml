@@ -40,7 +40,7 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: ${MERCHANT_DATABASE_URL:-postgresql://merchant_api:merchant_api_dev@postgres:5432/paymatch}
-      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-postgresql://migrator:migrator_dev@postgres:5432/paymatch}
+      DEMO_RESET_DATABASE_URL: ${DEMO_RESET_DATABASE_URL:-}
       SIM_URL: ${SIM_URL:-http://sim-world:8200/sim}
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}

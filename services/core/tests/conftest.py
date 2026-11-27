@@ -76,5 +76,10 @@ def migrator_db(seeded_db: Database) -> Database:
 
 
 @pytest.fixture()
+def demo_reset_db(seeded_db: Database) -> Database:
+    return Database(dsn_for_role(seeded_db.dsn, "demo_reset", "demo_reset_dev"))
+
+
+@pytest.fixture()
 def fixed_clock() -> FixedClock:
     return FixedClock(datetime(2026, 11, 26, 9, 0, 0, tzinfo=VN_TZ))

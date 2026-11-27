@@ -1004,9 +1004,7 @@ def create_internal_app(
         body: internal_models.ClaimJobRequest,
         _caller: str = Depends(require_agent_service_key),
     ) -> Any:
-        # I2: job leases use wall clock (security_clock); B1: narrow SECURITY DEFINER claim function
-        sec_now = sec_clk.now()
-        lease_until = sec_now + timedelta(seconds=cfg.job_lease_seconds)
+        # I4: job leases use DB clock_timestamp() and per-tenant advisory lock inside core.claim_next_job
         allowed_types = (
             [t.value for t in body.task_types]
             if body.task_types
@@ -1019,8 +1017,7 @@ def create_internal_app(
                     conn,
                     worker_id=body.worker_id,
                     allowed_types=allowed_types,
-                    lease_until=lease_until,
-                    now=sec_now,
+                    lease_seconds=cfg.job_lease_seconds,
                     max_concurrent_per_tenant=cfg.max_concurrent_jobs_per_tenant,
                 )
                 if updated is None:
@@ -1052,7 +1049,6 @@ def create_internal_app(
                     tenant_id=tid,
                     worker_id=body.worker_id,
                     attempt=body.attempt,
-                    now=sec_now,
                 )
                 payload, required_bot_ids, skipped = _build_session_payload(
                     conn,
@@ -1072,10 +1068,10 @@ def create_internal_app(
                     SET required_bot_ids = %s,
                         skipped_bots = %s,
                         bot_states = CASE WHEN jsonb_array_length(bot_states) = 0 THEN %s ELSE bot_states END,
-                        updated_at = %s
+                        updated_at = clock_timestamp()
                     WHERE tenant_id = %s AND job_id = %s
                     """,
-                    (required_bot_ids, Jsonb(skipped), Jsonb(bot_states), sec_now, tid, job_id),
+                    (required_bot_ids, Jsonb(skipped), Jsonb(bot_states), tid, job_id),
                 )
         return payload
 
@@ -1087,19 +1083,17 @@ def create_internal_app(
     ) -> dict[str, Any]:
         biz_now = clk.now()
         sec_now = sec_clk.now()
-        new_lease = sec_now + timedelta(seconds=cfg.job_lease_seconds)
         tid = _resolve_job_tenant(job_id)
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: atomic guarded UPDATE by job_id + tenant_id + running + worker_id + attempt + lease_expires_at >= sec_now
+                # B6 & I4: atomic guarded UPDATE using DB clock_timestamp()
                 job = renew_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=body.worker_id,
                     attempt=body.attempt,
-                    now=sec_now,
-                    new_lease=new_lease,
+                    lease_seconds=cfg.job_lease_seconds,
                 )
                 session_payload, _, _ = _build_session_payload(
                     conn,
@@ -1125,7 +1119,7 @@ def create_internal_app(
                     "token_exp": b["token_exp"],
                 }
             )
-        return {"lease_expires_at": fmt_ts(new_lease), "tokens": tokens}
+        return {"lease_expires_at": fmt_ts(job["lease_expires_at"]), "tokens": tokens}
 
     @app.post("/internal/jobs/{job_id}/progress", status_code=204)
     def report_job_progress(
@@ -1135,19 +1129,17 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> Response:
         now = clk.now()
-        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
         tid = _resolve_job_tenant(job_id)
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: lock active job lease inside the SAME transaction as progress writes
+                # B6 & I4: lock active job lease at DB clock_timestamp() inside the SAME transaction
                 job = lock_active_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=body.worker_id,
                     attempt=body.attempt,
-                    now=sec_now,
                 )
                 bot_states = {s["bot_id"]: dict(s) for s in (job.get("bot_states") or [])}
                 bots_called = {c["bot_id"]: dict(c) for c in (job.get("bots_called") or [])}
@@ -1285,14 +1277,13 @@ def create_internal_app(
         attempt = int(claims["attempt"])
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: lock active job lease inside the SAME transaction as finding persistence
+                # B6 & I4: lock active job lease at DB clock_timestamp() inside the SAME transaction
                 job = lock_active_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=claims["worker_id"],
                     attempt=attempt,
-                    now=sec_now,
                 )
                 if job["task_type"] != "investigate_invoice":
                     raise ProblemError(409, "INVALID_STATE", "Wrong task type", "Findings chỉ áp dụng cho investigate_invoice.")
@@ -1478,14 +1469,13 @@ def create_internal_app(
         attempt = int(claims["attempt"])
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: atomic lease lock in same transaction as bot_answers write
+                # B6 & I4: atomic lease lock at DB clock_timestamp() in same transaction as bot_answers write
                 job = lock_active_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=claims["worker_id"],
                     attempt=attempt,
-                    now=sec_now,
                 )
                 if job["task_type"] not in {"question", "report"}:
                     raise ProblemError(409, "INVALID_STATE", "Wrong task type", "bot-answers chỉ áp dụng cho question/report.")
@@ -1559,19 +1549,17 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, Any]:
         now = clk.now()
-        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
         tid = _resolve_job_tenant(job_id)
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: lock active job lease inside the SAME transaction as completion!
+                # B6 & I4: lock active job lease at DB clock_timestamp() inside the SAME transaction as completion!
                 job = lock_active_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=body.worker_id,
                     attempt=body.attempt,
-                    now=sec_now,
                 )
                 if job["task_type"] == "investigate_invoice":
                     if not isinstance(body.result, internal_models.CompleteInvestigateResult):
@@ -1619,19 +1607,17 @@ def create_internal_app(
         _caller: str = Depends(require_agent_service_key),
     ) -> dict[str, bool]:
         now = clk.now()
-        sec_now = sec_clk.now()
         trace_id = _extract_trace_id(traceparent)
         tid = _resolve_job_tenant(job_id)
         with database.connect(role="merchant", tenant_id=tid) as conn:
             with conn.transaction():
-                # B6: lock active job lease inside the SAME transaction as fail/retry!
+                # B6 & I4: lock active job lease at DB clock_timestamp() inside the SAME transaction as fail/retry!
                 job = lock_active_job_lease(
                     conn,
                     job_id=job_id,
                     tenant_id=tid,
                     worker_id=body.worker_id,
                     attempt=body.attempt,
-                    now=sec_now,
                 )
                 err_payload = {"error_code": body.error_code, "detail": body.detail}
                 if job["attempt"] < 2:
@@ -1694,7 +1680,6 @@ def create_internal_app(
     def list_granted_tools(
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> list[dict[str, Any]]:
-        sec_now = sec_clk.now()
         tid = claims["tenant_id"]
         with database.connect(role="merchant", tenant_id=tid) as conn:
             verify_active_job_lease_readonly(
@@ -1703,7 +1688,6 @@ def create_internal_app(
                 tenant_id=tid,
                 worker_id=claims["worker_id"],
                 attempt=int(claims["attempt"]),
-                now=sec_now,
             )
         return [
             V1_TOOL_SPECS[t].to_definition()
@@ -1717,7 +1701,6 @@ def create_internal_app(
         body: internal_models.ToolInvokeRequest,
         claims: dict[str, Any] = Depends(require_capability_claims),
     ) -> dict[str, Any]:
-        sec_now = sec_clk.now()
         # Invariant #1: tool MUST be in capability token's granted tools list -> 403 TOOL_NOT_GRANTED
         granted = claims.get("tools") or []
         if tool_id not in granted:
@@ -1749,7 +1732,6 @@ def create_internal_app(
                 tenant_id=tid,
                 worker_id=worker_id,
                 attempt=attempt,
-                now=sec_now,
             )
             if _is_kill_switch_active(
                 conn,
@@ -1780,7 +1762,6 @@ def create_internal_app(
                     tenant_id=tid,
                     worker_id=worker_id,
                     attempt=attempt,
-                    now=sec_clk.now(),
                 )
 
             return invoke_tool(

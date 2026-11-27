@@ -181,8 +181,11 @@ def create_merchant_app(
 ) -> FastAPI:
     cfg = settings or CoreSettings.from_env()
     database = db or Database(cfg.database_url)
-    admin_database = admin_db or (
-        Database(cfg.admin_database_url) if cfg.admin_database_url else database
+    # I7: merchant-api never holds migrator/admin DSN outside DEMO_MODE; demo reset uses narrow demo_reset role
+    admin_database: Database | None = admin_db or (
+        Database(cfg.demo_reset_database_url)
+        if (cfg.demo_mode and cfg.demo_reset_database_url)
+        else None
     )
     sim_adapter = sim_world or HttpSimWorldAdapter(cfg.sim_url, cfg.sim_core_service_key)
     gate_adapter = gate_client or HttpGateAdapter(cfg.gate_url, cfg.gate_core_service_key)
@@ -1637,7 +1640,14 @@ def create_merchant_app(
                     "Missing Idempotency-Key",
                     "Header Idempotency-Key là bắt buộc.",
                 )
-            # Reset DB using dedicated migrator/admin connection (B1: merchant_api login has no TRUNCATE privileges)
+            # Reset DB using dedicated narrow demo_reset connection (I7: no migrator DSN on merchant-api)
+            if admin_database is None:
+                raise ProblemError(
+                    503,
+                    "SERVICE_MISCONFIGURED",
+                    "Demo reset database not configured",
+                    "DEMO_RESET_DATABASE_URL chưa được cấu hình.",
+                )
             with admin_database.connect() as conn:
                 counts = load_core_seed(conn, seed_dir=cfg.seed_dir, reset=True)
 
