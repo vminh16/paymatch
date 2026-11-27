@@ -1025,3 +1025,46 @@ def test_b5_manual_owner_proof_and_tainted_approval_denied():
     )
     assert res_tainted.decision == GateDecision.DENY
     assert any(r.code == GateReasonCode.APPROVAL_STALE for r in res_tainted.reasons)
+
+
+@pytest.mark.parametrize("amount_vnd", [-1_620_000, 0])
+def test_non_positive_invoice_amount_denied_with_non_positive_amount(amount_vnd):
+    """payment-gate.md §2: downward adjustments / 0 đ invoices are never paid, with their own reason code."""
+    vendor, acc = make_coffee_vendor()
+    res = evaluate_invoice(
+        invoice=make_coffee_invoice(amount_vnd=amount_vnd),
+        vendor=vendor,
+        vendor_accounts=(acc,),
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        daily_budget=DailyBudgetSnapshot(budget_date=NOW_VN.date()),
+        vendor_suspended=False,
+        has_settled_ledger=False,
+        held_po_escrow=None,
+        now=NOW_VN,
+    )
+    codes = {r.code for r in res.reasons}
+    assert res.decision == GateDecision.DENY
+    assert GateReasonCode.NON_POSITIVE_AMOUNT in codes
+    assert GateReasonCode.BLOCKED_INVOICE not in codes
+
+
+def test_non_positive_escrow_amount_denied_with_non_positive_amount():
+    vendor, escrow_acc, po = make_syrup_escrow_vendor()
+    res = evaluate_escrow_hold(
+        po=po,
+        vendor=vendor,
+        vendor_account=escrow_acc,
+        amount_vnd=0,
+        has_open_escrow=False,
+        mandate=make_default_mandate(),
+        policy=_policy(),
+        risk_signals=RiskSignals(),
+        indicators=(),
+        now=NOW_VN,
+    )
+    codes = {r.code for r in res.reasons}
+    assert res.decision == GateDecision.DENY
+    assert codes == {GateReasonCode.NON_POSITIVE_AMOUNT}

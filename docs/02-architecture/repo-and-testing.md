@@ -113,7 +113,7 @@ Quy tắc phụ thuộc (có test kiểm tra import):
 
 ## 6. CI
 
-`make test` = lint + type check + unit + bất biến + contract + agent (fake/replay). `make test-e2e` trước merge vào main. `make eval` chạy tay. Không có test gọi LLM live trong CI.
+`make test` = lint + type check + unit + bất biến + contract + agent (fake/replay). Test DB (bất biến của Gate) tự bật Postgres 16 bằng `testcontainers`, nên máy chạy `make test` (kể cả CI) **phải có Docker**. `make test-e2e` trước merge vào main. `make eval` chạy tay. Không có test gọi LLM live trong CI.
 
 ## 7. Quy ước đặt tên
 

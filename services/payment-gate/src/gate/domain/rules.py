@@ -78,6 +78,17 @@ def compute_effective_auto_pay_limits(
     )
 
 
+def _non_positive_amount_reason(amount_vnd: int | None, subject: str) -> GateReasonItem | None:
+    """Hard rule: an amount <= 0 is never paid (payment-gate.md §2, NON_POSITIVE_AMOUNT)."""
+    if amount_vnd is None or amount_vnd > 0:
+        return None
+    return GateReasonItem(
+        code=GateReasonCode.NON_POSITIVE_AMOUNT,
+        layer=GateReasonLayer.hard_rule,
+        detail=f"{subject} có số tiền {amount_vnd:,}đ ≤ 0 (điều chỉnh giảm / chiết khấu / 0 đ), không phải khoản phải chi.",
+    )
+
+
 def is_within_time_window(now: datetime, start_hhmm: str, end_hhmm: str) -> bool:
     """Check if Vietnam local time of `now` is within [start_hhmm, end_hhmm]."""
     local_now = now.astimezone(VN_TZ)
@@ -416,7 +427,10 @@ def evaluate_invoice(
             )
         )
 
-    if invoice.total_vnd is None or invoice.total_vnd <= 0 or invoice.total_vnd > MAX_SAFE_MONEY_VND:
+    non_positive = _non_positive_amount_reason(invoice.total_vnd, "Hóa đơn")
+    if non_positive is not None:
+        deny_reasons.append(non_positive)
+    elif invoice.total_vnd is None or invoice.total_vnd > MAX_SAFE_MONEY_VND:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.BLOCKED_INVOICE,
@@ -692,7 +706,10 @@ def validate_intent_authorization(
             )
         )
 
-    if invoice.total_vnd is None or invoice.total_vnd <= 0 or invoice.total_vnd > MAX_SAFE_MONEY_VND:
+    non_positive = _non_positive_amount_reason(invoice.total_vnd, "Hóa đơn")
+    if non_positive is not None:
+        deny_reasons.append(non_positive)
+    elif invoice.total_vnd is None or invoice.total_vnd > MAX_SAFE_MONEY_VND:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.BLOCKED_INVOICE,
@@ -988,7 +1005,10 @@ def evaluate_escrow_hold(
             )
         )
 
-    if amount_vnd <= 0 or amount_vnd > MAX_SAFE_MONEY_VND or amount_vnd > po.total_vnd:
+    non_positive = _non_positive_amount_reason(amount_vnd, "Khoản cọc")
+    if non_positive is not None:
+        deny_reasons.append(non_positive)
+    elif amount_vnd > MAX_SAFE_MONEY_VND or amount_vnd > po.total_vnd:
         deny_reasons.append(
             GateReasonItem(
                 code=GateReasonCode.ABOVE_PER_INVOICE_LIMIT,
@@ -1167,10 +1187,10 @@ def validate_escrow_create(
                 detail="Đơn đặt hàng (PO) không tồn tại hoặc đã đóng/hủy.",
             )
         )
+    elif approval is not None and (non_positive := _non_positive_amount_reason(approval.amount_vnd, "Khoản cọc")):
+        deny_reasons.append(non_positive)
     elif approval is not None and (
-        approval.amount_vnd <= 0
-        or approval.amount_vnd > MAX_SAFE_MONEY_VND
-        or approval.amount_vnd > po.total_vnd
+        approval.amount_vnd > MAX_SAFE_MONEY_VND or approval.amount_vnd > po.total_vnd
     ):
         deny_reasons.append(
             GateReasonItem(
@@ -1474,11 +1494,10 @@ def validate_escrow_release(
                     detail="Hóa đơn giải ngân không gắn đúng PO của khoản cọc.",
                 )
             )
-        if (
-            release_invoice.total_vnd is None
-            or release_invoice.total_vnd <= 0
-            or release_invoice.total_vnd > MAX_SAFE_MONEY_VND
-        ):
+        non_positive = _non_positive_amount_reason(release_invoice.total_vnd, "Hóa đơn giải ngân")
+        if non_positive is not None:
+            deny_reasons.append(non_positive)
+        elif release_invoice.total_vnd is None or release_invoice.total_vnd > MAX_SAFE_MONEY_VND:
             deny_reasons.append(
                 GateReasonItem(
                     code=GateReasonCode.BLOCKED_INVOICE,
