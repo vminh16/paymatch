@@ -40,7 +40,10 @@ WATER_VAT_SUPPLY_PCT = 5
 WATER_PRICE_WASTE = 6390
 WATER_VAT_WASTE_PCT = 8
 
+# 12 history months feed core utility_readings (baseline); CURRENT_BILL_MONTH is the new bill
+# being checked, so it lives only in bills.json and never in the baseline it is compared against.
 UTILITY_MONTHS = [
+    "2025-11",
     "2025-12",
     "2026-01",
     "2026-02",
@@ -54,9 +57,12 @@ UTILITY_MONTHS = [
     "2026-10",
     "2026-11",
 ]
+CURRENT_BILL_MONTH = UTILITY_MONTHS[-1]
+REVENUE_MONTHS = UTILITY_MONTHS[1:]
 
 # Seasonality factors for HCMC weather (hot peak Mar-May)
 MONTH_SEASONALITY = {
+    "2025-11": 0.99,
     "2025-12": 0.98,
     "2026-01": 0.96,
     "2026-02": 0.95,
@@ -71,8 +77,9 @@ MONTH_SEASONALITY = {
     "2026-11": 1.01,
 }
 
-# Store 3 water baseline: 12 months in 22..26 m3 with exact median 24.0 m3
-STORE3_WATER_HISTORY_M3 = [23, 24, 22, 25, 26, 25, 24, 23, 24, 25, 23, 24]
+# Store 3 water baseline: 12 history months (2025-11..2026-10) in 22..26 m3 with exact median 24.0 m3;
+# the last value is unused because 2026-11 is the BRD_06 leak bill.
+STORE3_WATER_HISTORY_M3 = [24, 23, 24, 22, 25, 26, 25, 24, 23, 24, 25, 23, 24]
 
 BANK_FAKE_BIN = {
     "VNMB01": "999901",
@@ -1094,6 +1101,60 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
             "bank_name": banks.get(ext.get("bank_code", ""), ""),
         }
 
+    # Tenant B's own vendors (TRAP_02): clean on paper (verified company account, PO + GRN), so before a
+    # cross alert their invoice is not red; only the shared seller phone links them to BRD_04 (F3).
+    secondary_ten_key = spec["tenants"][1]["key"]
+    for ext_key in spec["tenants"][1].get("own_vendor_keys", []):
+        ext = external_seller_by_key[ext_key]
+        ven_b_id = ids.make("ven", f"{secondary_ten_key}:{ext_key}")
+        vendors_seed.append(
+            {
+                "vendor_id": ven_b_id,
+                "tenant_id": secondary_ten_id,
+                "name": ext["name"],
+                "tax_id": ext["tax_id"],
+                "phone_on_file": ext["phone"],
+                "phone_on_file_masked": mask_phone(ext["phone"]),
+                "email": ext["email"],
+                "address": ext["address"],
+                "category": ext["group"],
+                "status": "active",
+                "created_at": "2026-09-01T08:00:00+07:00",
+            }
+        )
+        vendor_accounts_seed.append(
+            {
+                "vendor_account_id": ids.make("vac", f"{secondary_ten_key}:{ext_key}"),
+                "vendor_id": ven_b_id,
+                "tenant_id": secondary_ten_id,
+                "kind": "bank_account",
+                "bank_code": ext["bank_code"],
+                "bank_name": ext["bank_name"],
+                "account_number": ext["account_number"],
+                "account_number_masked": mask_account(ext["account_number"]),
+                "merchant_id": None,
+                "account_name": ext["account_name"],
+                "status": "verified",
+                "verified_at": "2026-09-02T09:00:00+07:00",
+            }
+        )
+        vendor_contracts_seed.append(
+            {
+                "contract_id": ids.make("ctr", f"{secondary_ten_key}:{ext_key}"),
+                "vendor_id": ven_b_id,
+                "tenant_id": secondary_ten_id,
+                "status": "active",
+                "valid_from": "2026-09-01",
+                "valid_to": "2026-12-31",
+                "items": [
+                    {**it, "item_id": ids.make("itm", f"{secondary_ten_key}:{ext_key}:{it['sku']}")}
+                    for it in ext["items"]
+                ],
+                "activated_by": owner_by_tenant_key[secondary_ten_key],
+            }
+        )
+        vendor_by_key[ext_key] = {**ext, "vendor_id": ven_b_id}
+
     # 4. Revenue (15 outlets x 12 months = 180 records)
     primary_wal_id = tenant_by_key["primary"]["wallet_id"]
     revenues: list[dict[str, Any]] = []
@@ -1102,7 +1163,7 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
             continue
         sto_id = store_by_key[s["key"]]["store_id"]
         base_rev = s["base_revenue_vnd"]
-        for m in UTILITY_MONTHS:
+        for m in REVENUE_MONTHS:
             season = MONTH_SEASONALITY[m]
             if s["key"] == "sto_03" and m == "2026-11":
                 # Store 3 revenue stays flat/slightly down during the 6x water leak
@@ -1448,10 +1509,10 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
             }
         )
 
-        # For Store 3, calibrate initial meter index so 2026-10 ends at exactly 612
+        # For Store 3, calibrate initial meter index so 2026-10 (last history month) ends at exactly 612
         # (matching sim-world-dataset.md §3.5: BRD_06 has old_index=612 -> new_index=756 = 144 m3)
         if s["key"] == "sto_03":
-            w_index = 612 - sum(STORE3_WATER_HISTORY_M3[:11])
+            w_index = 612 - sum(STORE3_WATER_HISTORY_M3[:12])
         else:
             w_index = 400 + sto_code * 35
 
@@ -1632,6 +1693,12 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
                     "delivered_by_default": delivered_water,
                 }
             )
+
+    # The current bill month is what gets checked, so it must not already sit in the baseline;
+    # Store 3's current water bill is the BRD_06 leak bill below, not a normal one.
+    utility_readings_seed[:] = [r for r in utility_readings_seed if r["billing_period"] != CURRENT_BILL_MONTH]
+    sto3_water_id = ids.make("bill", f"water:sto_03:{CURRENT_BILL_MONTH}")
+    bills_list[:] = [b for b in bills_list if b["bill_id"] != sto3_water_id]
 
     # Dedicated BRD_06 leak bill for Store 3 (144 m3 = 4,214,333 VND)
     sto3 = store_by_key["sto_03"]
@@ -1849,14 +1916,24 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
         store_key: str,
         sku: str,
         po_qty: str,
-        unit_price: str,
-        total_vnd: int,
         grn_qty: str | None = None,
         create_grn: bool = True,
     ) -> tuple[str, str | None]:
         ten_id = tenant_by_key[tenant_key]["tenant_id"]
         sto_id = store_by_key[store_key]["store_id"]
         ven_id = vendor_by_key[vendor_key]["vendor_id"]
+        # A PO records what was ordered at the contract price (gross of VAT, like the invoices it is
+        # matched against), never the invoiced price, so price/pack deviations stay visible.
+        item = next(
+            it
+            for c in vendor_contracts_seed
+            if c["vendor_id"] == ven_id and c["status"] == "active"
+            for it in c["items"]
+            if it["sku"] == sku
+        )
+        unit_price = item["unit_price"]
+        vat_pct = Decimal(item["vat_rate"].rstrip("%")) if item["vat_rate"].endswith("%") else Decimal(0)
+        total_vnd = round_vnd(Decimal(po_qty) * Decimal(unit_price) * (1 + vat_pct / 100))
         po_id = ids.make("po", key)
         po_status = "received" if create_grn else "open"
         purchase_orders_seed.append(
@@ -1943,8 +2020,6 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
                     store_key=cfg["store_key"],
                     sku=cfg["sku"],
                     po_qty=cfg["quantity"],
-                    unit_price=cfg["unit_price"],
-                    total_vnd=cfg["total_vnd"],
                 )
             inbox_messages.append(
                 {
@@ -2074,8 +2149,6 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
                 store_key=cfg["store_key"],
                 sku=cfg["sku"],
                 po_qty=cfg["quantity"],
-                unit_price=cfg["unit_price"],
-                total_vnd=cfg["total_vnd"],
                 grn_qty=cfg.get("grn_quantity"),
                 create_grn=True,
             )
@@ -2113,8 +2186,6 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
         store_key="sto_05",
         sku="BKR-CROI-250G",
         po_qty="80",
-        unit_price="59259.259259",
-        total_vnd=5120000,
         create_grn=False,
     )
     create_po_and_grn(
@@ -2124,8 +2195,6 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
         store_key="sto_16",
         sku="SYR-PCH-750ML",
         po_qty="50",
-        unit_price="162962.960000",
-        total_vnd=8800000,
         create_grn=False,
     )
 
@@ -2214,10 +2283,16 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
         vendor = vendor_by_key[vkey]
         first_item = vendor["items"][0]
         unit_price_dec = Decimal(first_item["unit_price"])
-        qty = Decimal("10")
-        sub_vnd = round_vnd(unit_price_dec * qty)
         vat_rate = first_item["vat_rate"]
         rate_dec = Decimal(vat_rate.rstrip("%")) / Decimal("100") if vat_rate.endswith("%") else Decimal("0")
+        # The hidden instruction must be the only signal: stay under the per-invoice ceiling (no OVER_LIMIT)
+        # and invoice in the contract's pack unit (unit_price is per pack_spec, not per base_unit).
+        per_invoice_limit = spec["tenants"][0]["mandate"]["limits"]["per_invoice_vnd"]
+        qty = min(Decimal("10"), Decimal(per_invoice_limit) // (unit_price_dec * (1 + rate_dec)))
+        is_pack = Decimal(first_item["pack_qty"]) != 1
+        pi_unit = first_item["pack_spec"].split()[0].capitalize() if is_pack else first_item["base_unit"]
+        pi_line_name = f"{first_item['name']} ({first_item['pack_spec']})" if is_pack else first_item["name"]
+        sub_vnd = round_vnd(unit_price_dec * qty)
         vat_vnd = round_vnd(Decimal(sub_vnd) * rate_dec)
         tot_vnd = sub_vnd + vat_vnd
 
@@ -2236,9 +2311,9 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
             "vendor_key": vkey,
             "store_key": "sto_16",
             "sku": first_item["sku"],
-            "line_name": first_item["name"],
-            "quantity": "10",
-            "unit": first_item["base_unit"],
+            "line_name": pi_line_name,
+            "quantity": str(qty),
+            "unit": pi_unit,
             "unit_price": first_item["unit_price"],
             "subtotal_vnd": sub_vnd,
             "vat_rate": vat_rate,
@@ -2298,7 +2373,7 @@ def generate_dataset(out_dir: Path, seed: int = 42) -> dict[str, Any]:
         "goods_receipts": len(goods_receipts_seed),
         "inbox_messages": len(inbox_messages),
         "utility_accounts": len(utility_accounts_seed),
-        "utility_months": len(UTILITY_MONTHS),
+        "utility_months": len(UTILITY_MONTHS) - 1,
         "utility_readings": len(utility_readings_seed),
         "bills": len(bills_list),
         "revenues": len(revenues),

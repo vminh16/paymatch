@@ -105,7 +105,7 @@
       "name": "CÔNG TY TNHH NHÀ HÀNG BẾP PHỐ XANH",
       "short_name": "Bếp Phố Xanh",
       "address": "Số 25 Đường Mẫu Pasteur, Quận 1, TP. Hồ Chí Minh",
-      "mailbox": "hoadon@bepphoxanh.example",
+      "mailbox": "hoadon@bepphoxanh.example", "own_vendor_keys": ["ring_syrup_dong_a"],
       "domain": "bepphoxanh.example",
       "wallet_balance_vnd": 180000000,
       "mandate": {
@@ -541,7 +541,7 @@
     {
       "key": "elec_branch_02", "group": "utility", "tax_id": "0999010040-002",
       "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC BẮC THÀNH PHỐ MẪU", "slug": "dienlucbactp",
-      "bank_code": "VNMB01", "account_number": "990010000040", "phone": "0280001041",
+      "bank_code": "VNMB01", "account_number": "990010000046", "phone": "0280001041",
       "address": "Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh", "symbol_suffix": "EB",
       "items": [
         {"sku": "UTL-ELEC-TOU", "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)", "base_unit": "kWh", "pack_spec": "1 kWh", "pack_qty": "1.000000", "unit_price": "3089.000000", "vat_rate": "8%", "price_source_ref": "docs/04-data/sources.md#L28"}
@@ -550,7 +550,7 @@
     {
       "key": "elec_branch_03", "group": "utility", "tax_id": "0999010040-003",
       "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU", "slug": "dienlucnamtp",
-      "bank_code": "VNMB01", "account_number": "990010000040", "phone": "0280001042",
+      "bank_code": "VNMB01", "account_number": "990010000047", "phone": "0280001042",
       "address": "Số 30 Đường Mẫu Điện Lực, Quận 7, TP. Hồ Chí Minh", "symbol_suffix": "EC",
       "items": [
         {"sku": "UTL-ELEC-TOU", "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)", "base_unit": "kWh", "pack_spec": "1 kWh", "pack_qty": "1.000000", "unit_price": "3089.000000", "vat_rate": "8%", "price_source_ref": "docs/04-data/sources.md#L28"}
@@ -559,7 +559,7 @@
     {
       "key": "elec_branch_04", "group": "utility", "tax_id": "0999010040-004",
       "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC ĐÔNG THÀNH PHỐ MẪU", "slug": "dienlucdongtp",
-      "bank_code": "VNMB01", "account_number": "990010000040", "phone": "0280001043",
+      "bank_code": "VNMB01", "account_number": "990010000048", "phone": "0280001043",
       "address": "Số 40 Đường Mẫu Điện Lực, TP. Thủ Đức, TP. Hồ Chí Minh", "symbol_suffix": "ED",
       "items": [
         {"sku": "UTL-ELEC-TOU", "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)", "base_unit": "kWh", "pack_spec": "1 kWh", "pack_qty": "1.000000", "unit_price": "3089.000000", "vat_rate": "8%", "price_source_ref": "docs/04-data/sources.md#L28"}
@@ -784,9 +784,29 @@
       "risk_list_name": "CV-9902/CT-TTKT (danh sách DN rủi ro cao về thuế giả lập)",
       "risk_listed_on": "2026-11-05",
       "risk_note": "CQT cảnh báo hóa đơn có dấu hiệu bất hợp pháp"
+    },
+    {
+      "key": "ring_syrup_dong_a",
+      "group": "dry_packaging",
+      "tax_id": "0999090013",
+      "name": "CÔNG TY TNHH THƯƠNG MẠI NGUYÊN LIỆU ĐÔNG Á MẪU",
+      "slug": "nguyenlieudonga",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 9 Đường Mẫu Tân Kỳ Tân Quý, Quận Bình Tân, TP. Hồ Chí Minh",
+      "phone": "0900090001",
+      "bank_code": "VNMB02",
+      "account_number": "990090000013",
+      "account_name": "CONG TY TNHH THUONG MAI NGUYEN LIEU DONG A MAU",
+      "symbol_suffix": "DA",
+      "items": [
+        {"sku": "SYR-PCH-750ML", "name": "Si-rô đào Hương Việt chai 750ml", "base_unit": "chai", "pack_spec": "chai 750ml", "pack_qty": "1.000000", "unit_price": "162962.963000", "vat_rate": "8%", "price_source_ref": "references/prices-2026-11.csv#L51"}
+      ]
     }
   ],
   "scam_external_accounts": [
+    {"bank_code": "VNMB03", "account_number": "990090000001", "account_name": "CONG TY TNHH PHAN PHOI NGUYEN LIEU A CHAU MAU", "simulate_failure": null},
     {"bank_code": "VNMB02", "account_number": "998812345601", "account_name": "NGUYEN VAN MINH", "simulate_failure": null},
     {"bank_code": "VNMB03", "account_number": "998800011100", "account_name": "TRAN THI HANH", "simulate_failure": null},
     {"bank_code": "VNMB02", "account_number": "998899887701", "account_name": "CTY TNHH TM SUA CAO NGUYEN VN MAU", "simulate_failure": null},

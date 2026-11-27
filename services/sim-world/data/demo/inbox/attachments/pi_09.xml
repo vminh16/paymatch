@@ -16,12 +16,12 @@
         <TTin>
           <TTruong>TgTTTBSo</TTruong>
           <KDLieu>string</KDLieu>
-          <DLieu>30708720</DLieu>
+          <DLieu>27637848</DLieu>
         </TTin>
         <TTin>
           <TTruong>sumOfTotalLineAmountWithoutVAT</TTruong>
           <KDLieu>string</KDLieu>
-          <DLieu>28434000</DLieu>
+          <DLieu>25590600</DLieu>
         </TTin>
         <TTin>
           <TTruong>MoTaChungTu</TTruong>
@@ -58,15 +58,15 @@
           <TChat>1</TChat>
           <STT>1</STT>
           <MHHDVu>TEA-BLK-500G-24</MHHDVu>
-          <THHDVu>Trà đen thượng hạng Bảo Lộc gói 500g</THHDVu>
-          <DVTinh>gói</DVTinh>
-          <SLuong>10</SLuong>
+          <THHDVu>Trà đen thượng hạng Bảo Lộc gói 500g (thùng 24 gói x 500g)</THHDVu>
+          <DVTinh>Thùng</DVTinh>
+          <SLuong>9</SLuong>
           <DGia>2843400.000000</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>28434000</ThTien>
+          <ThTien>25590600</ThTien>
           <TSuat>8%</TSuat>
-          <TThue>2274720</TThue>
+          <TThue>2047248</TThue>
         </HHDVu>
       </DSHHDVu>
       <TToan>
@@ -88,8 +88,8 @@
           </LTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>28434000</ThTien>
-            <TThue>2274720</TThue>
+            <ThTien>25590600</ThTien>
+            <TThue>2047248</TThue>
           </LTSuat>
           <LTSuat>
             <TSuat>10%</TSuat>
@@ -97,11 +97,11 @@
             <TThue>0</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>28434000</TgTCThue>
-        <TgTThue>2274720</TgTThue>
+        <TgTCThue>25590600</TgTCThue>
+        <TgTThue>2047248</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>30708720</TgTTTBSo>
-        <TgTTTBChu>Ba mươi triệu bảy trăm lẻ tám nghìn bảy trăm hai mươi đồng</TgTTTBChu>
+        <TgTTTBSo>27637848</TgTTTBSo>
+        <TgTTTBChu>Hai mươi bảy triệu sáu trăm ba mươi bảy nghìn tám trăm bốn mươi tám đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
   </DLHDon>

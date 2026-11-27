@@ -9,7 +9,7 @@
       <SHDon>021101</SHDon>
       <NLap>2026-11-21</NLap>
       <HDCTTChinh>0</HDCTTChinh>
-      <SBKe>261202801</SBKe>
+      <SBKe>261302801</SBKe>
       <NBKe>2026-11-21</NBKe>
       <DVTTe>VND</DVTTe>
       <TGia>1</TGia>
@@ -44,13 +44,13 @@
         <HHDVu>
           <TChat>1</TChat>
           <STT>1</STT>
-          <THHDVu>Tiền điện kinh doanh hạ áp 3 giá kỳ 2026-11 (theo bảng kê 261202801)</THHDVu>
+          <THHDVu>Tiền điện kinh doanh hạ áp 3 giá kỳ 2026-11 (theo bảng kê 261302801)</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>2218</SLuong>
+          <SLuong>2167</SLuong>
           <DGia />
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>7869505</ThTien>
+          <ThTien>7690114</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -58,15 +58,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>7869505</ThTien>
-            <TThue>629560</TThue>
+            <ThTien>7690114</ThTien>
+            <TThue>615209</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>7869505</TgTCThue>
-        <TgTThue>629560</TgTThue>
+        <TgTCThue>7690114</TgTCThue>
+        <TgTThue>615209</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>8499065</TgTTTBSo>
-        <TgTTTBChu>Tám triệu bốn trăm chín mươi chín nghìn không trăm sáu mươi lăm đồng</TgTTTBChu>
+        <TgTTTBSo>8305323</TgTTTBSo>
+        <TgTTTBChu>Tám triệu ba trăm lẻ năm nghìn ba trăm hai mươi ba đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -77,7 +77,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540784990655802VN996501130999010040001020110306K26TEA0406021101050820261121060784990656304914F</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540783053235802VN996501130999010040001020110306K26TEA0406021101050820261121060783053236304162C</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

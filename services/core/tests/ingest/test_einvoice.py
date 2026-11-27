@@ -673,6 +673,13 @@ def test_unparseable_cases_raise_invoice_unparseable(kwargs: dict[str, object]):
         parse_einvoice(_build_xml(**kwargs))  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("bad_number", ["1E100", "1e30", "1_000", "1E8000000", "1234567890123456", "NaN", "Infinity"])
+def test_non_plain_or_oversized_decimals_raise_invoice_unparseable(bad_number: str):
+    totals = f"<TToan><TgTCThue>2000000</TgTCThue><TgTThue>200000</TgTThue><TgTTTBSo>{bad_number}</TgTTTBSo></TToan>"
+    with pytest.raises(InvoiceUnparseable):
+        parse_einvoice(_build_xml(totals_xml=totals))
+
+
 def test_malformed_xml_and_missing_hdon_raise_invoice_unparseable():
     with pytest.raises(InvoiceUnparseable):
         parse_einvoice(b"<HDon><broken")

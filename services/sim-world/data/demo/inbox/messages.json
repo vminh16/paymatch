@@ -139,17 +139,17 @@
     {
       "message_id": "msg_01M8851XCD7YGDX38812T4RG7Z",
       "mailbox": "hoadon@bepphoxanh.example",
-      "from": "ketoan@nguyenlieuachau.example",
-      "subject": "Hóa đơn GTGT số 00000089 - Giao si-rô pha chế Bếp Phố Xanh",
+      "from": "ketoan@nguyenlieudonga.example",
+      "subject": "Hóa đơn GTGT số 00000231 - Giao si-rô pha chế Bếp Phố Xanh",
       "body_text": "Kính gửi Công ty TNHH Nhà Hàng Bếp Phố Xanh, gửi kèm hóa đơn 30 chai si-rô đào giao chi nhánh Quận 1.",
       "received_at": "2026-11-26T08:50:00+07:00",
       "delivered_by_default": true,
       "attachments": [
         {
           "attachment_id": "att_01M88KAP49TVHJ3NB07YEQTPP5",
-          "filename": "1C26TAC_00000089.xml",
+          "filename": "1C26TDA_00000231.xml",
           "content_type": "application/xml",
-          "file_path": "inbox/attachments/1C26TAC_00000089.xml"
+          "file_path": "inbox/attachments/1C26TDA_00000231.xml"
         }
       ]
     },
@@ -429,8 +429,8 @@
       "message_id": "msg_01M883PQHETT1P01734RVWV2D6",
       "mailbox": "hoadon@laxanh-fnb.example",
       "from": "ketoan@trabaoloc.example",
-      "subject": "Hóa đơn GTGT số 00000701 - Đợt trà đen tháng 11 (22 triệu)",
-      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn lô trà đen giao bếp trung tâm tổng 22.000.000 đ.",
+      "subject": "Hóa đơn GTGT số 00000701 - 7 thùng trà đen tháng 11 (21,5 triệu)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn 7 thùng trà đen giao bếp trung tâm tổng 21.496.104 đ.",
       "received_at": "2026-11-26T10:30:00+07:00",
       "delivered_by_default": false,
       "attachments": [
@@ -463,8 +463,8 @@
       "message_id": "msg_01M88CR06ENE09WRNH2B4QKA3J",
       "mailbox": "hoadon@laxanh-fnb.example",
       "from": "ketoan@huongviet.example",
-      "subject": "Hóa đơn GTGT số 00000703 - Si-rô vải Hương Việt đợt 4/11 (21,5 triệu)",
-      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn lô si-rô vải Hương Việt giao bếp trung tâm tổng 21.500.000 đ.",
+      "subject": "Hóa đơn GTGT số 00000703 - 105 chai si-rô vải Hương Việt đợt 4/11 (22 triệu)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn 105 chai si-rô vải Hương Việt giao bếp trung tâm tổng 22.050.000 đ.",
       "received_at": "2026-11-26T10:32:00+07:00",
       "delivered_by_default": false,
       "attachments": [

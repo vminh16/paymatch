@@ -44,11 +44,11 @@
           <MHHDVu>TEA-BLK-500G-24</MHHDVu>
           <THHDVu>Trà đen thượng hạng Bảo Lộc thùng 24 gói x 500g</THHDVu>
           <DVTinh>Thùng</DVTinh>
-          <SLuong>7.164089</SLuong>
+          <SLuong>7</SLuong>
           <DGia>2843400</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>20370370</ThTien>
+          <ThTien>19903800</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,20 +56,20 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>20370370</ThTien>
-            <TThue>1629630</TThue>
+            <ThTien>19903800</ThTien>
+            <TThue>1592304</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>20370370</TgTCThue>
-        <TgTThue>1629630</TgTThue>
+        <TgTCThue>19903800</TgTCThue>
+        <TgTThue>1592304</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>22000000</TgTTTBSo>
-        <TgTTTBChu>Hai mươi hai triệu đồng</TgTTTBChu>
+        <TgTTTBSo>21496104</TgTTTBSo>
+        <TgTTTBChu>Hai mươi mốt triệu bốn trăm chín mươi sáu nghìn một trăm lẻ bốn đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
   </DLHDon>
   <MCCQT Id="ID2">00AD63EFBC80B3D02C0C8045ADA6495AF8</MCCQT>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000070208QRIBFTTA53037045408220000005802VN996501100999010007020110306C26TBL04080000070105082026112606082200000063044CC4</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000070208QRIBFTTA53037045408214961045802VN996501100999010007020110306C26TBL04080000070105082026112606082149610463044112</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

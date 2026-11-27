@@ -21,7 +21,7 @@
         <DChi>Số 30 Đường Mẫu Điện Lực, Quận 7, TP. Hồ Chí Minh</DChi>
         <SDThoai>0280001042</SDThoai>
         <DCTDTu>ketoan@dienlucnamtp.example</DCTDTu>
-        <STKNHang>990010000040</STKNHang>
+        <STKNHang>990010000047</STKNHang>
         <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
       </NBan>
       <NMua>
@@ -44,11 +44,11 @@
           <STT>1</STT>
           <THHDVu>Tiền điện kinh doanh hạ áp 1 giá kỳ 2026-11</THHDVu>
           <DVTinh>kWh</DVTinh>
-          <SLuong>1142</SLuong>
+          <SLuong>1116</SLuong>
           <DGia>3089</DGia>
           <TLCKhau>0</TLCKhau>
           <STCKhau>0</STCKhau>
-          <ThTien>3527638</ThTien>
+          <ThTien>3447324</ThTien>
           <TSuat>8%</TSuat>
         </HHDVu>
       </DSHHDVu>
@@ -56,15 +56,15 @@
         <THTTLTSuat>
           <LTSuat>
             <TSuat>8%</TSuat>
-            <ThTien>3527638</ThTien>
-            <TThue>282211</TThue>
+            <ThTien>3447324</ThTien>
+            <TThue>275786</TThue>
           </LTSuat>
         </THTTLTSuat>
-        <TgTCThue>3527638</TgTCThue>
-        <TgTThue>282211</TgTThue>
+        <TgTCThue>3447324</TgTCThue>
+        <TgTThue>275786</TgTThue>
         <TTCKTMai>0</TTCKTMai>
-        <TgTTTBSo>3809849</TgTTTBSo>
-        <TgTTTBChu>Ba triệu tám trăm lẻ chín nghìn tám trăm bốn mươi chín đồng</TgTTTBChu>
+        <TgTTTBSo>3723110</TgTTTBSo>
+        <TgTTTBChu>Ba triệu bảy trăm hai mươi ba nghìn một trăm mười đồng</TgTTTBChu>
       </TToan>
     </NDHDon>
     <TTKhac>
@@ -75,7 +75,7 @@
       </TTin>
     </TTKhac>
   </DLHDon>
-  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540738098495802VN996501130999010040003020110306K26TEC04060811010508202611210607380984963042BAC</DLQRCode>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000470208QRIBFTTA5303704540737231105802VN996501130999010040003020110306K26TEC04060811010508202611210607372311063047131</DLQRCode>
   <DSCKS>
     <NBan>
       <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">

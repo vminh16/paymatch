@@ -264,8 +264,8 @@ VendorVerification:
   status: pending | approved | rejected
   decided_by | null, decided_at | null
 VendorContract: {contract_id, vendor_id, status: draft | active | ended, valid_from, valid_to | null, items: [ContractItem], activated_by | null}   # tool chỉ đọc hợp đồng active
-ContractItem: {item_id, sku, name, base_unit, pack_spec: string, pack_qty: Decimal, unit_price: Decimal, vat_rate}
-PurchaseOrder: {purchase_order_id, vendor_id, store_id, lines: [{sku, quantity: Decimal, unit_price: Decimal}], total_vnd, status: open | received | closed | cancelled, created_by, created_at}
+ContractItem: {item_id, sku, name, base_unit, pack_spec: string, pack_qty: Decimal, unit_price: Decimal, vat_rate}   # unit_price = giá một pack_spec, chưa VAT; giá/base_unit = unit_price / pack_qty
+PurchaseOrder: {purchase_order_id, vendor_id, store_id, lines: [{sku, quantity: Decimal, unit_price: Decimal}], total_vnd, status: open | received | closed | cancelled, created_by, created_at}   # lines theo đơn vị pack_spec, unit_price = giá hợp đồng chưa VAT; total_vnd GỒM VAT (so được với tổng hóa đơn và amount của escrow)
 AdjustmentRequest: {adjustment_request_id, invoice_id, to_vendor_id, channel_hint: email | chat, subject, body, cited_lines: [line_id]}   # code điền mẫu, trusted
 GoodsReceipt: {goods_receipt_id, purchase_order_id, store_id, lines: [{sku, quantity_received: Decimal}], confirmed_by, confirmed_at}
 ExpenseRecord: {expense_id, store_id | null, amount_vnd, payee_name, reason, spent_on: LocalDate, recorded_by, created_at}
