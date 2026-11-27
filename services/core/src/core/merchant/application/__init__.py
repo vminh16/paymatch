@@ -1,0 +1,1 @@
+"""Merchant application layer."""

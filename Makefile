@@ -1,5 +1,5 @@
 # Lệnh chung của repo. Các target còn trống sẽ được điền khi service có code.
-.PHONY: install up down reset test test-e2e eval contracts mock
+.PHONY: install up down reset test test-db test-e2e eval contracts mock
 
 install:          ## cài toàn bộ workspace
 	uv sync --all-packages
@@ -11,10 +11,17 @@ down:
 	docker compose -f infra/docker-compose.yml down
 
 reset:            ## nạp lại dữ liệu sim-world + DB về trạng thái demo
-	@echo "TODO: gọi sim-world /scenario/reset và chạy lại seed"
+	uv run python -m core.persistence.migrator
+	uv run python -m core.persistence.seeder
+	curl -fsS -X POST "$${SIM_URL:-http://localhost:8200/sim}/scenario:reset" \
+		-H "Content-Type: application/json" \
+		-d '{"dataset":"demo","seed":42}' >/dev/null || true
 
 test:             ## lint + unit + bất biến + contract + agent (fake/replay)
 	uv run --all-packages pytest -q
+
+test-db:          ## chỉ chạy DB tests (testcontainers Postgres 16)
+	uv run --all-packages pytest -m db -q
 
 test-e2e:
 	@echo "TODO: chạy tests/e2e trên docker compose"

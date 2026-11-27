@@ -24,10 +24,10 @@ Trạng thái: **Đã chốt mức thiết kế (26/11/2026)**. Cột chi tiết
 | Chứng từ | `purchase_orders`, `goods_receipts`, `payables`, `expense_records` | phiếu nhập do quản lý quán xác nhận; `expense_records` = khoản chi không hóa đơn (QT-05, chỉ ghi nhận) |
 | Điện nước | `utility_accounts`, `utility_readings` | lịch sử theo quán |
 | Điều tra | `jobs`, `tool_calls`, `findings`, `bot_answers`, `briefs` | `jobs` có `task_type`, lease, attempt; `findings` ghi `bot_version`, `skill_version`, `prompt_hash` |
-| Duyệt | `mandates`, `auto_pay_suspensions`, `approvals` | `mandates` có version, ký bằng xác thực mạnh; `approvals` nhiều dòng theo thời gian, tối đa một dòng `active` cho mỗi hóa đơn (cọc: theo PO, `invoice_id` null); có `status`, `job_id`, `amount_vnd`, `payee_account_id`, `channel`; `intent_hash`, `method: single \| bulk \| mandate`, `bulk_batch_id`, `verification`; `auto_pay_suspensions`: NCC tạm loại khỏi tự chi (QT-03) |
+| Duyệt | `mandates`, `auto_pay_suspensions`, `approvals`, `approval_previews`, `payment_intent_links` | `mandates` có version, ký bằng xác thực mạnh; `approvals` nhiều dòng theo thời gian, tối đa một dòng `active` cho mỗi hóa đơn (cọc: theo PO, `invoice_id` null); có `status`, `job_id`, `amount_vnd`, `payee_account_id`, `channel`; `intent_hash`, `method: single \| bulk \| mandate`, `bulk_batch_id`, `verification`; `approval_previews` lưu bản xem trước có hạn 5 phút gắn version hóa đơn; `payment_intent_links` gắn thế hệ `payment_intent_id → approval_id`; `auto_pay_suspensions`: NCC tạm loại khỏi tự chi (QT-03) |
 | Hội thoại | `conversations`, `conversation_messages`, `reports` | câu trả lời lưu kèm `citations`, `unverified_values`, `proposed_actions`; theo người dùng |
 | Memory *(lộ trình)* | `bot_memories`, `memory_proposals` | xem [agent-lifecycle-and-memory.md](../03-agents/agent-lifecycle-and-memory.md) |
-| Hạ tầng | `outbox`, `audit_events` | `audit_events` chỉ ghi thêm; role `staff` chỉ có `INSERT` trên `outbox` |
+| Hạ tầng | `outbox`, `outbox_receipts`, `audit_events` | `audit_events` chỉ ghi thêm; `outbox_receipts(source, event_id)` chống bỏ sót khi commit đảo thứ tự `seq`; các tiến trình kết nối bằng login role không-superuser riêng (`merchant_api`, `internal_api`, `worker`, `migrator`), role `staff` chỉ có `INSERT` trên `outbox` cho đúng loại sự kiện của mình |
 
 ### `control` (ghi: core — console-api, hệ thống; merchant-api chỉ ghi bot/skill của tenant mình, RLS)
 
