@@ -1,0 +1,500 @@
+{
+  "taxpayers": [
+    {
+      "tax_id": "0999000001",
+      "name": "CÔNG TY TNHH CHUỖI CÀ PHÊ & BÁNH LÁ XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999000002",
+      "name": "CÔNG TY TNHH NHÀ HÀNG BẾP PHỐ XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 25 Đường Mẫu Pasteur, Quận 1, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010001",
+      "name": "CÔNG TY TNHH CÀ PHÊ RANG MỘC TÂY NGUYÊN",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 12 Đường Mẫu A, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010002",
+      "name": "CÔNG TY TNHH SỮA TƯƠI ĐỒNG XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 24 Đường Mẫu B, Quận Tân Bình, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010003",
+      "name": "CÔNG TY TNHH BAO BÌ NHỰA XANH VIỆT",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Lô C8 KCN Mẫu Vĩnh Lộc, Huyện Bình Chánh, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010004",
+      "name": "CÔNG TY TNHH THỰC PHẨM SỮA CAO NGUYÊN ĐỎ",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 41 Đường Mẫu C, Quận Phú Nhuận, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010005",
+      "name": "CÔNG TY TNHH KEM SỮA MÂY TRẮNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 53 Đường Mẫu D, Quận 7, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010006",
+      "name": "CÔNG TY TNHH ĐƯỜNG MÍA MIỀN NAM",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 19 Đường Mẫu E, Quận 6, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010007",
+      "name": "CÔNG TY TNHH TRÀ THẢO MỘC BẢO LỘC",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 70 Đường Mẫu F, Quận Bình Thạnh, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010008",
+      "name": "CÔNG TY TNHH BỘT PHA CHẾ PHƯƠNG ĐÔNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 82 Đường Mẫu G, Quận 11, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010009",
+      "name": "CÔNG TY TNHH HƯƠNG LIỆU PHA CHẾ HƯƠNG VIỆT",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 95 Đường Mẫu H, Quận 10, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010010",
+      "name": "CÔNG TY TNHH TRÂN CHÂU & THẠCH NGỌT NAM BỘ",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 110 Đường Mẫu I, Quận Gò Vấp, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010011",
+      "name": "CÔNG TY TNHH NẮP LY & PHỤ KIỆN MIỀN NAM",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 122 Đường Mẫu K, Quận Bình Tân, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010012",
+      "name": "CÔNG TY TNHH ỐNG HÚT SINH HỌC XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 134 Đường Mẫu L, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010013",
+      "name": "CÔNG TY TNHH TÚI ĐÓNG GÓI THÀNH ĐẠT",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 146 Đường Mẫu M, Quận Tân Phú, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010014",
+      "name": "CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 158 Đường Mẫu N, Quận 12, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010015",
+      "name": "CÔNG TY TNHH GIẤY KHĂN VỆ SINH TINH KHÔI",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 160 Đường Mẫu O, Quận 8, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010016",
+      "name": "CÔNG TY TNHH SỮA THANH TRÙNG BẢO LỘC",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 172 Đường Mẫu P, Quận Tân Bình, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010017",
+      "name": "CÔNG TY TNHH ĐÁ VIÊN TINH KHIẾT BĂNG XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 184 Đường Mẫu Q, Quận 4, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010018",
+      "name": "CÔNG TY TNHH LÒ BÁNH TƯƠI HỪNG ĐÔNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 196 Đường Mẫu R, Quận 3, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010019",
+      "name": "CÔNG TY TNHH BÁNH MÌ THỦ CÔNG PHỐ XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 208 Đường Mẫu S, Quận Phú Nhuận, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010020",
+      "name": "CÔNG TY TNHH ĐÁ VIÊN SẠCH ĐÔNG THÀNH PHỐ",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 220 Đường Mẫu T, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010021",
+      "name": "CÔNG TY TNHH BÁNH NGỌT TƯƠI NAM SÀI GÒN",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 232 Đường Mẫu U, Quận 7, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010022",
+      "name": "CÔNG TY TNHH NÔNG SẢN CHANH TƯƠI MIỀN TÂY",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 14 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010023",
+      "name": "CÔNG TY TNHH TRÁI CÂY CAO NGUYÊN MÙA XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 26 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010024",
+      "name": "CÔNG TY TNHH THỰC PHẨM TƯƠI SỐNG ĐỒNG BẰNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 38 Đường Mẫu V, Huyện Hóc Môn, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010025",
+      "name": "CÔNG TY TNHH THỦY HẢI SẢN BIỂN XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 50 Đường Mẫu W, Quận 8, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010026",
+      "name": "CÔNG TY TNHH RAU CỦ SẠCH CAO NGUYÊN XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 62 Đường Mẫu X, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010027",
+      "name": "CÔNG TY TNHH TRỨNG & BƠ SỮA AN NHIÊN",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 74 Đường Mẫu Y, Huyện Củ Chi, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010028",
+      "name": "CÔNG TY TNHH CỐT BÁNH ĐÔNG LẠNH BẮC NAM",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 86 Đường Mẫu Z, Quận Bình Tân, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010029",
+      "name": "CÔNG TY TNHH TRÁI CÂY NHIỆT ĐỚI NAM BỘ",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 98 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010030",
+      "name": "CÔNG TY TNHH GIA VỊ & NƯỚC SỐT TỰ NHIÊN",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 112 Đường Mẫu AA, Quận 5, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010031",
+      "name": "CÔNG TY TNHH THỰC PHẨM SƠ CHẾ SÔNG HẬU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 124 Đường Mẫu AB, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010032",
+      "name": "CÔNG TY TNHH PHẦN MỀM BÁN HÀNG SAO VIỆT",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Tầng 8 Tòa nhà Mẫu Công Nghệ, Quận 1, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010033",
+      "name": "CÔNG TY TNHH PHẦN MỀM KẾ TOÁN ĐÁM MÂY VIỆT",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Tầng 5 Tòa nhà Mẫu Số Hóa, Quận 3, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010034",
+      "name": "CÔNG TY TNHH VIỄN THÔNG HẠ TẦNG CÁP QUANG MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 200 Đường Mẫu Viễn Thông, Quận 10, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010035",
+      "name": "CÔNG TY TNHH KỸ THUẬT MÁY PHA CÀ PHÊ PHƯƠNG NAM",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 88 Đường Mẫu Kỹ Thuật, Quận Tân Bình, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010036",
+      "name": "CÔNG TY TNHH ĐIỆN LẠNH CÔNG NGHIỆP SÀI GÒN MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 99 Đường Mẫu Công Nghiệp, Quận Bình Thạnh, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010037",
+      "name": "CÔNG TY TNHH HÓA CHẤT VỆ SINH AN TOÀN XANH",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 45 Đường Mẫu Vệ Sinh, Quận 12, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010038",
+      "name": "CÔNG TY TNHH THIẾT KẾ & TRUYỀN THÔNG ÁNH DƯƠNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 101 Đường Mẫu Sáng Tạo, Quận 3, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010039",
+      "name": "CÔNG TY TNHH DỊCH VỤ VỆ SINH BẾP & KIỂM SOÁT CÔN TRÙNG",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 55 Đường Mẫu An Toàn, Quận Gò Vấp, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010045",
+      "name": "CÔNG TY TNHH VẬN TẢI LẠNH NỘI ĐÔ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 300 Đường Mẫu Vận Tải, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010040-001",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC TRUNG TÂM MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 10 Đường Mẫu Điện Lực, Quận 1, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010040-002",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC BẮC THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010040-003",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 30 Đường Mẫu Điện Lực, Quận 7, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010040-004",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC ĐÔNG THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 40 Đường Mẫu Điện Lực, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010041",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC TRUNG TÂM MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 15 Đường Mẫu Cấp Nước, Quận 3, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010042",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC BẮC THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 25 Đường Mẫu Cấp Nước, Quận Bình Thạnh, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010043",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC NAM THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 35 Đường Mẫu Cấp Nước, Quận 7, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999010044",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC ĐÔNG THÀNH PHỐ MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 45 Đường Mẫu Cấp Nước, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090001",
+      "name": "CÔNG TY TNHH PHÂN PHỐI NGUYÊN LIỆU Á CHÂU MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 66 Đường Mẫu Tân Tạo, Quận Bình Tân, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090002",
+      "name": "CÔNG TY TNHH THƯƠNG MẠI NGÂN HÀ MẪU",
+      "status_code": "01",
+      "status_label": "NNT ngừng hoạt động và đã hoàn thành thủ tục chấm dứt hiệu lực MST",
+      "status_reason_code": "08",
+      "address": "Số 11 Đường Mẫu Y, Quận 6, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090003",
+      "name": "CÔNG TY TNHH VẬT TƯ AN LỘC MẪU",
+      "status_code": "03",
+      "status_label": "NNT ngừng hoạt động nhưng chưa hoàn thành thủ tục chấm dứt hiệu lực MST",
+      "status_reason_code": null,
+      "address": "Số 22 Đường Mẫu Y, Quận 8, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090004",
+      "name": "HỘ KINH DOANH VẬT TƯ MINH TÂM MẪU",
+      "status_code": "04",
+      "status_label": "Hết hiệu lực",
+      "status_reason_code": null,
+      "address": "Số 33 Đường Mẫu Y, Quận 11, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090005",
+      "name": "CÔNG TY TNHH DỊCH VỤ THƯƠNG MẠI HOÀNG PHÁT MẪU",
+      "status_code": "05",
+      "status_label": "NNT tạm ngừng hoạt động, kinh doanh",
+      "status_reason_code": null,
+      "address": "Số 55 Đường Mẫu Y, Quận Tân Phú, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090006",
+      "name": "CÔNG TY TNHH TM TỔNG HỢP BÌNH MINH PHÁT",
+      "status_code": "06",
+      "status_label": "NNT không hoạt động tại địa chỉ đã đăng ký",
+      "status_reason_code": null,
+      "address": "Số 88 Đường Mẫu Z, Quận Bình Tân, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090007",
+      "name": "CÔNG TY TNHH THIẾT BỊ BẾP ĐÔNG DƯƠNG MẪU",
+      "status_code": "07",
+      "status_label": "NNT đang chờ làm thủ tục phá sản",
+      "status_reason_code": null,
+      "address": "Số 77 Đường Mẫu Z, Quận 12, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090008",
+      "name": "CÔNG TY TNHH PHỤ LIỆU BẾP VIỆT TIẾN MẪU",
+      "status_code": "02",
+      "status_label": "NNT đã chuyển cơ quan thuế quản lý",
+      "status_reason_code": null,
+      "address": "Số 28 Đường Mẫu Z, TP. Thủ Đức, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090009",
+      "name": "CÔNG TY TNHH CUNG ỨNG THỰC PHẨM TÂN TIẾN MẪU",
+      "status_code": "09",
+      "status_label": "NNT chờ xác minh tình trạng hoạt động tại địa chỉ đã đăng ký",
+      "status_reason_code": null,
+      "address": "Số 99 Đường Mẫu Z, Quận Gò Vấp, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090010",
+      "name": "HỘ KINH DOANH VẬN CHUYỂN NHANH HÒA BÌNH MẪU",
+      "status_code": "10",
+      "status_label": "MST chờ cập nhật thông tin số định danh cá nhân",
+      "status_reason_code": null,
+      "address": "Số 100 Đường Mẫu Z, Quận 4, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090011",
+      "name": "CÔNG TY TNHH KHO SỈ NGUYÊN LIỆU ĐẠI PHÁT MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 111 Đường Mẫu Z, Quận Bình Tân, TP. Hồ Chí Minh"
+    },
+    {
+      "tax_id": "0999090012",
+      "name": "CÔNG TY TNHH TM DV THÀNH TÍN MẪU",
+      "status_code": "00",
+      "status_label": "NNT đã được cấp MST / Đang hoạt động",
+      "status_reason_code": "02",
+      "address": "Số 121 Đường Mẫu Z, Huyện Hóc Môn, TP. Hồ Chí Minh"
+    }
+  ]
+}

@@ -69,9 +69,9 @@ Tool chỉ-đọc, chỉ dữ liệu của `tenant_id` trong token, và với d�
 | `vendor_registry` | `{}` (NCC của hóa đơn) | DB `core`: TK `verified`/`escrow_only`, SĐT lưu sẵn (che), **các lần xác minh đã duyệt** (để không báo lại yêu cầu đổi TK đã xử lý ở F12) | trusted |
 | `cross_alerts` | `{}` | DB `risk` (indicator của hóa đơn) | trusted |
 | `official_fraud_list` | `{}` | `GET /sim/simo/indicators:check` cho TK, SĐT, MST của hóa đơn | trusted |
-| `einvoice_portal` | `{}` | `GET /sim/einvoice/invoices` | trusted |
-| `tax_id_lookup` | `{tax_id}` | `GET /sim/tax/taxpayers/{tax_id}` | trusted |
-| `tax_risk_list` | `{tax_id}` | `GET /sim/tax/risk-list/{tax_id}` | trusted |
+| `einvoice_portal` | `{}` | `GET /sim/einvoice/invoices` (trả `found`, `invoice_status_code` `1..6` [`tthai`], `processing_status_code` `0..8` [`ttxly`], `illegal_flag` [`bhphap`], `tax_authority_code`, `total_vnd`, `related_invoice`) | trusted |
+| `tax_id_lookup` | `{tax_id}` | `GET /sim/tax/taxpayers/{tax_id}` (trả `status_code` ∈ `{"00","01","02","03","04","05","06","07","09","10"}` theo `TT 90/2026`, không có `"08"`; kèm `status_label`, `status_reason_code`) | trusted |
+| `tax_risk_list` | `{tax_id}` | `GET /sim/tax/risk-list/{tax_id}` (trả `listed`, `list_name`, `listed_on`) | trusted |
 | `utility_bills`, `utility_baseline` | `{store_id?, months ≤ 12}` | DB `core` (code tính trung vị, khoảng bình thường) | trusted |
 | `momo_revenue` | `{store_id, month}` | `GET /sim/revenue` | trusted |
 | `account_balance` | `{}` | `GET /sim/rails/wallets/{wallet_id}` | trusted |
@@ -103,6 +103,11 @@ Khi nhận Finding, core xem các tool_call **trusted** của bot đó trong att
 | `pack_qty_parsed` khác `pack_qty_contract`, hoặc không parse được | `PACK_SIZE_CHANGED` |
 | `three_way_match` báo vượt số lượng / thiếu phiếu nhập | `QUANTITY_ABOVE_NORM` / `NO_GOODS_RECEIPT` |
 | `utility_baseline` ngoài khoảng bình thường | `UTILITY_OUT_OF_RANGE` |
+| `tax_id_lookup.status_code` ∈ `{"01","03","05","06","07"}` | `MST_INACTIVE` |
+| `tax_risk_list.listed == true` hoặc `einvoice_portal.illegal_flag == true` | `TAX_RISK_LIST` |
+| `einvoice_portal.found == false`, hoặc `processing_status_code` ∈ `{2, 4}`, hoặc `invoice_status_code` ∈ `{4, 6}` | `INVOICE_NOT_FOUND_ON_PORTAL` |
+
+Ánh xạ đầy đủ 10 mã MST và mã cổng HĐĐT (`tthai` 1–6, `ttxly` 0–8) sang `ReasonCode` hiện có (và mục *"Đề xuất chưa áp dụng"*) xem [tools.md §4a](../03-agents/tools.md#4a-quy-ước-tra-cứu-thuế-tax_id_lookup-einvoice_portal-tax_risk_list).
 
 Bot không gọi tool nào mà báo `OK` thì vẫn bị chặn bởi luật `prefetch` (§1) và kiểm tra hệ thống (§4).
 
@@ -114,7 +119,7 @@ Core tự kiểm bằng **dữ liệu đã có trong DB**, không gọi ra ngoà
 |---|---|
 | indicator của hóa đơn khớp `risk.cross_alerts` đang `published` (bắt cả cảnh báo chéo phát hành trong lúc job chạy) | `CROSS_ALERT_HIT` (vàng, bắt buộc xác minh) |
 | indicator khớp `risk.hard_blocks` | `OFFICIAL_FRAUD_LIST` (đỏ) |
-| TK trên hóa đơn (`NBan/STKNHang`) có mà không trùng TK `verified` nào của NCC, và không có xác minh đã duyệt cho TK đó | `PAYEE_CHANGE_REQUEST` (đỏ) |
+| Bất kỳ TK người bán nào trích từ hóa đơn (`NBan/STKNHang`, `TTKhac` chứa STK người bán, hoặc `DLQRCode`) mà không trùng TK `verified` nào của NCC, và không có xác minh F12 đã duyệt cho TK đó | `PAYEE_CHANGE_REQUEST` (đỏ) |
 
 Tra SIMO và danh sách rủi ro thuế vẫn do bot `fraud-control` và `tax` làm qua tool (dữ liệu giả lập của sim-world).
 

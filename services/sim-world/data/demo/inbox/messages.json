@@ -1,0 +1,854 @@
+{
+  "messages": [
+    {
+      "message_id": "msg_01M88B7CXKHHZG6KDZHBKJB7H9",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@duongmiamiennam.example",
+      "subject": "Hóa đơn GTGT số 00000312 - Đường nước pha chế đợt cuối tháng 11",
+      "body_text": "Kính gửi Phòng Kế toán Chuỗi Lá Xanh, gửi kèm HĐĐT XML lô đường nước giao bếp trung tâm ngày 25/11/2026.",
+      "received_at": "2026-11-26T08:01:00+07:00",
+      "delivered_by_default": true,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88BJNK0XQVXBMFTZ0RYB990",
+          "filename": "1C26TDM_00000312.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TDM_00000312.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88A9HCMS94SSEVJ0FGDPHGP",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@davienbangxanh.example",
+      "subject": "Hóa đơn GTGT số 482 - Đá viên tinh khiết giao Quán 01",
+      "body_text": "Gửi kế toán Chuỗi Lá Xanh hóa đơn đá viên giao Quán 01 tuần 4/11.",
+      "received_at": "2026-11-26T08:02:00+07:00",
+      "delivered_by_default": true,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88CYJHR1KV6F5DYGGHE5SNG",
+          "filename": "1K26TBX_482.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1K26TBX_482.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88E569KK44T3DGT3HZNRNQ5",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@hopgiaysongxanh.example",
+      "subject": "Hóa đơn GTGT số 00000908 - Hộp giấy kraft 700ml",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn điện tử 12 thùng hộp giấy kraft giao bếp trung tâm.",
+      "received_at": "2026-11-26T08:03:00+07:00",
+      "delivered_by_default": true,
+      "attachments": [
+        {
+          "attachment_id": "att_01M887MRBAC685555SH742KS45",
+          "filename": "1C26TSX_00000908.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TSX_00000908.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88H11Y0WR367CGNZZH603T5",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@caphetaynguyen.example",
+      "subject": "Hóa đơn GTGT số 00001425 - Cà phê hạt đợt 4/11",
+      "body_text": "Kính gửi Phòng Kế toán Chuỗi Lá Xanh, gửi kèm HĐĐT XML đợt giao ngày 25/11/2026.",
+      "received_at": "2026-11-26T08:05:00+07:00",
+      "delivered_by_default": true,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88474G49Q16H37SDXA9WJ36",
+          "filename": "1C26TTN_00001425.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TTN_00001425.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88H5C1QMWHYCP6C473N38DC",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suadongxanh.example",
+      "subject": "Hóa đơn GTGT số 00002108 - Sữa tươi tiệt trùng cụm quán tuần 4/11",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, đính kèm HĐĐT đơn 80 thùng sữa tươi tuần 4/11 tổng 31.000.000 đ.",
+      "received_at": "2026-11-26T08:15:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M889W21B62X4FYTJ2W3BQJV7",
+          "filename": "1C26TDX_00002108.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TDX_00002108.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M888C4A3W3RAJAWSY33P7EYW",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@baobinhuaxanh.example",
+      "subject": "Hóa đơn GTGT số 00000744 - 40 thùng ly nhựa PP 500ml",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn 40 thùng ly nhựa PP 500ml (quy cách mới 800 cái/thùng) giao ngày 26/11/2026.",
+      "received_at": "2026-11-26T08:25:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88ADVCVRQ72H7DR54S1J86K",
+          "filename": "1C26TNX_00000744.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TNX_00000744.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88A6SAP3R27VDQ55VAKCF0P",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@nguyenlieuachau.example",
+      "subject": "Hóa đơn GTGT số 00000088 - Đặt cọc lô Si-rô đào ưu đãi 8,8 triệu",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn đặt cọc lô si-rô đào chiết khấu sâu. Vui lòng chuyển khoản 8.800.000đ vào TK thủ kho TRAN THI HANH (998800011100 - Ngân hàng Mẫu Thành Công) trước 15h hôm nay để giữ lô.",
+      "received_at": "2026-11-26T08:35:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88CKWRQJMENTMKERY1RHY9J",
+          "filename": "1C26TAC_00000088.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TAC_00000088.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M8867BQMQG52GZYDE75JHF2V",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@saovietpos.example",
+      "subject": "Hóa đơn GTGT số 00005511 - Phí phần mềm POS tháng 11/2026",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn dịch vụ phần mềm POS tháng 11/2026 cho 16 điểm bán (12.000.000 đ, không chịu thuế GTGT).",
+      "received_at": "2026-11-26T08:45:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M885BYR95E4H71AR7VAXVNPS",
+          "filename": "1C26TSV_00005511.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TSV_00005511.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M8851XCD7YGDX38812T4RG7Z",
+      "mailbox": "hoadon@bepphoxanh.example",
+      "from": "ketoan@nguyenlieuachau.example",
+      "subject": "Hóa đơn GTGT số 00000089 - Giao si-rô pha chế Bếp Phố Xanh",
+      "body_text": "Kính gửi Công ty TNHH Nhà Hàng Bếp Phố Xanh, gửi kèm hóa đơn 30 chai si-rô đào giao chi nhánh Quận 1.",
+      "received_at": "2026-11-26T08:50:00+07:00",
+      "delivered_by_default": true,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88KAP49TVHJ3NB07YEQTPP5",
+          "filename": "1C26TAC_00000089.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TAC_00000089.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M889R577XQP8RWQM0R7MKM0T",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suacaonguyen-vn.example",
+      "subject": "KHẨN: Thông báo đổi TK thanh toán & Hóa đơn số 00004821",
+      "body_text": "Kính gửi Phòng Kế toán Chuỗi Lá Xanh, do tài khoản cũ đang tạm khóa để kiểm toán hạn mức cuối năm, đề nghị Quý đối tác thanh toán gấp 7.333.333đ sang TK chuyên thu mới 998899887701 tại Ngân hàng Mẫu Nam Việt (CTY TNHH TM SUA CAO NGUYEN VN MAU) trước 16h30 hôm nay để kho kịp xuất chuyến sáng mai. Số máy bàn mới: 0280009999.",
+      "received_at": "2026-11-26T09:05:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M887Q79DNM5EX0F1C7BZRR1H",
+          "filename": "1C26TCN_00004821.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TCN_00004821.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88J2ZA5X11S54DR9DFE0AJ0",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@kemsuamaytrang.example",
+      "subject": "Hóa đơn GTGT số 00001902 - Kem sữa Whipping Mây Trắng",
+      "body_text": "Gửi kèm HĐĐT XML đơn 5 thùng kem sữa Whipping giao bếp trung tâm.",
+      "received_at": "2026-11-26T09:10:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M883R352CVCV7MG3EQCZGNGM",
+          "filename": "1C26TMT_00001902.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TMT_00001902.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88E81WQ8VA74696WFS7KE9H",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@duongmiamiennam.example",
+      "subject": "Hóa đơn GTGT số 00000399 - Đường nước pha chế can 25kg",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử có mã QR thanh toán nhanh.",
+      "received_at": "2026-11-26T09:15:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88AWWT84TG2W7TV4GDJQQ6Q",
+          "filename": "1C26TDM_00000399.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TDM_00000399.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88CD75937XP0MN2V71HXTYK",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@khosidaiphat.example",
+      "subject": "Hóa đơn GTGT số 00000017 - Lô bột kem béo giá sỉ",
+      "body_text": "Gửi Kế toán Chuỗi Lá Xanh, đính kèm hóa đơn lô bột kem béo 25kg. Đề nghị tất toán ngay trong ngày.",
+      "received_at": "2026-11-26T09:20:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88D1PC6EA01FK289TRZYQJE",
+          "filename": "1C26TDP_00000017.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TDP_00000017.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M883SSET0X9HKH317GRDYRFA",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@binhminhphat.example",
+      "subject": "Hóa đơn GTGT số 00000109 - Lô vật tư giao chi nhánh 7",
+      "body_text": "Gửi Kế toán thanh toán, đính kèm HĐĐT số 00000109 của Công ty Bình Minh Phát. Đề nghị thanh toán 100% trong ngày trước kỳ khóa sổ thuế.",
+      "received_at": "2026-11-26T09:25:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88FBA88YZWDDSMKEQRDKRZR",
+          "filename": "1C26TBM_00000109.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TBM_00000109.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88HG2BEGJ8R7HGJA47GE3VP",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@hoangphatmau.example",
+      "subject": "Hóa đơn GTGT số 00000205 - Dịch vụ bảo dưỡng thiết bị",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn dịch vụ bảo dưỡng kho lạnh tháng 11/2026.",
+      "received_at": "2026-11-26T09:30:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88KD605QP3WCYSQTF84CNG3",
+          "filename": "1C26THP_00000205.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26THP_00000205.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88ACH7FYEJ6MDWWS7PK6WSH",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@tantienmau.example",
+      "subject": "Hóa đơn GTGT số 00000309 - Cam sành loại 1",
+      "body_text": "Gửi Chuỗi Lá Xanh hóa đơn 100kg cam sành giao bếp trung tâm.",
+      "received_at": "2026-11-26T09:35:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88CWRNENPMGNNR7MJY1ND0J",
+          "filename": "1C26TTT_00000309.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TTT_00000309.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M884JXGBF9T3ZVVSBQTS0C2J",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@trabaoloc.example",
+      "subject": "Hóa đơn GTGT số 000611 - Trà đen Bảo Lộc",
+      "body_text": "Gửi hóa đơn điện tử 2 thùng trà đen Bảo Lộc (lưu ý bản này đã bị hủy trên cổng CQT).",
+      "received_at": "2026-11-26T09:40:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M883XX544X8TW5EJYKE9KD6H",
+          "filename": "1K26TBL_000611.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1K26TBL_000611.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88BB396V8S1MA8Y7XBDHM12",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@botphuongdong.example",
+      "subject": "Hóa đơn GTGT số 00000440 - Bột kem béo 25kg",
+      "body_text": "Gửi hóa đơn điện tử 3 bao bột kem béo 25kg (bản cũ đã bị thay thế bằng số 00000448).",
+      "received_at": "2026-11-26T09:45:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88D9FSRXEX8116FJM6AKF44",
+          "filename": "1C26TPD_00000440.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TPD_00000440.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M8865V28AX4Q775FSPBW4593",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@thanhtinmau.example",
+      "subject": "Hóa đơn GTGT số 00000066 - Vật tư bao bì giấy",
+      "body_text": "Gửi hóa đơn vật tư bao bì tổng hợp tháng 11/2026.",
+      "received_at": "2026-11-26T09:50:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M889FPAZ0ST92AE575JVGG93",
+          "filename": "1C26TTI_00000066.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TTI_00000066.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88BCYAGEAS5HAY01N3WK1BP",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@caphetaynguyen.example",
+      "subject": "FW: Gửi lại Hóa đơn GTGT số 1425 - Cà phê hạt đợt 4/11",
+      "body_text": "Chị ơi em gửi lại file XML hóa đơn số 1425 đợt cà phê 25/11 phòng khi mail trước bị lỗi.",
+      "received_at": "2026-11-26T09:55:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88D1GVKM8J50TWYSZ91RDSB",
+          "filename": "1C26TTN_1425_dup.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TTN_1425_dup.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M8892X5A9RTDEG90DAM8Q2G8",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@tranchaunambo.example",
+      "subject": "Hóa đơn GTGT số 00000512 - Trân châu đen Nam Bộ",
+      "body_text": "Gửi hóa đơn điện tử 10 thùng trân châu đen giao bếp trung tâm.",
+      "received_at": "2026-11-26T10:00:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88BHV8XXJVZQA85JY4Z97AP",
+          "filename": "1C26TNB_00000512.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TNB_00000512.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88ETSKJVKXGVTVD5KNVSW4S",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@caphetaynguyen.example",
+      "subject": "Hóa đơn điều chỉnh giảm số 00001430 (điều chỉnh cho HĐ 00001380)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điều chỉnh giảm cho lô cà phê ngày 12/11/2026.",
+      "received_at": "2026-11-26T10:05:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88CC5YP7SHSR2PR734FR974",
+          "filename": "1C26TTN_00001430.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TTN_00001430.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M888C5Y2V7CHR06F6T5G1WM7",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@naplymiennam.example",
+      "subject": "Hóa đơn GTGT số 00000811 - 20 thùng nắp bằng phi 95mm",
+      "body_text": "Gửi hóa đơn điện tử 20 thùng nắp bằng phi 95mm (bản lưu tạm từ phần mềm kế toán).",
+      "received_at": "2026-11-26T10:10:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88D2QDWT6Z5ADR07QVBB90H",
+          "filename": "1C26TNL_00000811.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TNL_00000811.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88FPA7JC482R1PARWZ11CMT",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suadongxanh.example",
+      "subject": "Hóa đơn GTGT số 00002115 - 50 thùng sữa tươi giao Quán 02",
+      "body_text": "Gửi kèm HĐĐT 50 thùng sữa tươi giao Quán 02 ngày 26/11/2026.",
+      "received_at": "2026-11-26T10:15:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88D7SZPN5YKVGTCJXM70YYQ",
+          "filename": "1C26TDX_00002115.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TDX_00002115.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88CJ5CD9V1EXB6CRZ3CH7QT",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@vesinhantoanxanh.example",
+      "subject": "Hóa đơn PDF số 00000412 - Bộ dung dịch vệ sinh quầy bar",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, bên em gửi bản PDF hóa đơn bộ dung dịch vệ sinh quầy bar (1.450.000 đ), sẽ gửi bổ sung XML sau ạ.",
+      "received_at": "2026-11-26T10:20:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M889JXV40K9QAKYT8GBFYVRQ",
+          "filename": "HD_VS_00000412.pdf",
+          "content_type": "application/pdf",
+          "file_path": "inbox/attachments/HD_VS_00000412.pdf"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M883PQHETT1P01734RVWV2D6",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@trabaoloc.example",
+      "subject": "Hóa đơn GTGT số 00000701 - Đợt trà đen tháng 11 (22 triệu)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn lô trà đen giao bếp trung tâm tổng 22.000.000 đ.",
+      "received_at": "2026-11-26T10:30:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M889EJX5ZY4GSDMGV8AG13BA",
+          "filename": "1C26TBL_00000701.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TBL_00000701.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88E6AVRX960FEZNJPGP0G73",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@botphuongdong.example",
+      "subject": "Hóa đơn GTGT số 00000702 - 50 gói bột Matcha Cao Nguyên (21,5 triệu)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn 50 gói bột Matcha giao bếp trung tâm tổng 21.500.000 đ.",
+      "received_at": "2026-11-26T10:31:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88EWNWQ4HVSBBSMPXZAHEYA",
+          "filename": "1C26TPD_00000702.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26TPD_00000702.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88CR06ENE09WRNH2B4QKA3J",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@huongviet.example",
+      "subject": "Hóa đơn GTGT số 00000703 - Si-rô vải Hương Việt đợt 4/11 (21,5 triệu)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi hóa đơn lô si-rô vải Hương Việt giao bếp trung tâm tổng 21.500.000 đ.",
+      "received_at": "2026-11-26T10:32:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M887R6JXW45VF7VJ6BCEZG8C",
+          "filename": "1C26THV_00000703.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/1C26THV_00000703.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88494VDCS65QMG31MB1MGYE",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@caphetaynguyen.example",
+      "subject": "Hóa đơn GTGT số 00009001 - Cà phê hạt Robusta Đắk Nông rang mộc 1kg (PI_01)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009001.",
+      "received_at": "2026-11-26T11:01:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88FKPEWTR51KPXC33MJ7JNN",
+          "filename": "pi_01.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_01.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88FXAPSZBFG1AX1SVCB1JMP",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suadongxanh.example",
+      "subject": "Hóa đơn GTGT số 00009002 - Sữa tươi tiệt trùng Đồng Xanh không đường 1L (giao bếp trung tâm) (PI_02)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009002.",
+      "received_at": "2026-11-26T11:02:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M887JCZY5FN38V4GVM6CN37E",
+          "filename": "pi_02.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_02.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88K57KRZ5Q0KVKTH31CXK4W",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suacaonguyen.example",
+      "subject": "Hóa đơn GTGT số 00009003 - Sữa đặc có đường Cao Nguyên Đỏ hộp giấy 1284g (PI_03)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009003.",
+      "received_at": "2026-11-26T11:03:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88GNZE72MQW3C7KJ4GESB1T",
+          "filename": "pi_03.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_03.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88DKZKW6EMNQYCAET6NAGNS",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@baobinhuaxanh.example",
+      "subject": "Hóa đơn GTGT số 00009004 - Ly nhựa PP 500ml đáy bằng in logo Lá Xanh (PI_04)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009004.",
+      "received_at": "2026-11-26T11:04:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88EYSXEMFNFJD4ZBTFREBBN",
+          "filename": "pi_04.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_04.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88FXB9SM28AYSBR2436ZH1M",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@huongviet.example",
+      "subject": "Hóa đơn GTGT số 00009005 - Si-rô đào Hương Việt chai 750ml (PI_05)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009005.",
+      "received_at": "2026-11-26T11:05:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M8874XNZJRNH0FV5TMRV5NHM",
+          "filename": "pi_05.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_05.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88FB91SJD92WQSWB8KE235R",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@kemsuamaytrang.example",
+      "subject": "Hóa đơn GTGT số 00009006 - Kem sữa Whipping Mây Trắng hộp 1L (PI_06)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009006.",
+      "received_at": "2026-11-26T11:06:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88ASHEWC38AS66PACN91MXK",
+          "filename": "pi_06.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_06.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M883RR3JCYKNFAMW3VVZ34NC",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@baobinhuaxanh.example",
+      "subject": "Hóa đơn GTGT số 00009007 - Ly nhựa PP 500ml đáy bằng in logo Lá Xanh (PI_07)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009007.",
+      "received_at": "2026-11-26T11:07:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88G051YA7BVVHF9ZNXKPFPW",
+          "filename": "pi_07.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_07.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88HDA8YKY22ZP8PSN7G7DZ9",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@duongmiamiennam.example",
+      "subject": "Hóa đơn GTGT số 00009008 - Đường nước pha chế Miền Nam can 25kg (PI_08)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009008.",
+      "received_at": "2026-11-26T11:08:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88C4XN9NEW3FKHJFXZ1NFGB",
+          "filename": "pi_08.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_08.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M8840HJDZFNC2VABS45SNFP4",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@trabaoloc.example",
+      "subject": "Hóa đơn GTGT số 00009009 - Trà đen thượng hạng Bảo Lộc gói 500g (PI_09)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009009.",
+      "received_at": "2026-11-26T11:09:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M888XV4RJV4P3E6S1TRM3H1A",
+          "filename": "pi_09.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_09.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88GQHV2YEV4535F1G8C2K8J",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@botphuongdong.example",
+      "subject": "Hóa đơn GTGT số 00009010 - Bột trà xanh Matcha Cao Nguyên gói 500g (PI_10)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009010.",
+      "received_at": "2026-11-26T11:10:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88A461H4X3961MEA0KST7H7",
+          "filename": "pi_10.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_10.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88E8790Y350VD1T7CJZTPEJ",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@huongviet.example",
+      "subject": "Hóa đơn GTGT số 00009011 - Si-rô đào Hương Việt chai 750ml (PI_11)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009011.",
+      "received_at": "2026-11-26T11:11:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88CPS4QEDZAKW7J9RH6NB5W",
+          "filename": "pi_11.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_11.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88ABPAWPXYSDZQPA37DKH6K",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@naplymiennam.example",
+      "subject": "Hóa đơn GTGT số 00009012 - Nắp PET bằng phi 95mm Miền Nam (PI_12)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009012.",
+      "received_at": "2026-11-26T11:12:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M8885J9PQ61QZ90RRW8A7QCM",
+          "filename": "pi_12.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_12.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88EATBHKS15YD8R1F701W4W",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@onghutsinhhoc.example",
+      "subject": "Hóa đơn GTGT số 00009013 - Ống hút giấy phi 6 Sinh Học Xanh (I1)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009013.",
+      "received_at": "2026-11-26T11:13:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M8855DBKWD4X6Z8BPGS9J81W",
+          "filename": "pi_i01.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i01.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M887WD1VF1VGZVS4PTR6EKFX",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@tuithanhdat.example",
+      "subject": "Hóa đơn GTGT số 00009014 - Túi mang đi 1 ly Thành Đạt bao 25kg (I2)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009014.",
+      "received_at": "2026-11-26T11:14:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88HXGD2J9FBVJ53TS4S5NXS",
+          "filename": "pi_i02.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i02.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88FNGDMJZC8VFS6WN93G3AV",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@hopgiaysongxanh.example",
+      "subject": "Hóa đơn GTGT số 00009015 - Hộp giấy kraft nắp gài 700ml Sông Xanh (I3)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009015.",
+      "received_at": "2026-11-26T11:15:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M883XHEW5Y7TQ6C8JVD8HX7J",
+          "filename": "pi_i03.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i03.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M889NFPWPFEEE4GETFT002TR",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@giaytinhkhoi.example",
+      "subject": "Hóa đơn GTGT số 00009016 - Khăn giấy rút 2 lớp Tinh Khôi gói 180 tờ (I4)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009016.",
+      "received_at": "2026-11-26T11:16:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88GHYBP85N9M706KV881A4C",
+          "filename": "pi_i04.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i04.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M889GJGAYABXYDNN972GZBD3",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@tranchaunambo.example",
+      "subject": "Hóa đơn GTGT số 00009017 - Trân châu đen Nam Bộ gói 1kg (I5)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009017.",
+      "received_at": "2026-11-26T11:17:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88C4WJ7GZRMF6X6555HH6XX",
+          "filename": "pi_i05.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i05.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M886M5Q0AA2N265GRXGPZADG",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@suathanhtrungbl.example",
+      "subject": "Hóa đơn GTGT số 00009018 - Sữa tươi thanh trùng Bảo Lộc nguyên chất 950ml (I6)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009018.",
+      "received_at": "2026-11-26T11:18:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M8861B61EKQCMT7FX7JY2S3E",
+          "filename": "pi_i06.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i06.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M88B8F120H36KH4ZWWZTGRYY",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@davienbangxanh.example",
+      "subject": "Hóa đơn GTGT số 00009019 - Đá viên tinh khiết Băng Xanh bao 20kg (giao bếp trung tâm) (I7)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009019.",
+      "received_at": "2026-11-26T11:19:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M8873FDGVWST3Y0NPCBPAMM9",
+          "filename": "pi_i07.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i07.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M884E5NXDNQWE7CT4YK027E8",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@lobanhhungdong.example",
+      "subject": "Hóa đơn GTGT số 00009020 - Bánh sừng bò Croissant bơ Pháp Hừng Đông gói 250g (I8)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009020.",
+      "received_at": "2026-11-26T11:20:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88GNSJ5RAANYJTYVSRK5B06",
+          "filename": "pi_i08.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i08.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M883QR28Y5WCQMYD8HVD94Y8",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@banhmiphoxanh.example",
+      "subject": "Hóa đơn GTGT số 00009021 - Bánh mì sandwich tươi lạt Phố Xanh gói 420g (I9)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009021.",
+      "received_at": "2026-11-26T11:21:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M888FTBP55DVVK2Q5AYF9RSZ",
+          "filename": "pi_i09.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i09.xml"
+        }
+      ]
+    },
+    {
+      "message_id": "msg_01M886B7GFN0WXH3PT2N0J2HAD",
+      "mailbox": "hoadon@laxanh-fnb.example",
+      "from": "ketoan@chanhmientay.example",
+      "subject": "Hóa đơn GTGT số 00009022 - Chanh không hạt miền Tây loại 1 (I10)",
+      "body_text": "Kính gửi Chuỗi Lá Xanh, gửi kèm hóa đơn điện tử số 00009022.",
+      "received_at": "2026-11-26T11:22:00+07:00",
+      "delivered_by_default": false,
+      "attachments": [
+        {
+          "attachment_id": "att_01M88476ECVMJNWWKDDFNB3DCZ",
+          "filename": "pi_i10.xml",
+          "content_type": "application/xml",
+          "file_path": "inbox/attachments/pi_i10.xml"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "dataset": "demo",
+  "version": "1.0.0",
+  "default_seed": 42,
+  "base_clock": "2026-11-26T08:00:00+07:00",
+  "primary_tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+  "secondary_tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+  "counts": {
+    "tenants": 2,
+    "stores": 16,
+    "total_stores": 19,
+    "merchant_users": 21,
+    "staff_users": 4,
+    "vendors": 48,
+    "total_vendors": 52,
+    "contracts": 52,
+    "purchase_orders": 43,
+    "goods_receipts": 41,
+    "inbox_messages": 50,
+    "utility_accounts": 32,
+    "utility_months": 12,
+    "utility_readings": 384,
+    "bills": 385,
+    "revenues": 180,
+    "scenarios": 49
+  }
+}

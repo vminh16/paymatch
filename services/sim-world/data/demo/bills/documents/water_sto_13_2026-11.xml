@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>K26TWB</KHHDon>
+      <SHDon>132201</SHDon>
+      <NLap>2026-11-21</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900009</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY CP CẤP NƯỚC KHU VỰC BẮC THÀNH PHỐ MẪU</Ten>
+        <MST>0999010042</MST>
+        <DChi>Số 25 Đường Mẫu Cấp Nước, Quận Bình Thạnh, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001047</SDThoai>
+        <DCTDTu>ketoan@capnuocbactp.example</DCTDTu>
+        <STKNHang>990010000042</STKNHang>
+        <TNHang>Ngân hàng Mẫu Thành Công</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <MKHang>01109900013</MKHang>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Số 126 Đường Mẫu Cộng Hòa, Quận Tân Bình, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <THHDVu>Tiền nước sạch kinh doanh dịch vụ kỳ 2026-11</THHDVu>
+          <DVTinh>m3</DVTinh>
+          <SLuong>22</SLuong>
+          <DGia>21300</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>468600</ThTien>
+          <TSuat>5%</TSuat>
+        </HHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>2</STT>
+          <THHDVu>Tiền dịch vụ thoát nước và xử lý nước thải kỳ 2026-11 (30%)</THHDVu>
+          <DVTinh>m3</DVTinh>
+          <SLuong>22</SLuong>
+          <DGia>6390</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>140580</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>5%</TSuat>
+            <ThTien>468600</ThTien>
+            <TThue>23430</TThue>
+          </LTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>140580</ThTien>
+            <TThue>11246</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>609180</TgTCThue>
+        <TgTThue>34676</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>643856</TgTTTBSo>
+        <TgTTTBChu>Sáu trăm bốn mươi ba nghìn tám trăm năm mươi sáu đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+    <TTKhac>
+      <TTin>
+        <TTruong>DanhBo</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>01109900013</DLieu>
+      </TTin>
+    </TTKhac>
+  </DLHDon>
+  <DLQRCode>00020101021238560010A0000007270126000699990301129900100000420208QRIBFTTA530370454066438565802VN996101100999010042020110306K26TWB0406132201050820261121060664385663041285</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY CP CẤP NƯỚC KHU VỰC BẮC THÀNH PHỐ MẪU, O=CÔNG TY CP CẤP NƯỚC KHU VỰC BẮC THÀNH PHỐ MẪU</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-21T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+  </DSCKS>
+</HDon>

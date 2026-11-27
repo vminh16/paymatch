@@ -17,7 +17,7 @@ Phòng kế toán ảo gồm nhiều AI agent chuyên môn hóa theo nghề, h�
 | [03-agents/prompts-and-skills.md](03-agents/prompts-and-skills.md) | Ba lớp prompt, cấu trúc skill, truy vết version |
 | [03-agents/agent-lifecycle-and-memory.md](03-agents/agent-lifecycle-and-memory.md) | Vòng đời bot (bắt buộc, archive; lộ trình: shadow), memory (lộ trình) |
 | [03-agents/bot-manifest.md](03-agents/bot-manifest.md) | Hợp đồng để người dùng tự thêm bot |
-| [04-data/README.md](04-data/README.md) | Dữ liệu: mẫu thật trước, sinh sau; định dạng XML hóa đơn (QĐ 1271), nguồn số liệu, persona |
+| [04-data/README.md](04-data/README.md) | Dữ liệu: mẫu thật trước, sinh sau; định dạng XML hóa đơn (QĐ 1233), nguồn số liệu, persona, đặc tả bộ dữ liệu sim-world |
 | [05-api/README.md](05-api/README.md) | API contract: cổng, ai gọi ai, quy ước, lỗi, từng API, sự kiện, ma trận phủ luồng |
 | [research/references.md](research/references.md) | Paper và hệ thống tham khảo, ý dùng cho sản phẩm |
 | [research/domain-notes.md](research/domain-notes.md) | Nghiệp vụ kế toán phải trả, thuế VN |

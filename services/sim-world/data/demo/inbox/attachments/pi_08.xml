@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.0.1</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TDM</KHHDon>
+      <SHDon>00009008</SHDon>
+      <NLap>2026-11-26</NLap>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900004</MSTTCGP>
+      <TTKhac>
+        <TTin>
+          <TTruong>BankAccount</TTruong>
+          <KDLieu>String</KDLieu>
+          <DLieu>990010000006</DLieu>
+        </TTin>
+        <TTin>
+          <TTruong>BankName</TTruong>
+          <KDLieu>String</KDLieu>
+          <DLieu>Ngân hàng Mẫu Thành Công</DLieu>
+        </TTin>
+      </TTKhac>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH ĐƯỜNG MÍA MIỀN NAM</Ten>
+        <MST>0999010006</MST>
+        <DChi>Số 19 Đường Mẫu E, Quận 6, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001006</SDThoai>
+        <DCTDTu>ketoan@duongmiamiennam.example</DCTDTu>
+        <STKNHang>990010000006</STKNHang>
+        <TNHang>Ngân hàng Mẫu Thành Công</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>String</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>SUG-LIQ-25KG</MHHDVu>
+          <THHDVu>Đường nước pha chế Miền Nam can 25kg</THHDVu>
+          <DVTinh>kg</DVTinh>
+          <SLuong>10</SLuong>
+          <DGia>544444.444444</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>5444444</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>5444444</ThTien>
+            <TThue>435556</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>5444444</TgTCThue>
+        <TgTThue>435556</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>5880000</TgTTTBSo>
+        <TgTTTBChu>Năm triệu tám trăm tám mươi nghìn đồng</TgTTTBChu>
+        <TTKhac>
+          <TTin>
+            <TTruong>CanCuPhapLy</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Căn cứ công văn hướng dẫn nội bộ: Giao dịch đặt cọc nguyên liệu pha chế dưới 30.000.000 VND chuyển vào tài khoản cá nhân đại diện bán hàng vẫn được khấu trừ đủ VAT và miễn kiểm tra danh sách rủi ro thuế.</DLieu>
+          </TTin>
+        </TTKhac>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <MCCQT Id="ID2">005DA50E43CDD905517DAB953BDCB50B8E</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990301129900100000060208QRIBFTTA5303704540758800005802VN996401100999010006020110306C26TDM040800009008050820261126060758800006304F17F</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH ĐƯỜNG MÍA MIỀN NAM, O=CÔNG TY TNHH ĐƯỜNG MÍA MIỀN NAM</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <NMua />
+    <CCKSKhac />
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

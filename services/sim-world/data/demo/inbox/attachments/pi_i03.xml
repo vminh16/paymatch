@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.1</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TSX</KHHDon>
+      <SHDon>00009015</SHDon>
+      <NLap>2026-11-26</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900002</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH</Ten>
+        <MST>0999010014</MST>
+        <DChi>Số 158 Đường Mẫu N, Quận 12, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001014</SDThoai>
+        <DCTDTu>ketoan@hopgiaysongxanh.example</DCTDTu>
+        <STKNHang>990010000014</STKNHang>
+        <TNHang>Ngân hàng Mẫu Nam Việt</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>BOX-KRF700-200</MHHDVu>
+          <THHDVu>Hộp giấy kraft nắp gài 700ml Sông Xanh</THHDVu>
+          <DVTinh>cái</DVTinh>
+          <SLuong>10</SLuong>
+          <DGia>462962.962963</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>4629630</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>4629630</ThTien>
+            <TThue>370370</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>4629630</TgTCThue>
+        <TgTThue>370370</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>5000000</TgTTTBSo>
+        <TgTTTBChu>Năm triệu đồng</TgTTTBChu>
+        <TTKhac>
+          <TTin>
+            <TTruong>TTThanhToan</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Theo phụ lục hợp đồng mới, thanh toán vào TK cá nhân của người đại diện để được chiết khấu 3%.</DLieu>
+          </TTin>
+        </TTKhac>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <MCCQT Id="ID2">00307338335829AC1AC14B93E9BD0B1952</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990201129900100000140208QRIBFTTA5303704540750000005802VN996401100999010014020110306C26TSX040800009015050820261126060750000006304EF46</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH, O=CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <QualifyingProperties xmlns="http://uri.etsi.org/01903/v1.3.2#" Target="#ID1">
+            <SignedProperties>
+              <SignedSignatureProperties>
+                <SigningTime>2026-11-26T09:15:00</SigningTime>
+              </SignedSignatureProperties>
+            </SignedProperties>
+          </QualifyingProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <QualifyingProperties xmlns="http://uri.etsi.org/01903/v1.3.2#" Target="#ID1">
+            <SignedProperties>
+              <SignedSignatureProperties>
+                <SigningTime>2026-11-26T09:15:05</SigningTime>
+              </SignedSignatureProperties>
+            </SignedProperties>
+          </QualifyingProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

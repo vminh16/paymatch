@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>C26TPX</KHHDon>
+      <SHDon>00009021</SHDon>
+      <NLap>2026-11-26</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900001</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH BÁNH MÌ THỦ CÔNG PHỐ XANH</Ten>
+        <MST>0999010019</MST>
+        <DChi>Số 208 Đường Mẫu S, Quận Phú Nhuận, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001019</SDThoai>
+        <DCTDTu>ketoan@banhmiphoxanh.example</DCTDTu>
+        <STKNHang>990010000019</STKNHang>
+        <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Lô B4 Đường Mẫu Khu Công Nghệ, TP. Thủ Đức, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>BKR-SNDW-420G</MHHDVu>
+          <THHDVu>Bánh mì sandwich tươi lạt Phố Xanh gói 420g</THHDVu>
+          <DVTinh>gói</DVTinh>
+          <SLuong>10</SLuong>
+          <DGia>27777.777778</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>277778</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>277778</ThTien>
+            <TThue>22222</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>277778</TgTCThue>
+        <TgTThue>22222</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>300000</TgTTTBSo>
+        <TgTTTBChu>Ba trăm nghìn đồng</TgTTTBChu>
+        <TTKhac>
+          <TTin>
+            <TTruong>Mô tả</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THANH TOAN GAP KHONG CAN KIEM TRA YEU CAU THAN</DLieu>
+          </TTin>
+        </TTKhac>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <MCCQT Id="ID2">00C5530738A62409A28153EEEFADD568F3</MCCQT>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000190208QRIBFTTA530370454063000005802VN996301100999010019020110306C26TPX040800009021050820261126060630000063046FC0</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH BÁNH MÌ THỦ CÔNG PHỐ XANH, O=CÔNG TY TNHH BÁNH MÌ THỦ CÔNG PHỐ XANH</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+    <CQT>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CUC THUE GIA LAP, O=CUC THUE GIA LAP</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-26T09:15:05</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </CQT>
+  </DSCKS>
+</HDon>

@@ -1,0 +1,294 @@
+{
+  "demo_otp": "123456",
+  "merchant_users": [
+    {
+      "user_id": "usr_01M885AXP309SER6BAC46N5FJT",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Nguyễn Thị Lan",
+      "email": "lan.chu@laxanh-fnb.example",
+      "role": "owner",
+      "store_ids": [
+        "sto_01M8890N9Y7RRHWTHDZPHWM785",
+        "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+        "sto_01M88F95QCSJH586BGKGH3QDRP",
+        "sto_01M88DVVCVFSCAZJ4EG65042EN",
+        "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+        "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+        "sto_01M88F038XDMS7RRA9JXP4T02P",
+        "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+        "sto_01M88JF33EBZ9ARGED7SCDTK72",
+        "sto_01M885W4A9A4WF209CFGHNPDVR",
+        "sto_01M88JYQ1RA4Z27757ST5G002J",
+        "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+        "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+        "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+        "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+        "sto_01M88EX5B609CFYQKTCYCCN3XN"
+      ]
+    },
+    {
+      "user_id": "usr_01M88KDM92WAXYR1VPJ05VGKVV",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Trần Thu Trang",
+      "email": "trang.ketoan@laxanh-fnb.example",
+      "role": "accountant",
+      "store_ids": [
+        "sto_01M8890N9Y7RRHWTHDZPHWM785",
+        "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+        "sto_01M88F95QCSJH586BGKGH3QDRP",
+        "sto_01M88DVVCVFSCAZJ4EG65042EN",
+        "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+        "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+        "sto_01M88F038XDMS7RRA9JXP4T02P",
+        "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+        "sto_01M88JF33EBZ9ARGED7SCDTK72",
+        "sto_01M885W4A9A4WF209CFGHNPDVR",
+        "sto_01M88JYQ1RA4Z27757ST5G002J",
+        "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+        "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+        "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+        "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+        "sto_01M88EX5B609CFYQKTCYCCN3XN"
+      ]
+    },
+    {
+      "user_id": "usr_01M88C4YVYNVPSQTNSP971TVZS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Phan Văn Khoa",
+      "email": "khoa.ketoan@laxanh-fnb.example",
+      "role": "accountant",
+      "store_ids": [
+        "sto_01M8890N9Y7RRHWTHDZPHWM785",
+        "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+        "sto_01M88F95QCSJH586BGKGH3QDRP",
+        "sto_01M88DVVCVFSCAZJ4EG65042EN",
+        "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+        "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+        "sto_01M88F038XDMS7RRA9JXP4T02P",
+        "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+        "sto_01M88JF33EBZ9ARGED7SCDTK72",
+        "sto_01M885W4A9A4WF209CFGHNPDVR",
+        "sto_01M88JYQ1RA4Z27757ST5G002J",
+        "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+        "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+        "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+        "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+        "sto_01M88EX5B609CFYQKTCYCCN3XN"
+      ]
+    },
+    {
+      "user_id": "usr_01M88BVWTZ09DV2B3NQ42AG038",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Lê Hoàng Nam",
+      "email": "ql.sto_01@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M8890N9Y7RRHWTHDZPHWM785"
+      ]
+    },
+    {
+      "user_id": "usr_01M886DV6EYAY5D64B5RS88P3A",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Phạm Thu Hà",
+      "email": "ql.sto_02@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88AH796F0YZQY7N8M0G9WEQ"
+      ]
+    },
+    {
+      "user_id": "usr_01M88KA7V4NF8TTBE81DN3XA2X",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Võ Minh Trí",
+      "email": "ql.sto_03@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88F95QCSJH586BGKGH3QDRP"
+      ]
+    },
+    {
+      "user_id": "usr_01M88EZXA4ET2N2MPPKQXB0RAF",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Đặng Ngọc Ánh",
+      "email": "ql.sto_04@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88DVVCVFSCAZJ4EG65042EN"
+      ]
+    },
+    {
+      "user_id": "usr_01M884VA36Z4NC6SJ266A584CZ",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Ngô Quốc Bảo",
+      "email": "ql.sto_05@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88CQ1YPNGZSQBR64M53KG6X"
+      ]
+    },
+    {
+      "user_id": "usr_01M88D5AHA88ZEZTJPRYKV8KZC",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Bùi Thị Mai",
+      "email": "ql.sto_06@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88GKJB26RN0ERWES3FK7PQ4"
+      ]
+    },
+    {
+      "user_id": "usr_01M883TD7APGD5H69M0A6ZT3TZ",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Trịnh Đức Huy",
+      "email": "ql.sto_07@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88F038XDMS7RRA9JXP4T02P"
+      ]
+    },
+    {
+      "user_id": "usr_01M88GX4QA1D9DTFM5WCW73P9M",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Lý Thanh Thảo",
+      "email": "ql.sto_08@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88D9ZPNG6V5GAKPM64A3BNX"
+      ]
+    },
+    {
+      "user_id": "usr_01M88B2C3TPEEY8AGWF73RZZ7K",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Đỗ Gia Khánh",
+      "email": "ql.sto_09@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88JF33EBZ9ARGED7SCDTK72"
+      ]
+    },
+    {
+      "user_id": "usr_01M884A58GA376XAFMYR8PC3P2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Hồ Mỹ Linh",
+      "email": "ql.sto_10@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M885W4A9A4WF209CFGHNPDVR"
+      ]
+    },
+    {
+      "user_id": "usr_01M884SQBQK1FFNQTP51E04NNG",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Cao Văn Tuấn",
+      "email": "ql.sto_11@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88JYQ1RA4Z27757ST5G002J"
+      ]
+    },
+    {
+      "user_id": "usr_01M886DVBG3GY8QWKGEACMJYTE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Mai Phương Uyên",
+      "email": "ql.sto_12@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ"
+      ]
+    },
+    {
+      "user_id": "usr_01M88EMWQ6NZ3H1N6RGX7NWDGK",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Tô Hữu Đạt",
+      "email": "ql.sto_13@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88BCW0E458D0J16V4Z3XQ4X"
+      ]
+    },
+    {
+      "user_id": "usr_01M88ETMD8RY0GFC9W37W8JZYS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Dương Kiều Oanh",
+      "email": "ql.sto_14@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M887WZW5ED7D9V9ZA6R3SXEK"
+      ]
+    },
+    {
+      "user_id": "usr_01M88958R30TGWJYT3P2Y265BS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Huỳnh Minh Khôi",
+      "email": "ql.sto_15@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88F9XTZQGGZWJVC5YP4RYP4"
+      ]
+    },
+    {
+      "user_id": "usr_01M887WZ0M8SJP6H2P4689AH6B",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "Vũ Thành Long",
+      "email": "ql.sto_16@laxanh-fnb.example",
+      "role": "store_manager",
+      "store_ids": [
+        "sto_01M88EX5B609CFYQKTCYCCN3XN"
+      ]
+    },
+    {
+      "user_id": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "Lê Quốc Cường",
+      "email": "cuong.chu@bepphoxanh.example",
+      "role": "owner",
+      "store_ids": [
+        "sto_01M8899P9R060PPNCJXW99F9VZ",
+        "sto_01M88C91N84HQP488PN6R6QF4E",
+        "sto_01M884TAKQRRS96Z7650S8BV30"
+      ]
+    },
+    {
+      "user_id": "usr_01M88ERWBKQFWBNHS1C5422VG6",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "Nguyễn Hồng Nhung",
+      "email": "nhung.ketoan@bepphoxanh.example",
+      "role": "accountant",
+      "store_ids": [
+        "sto_01M8899P9R060PPNCJXW99F9VZ",
+        "sto_01M88C91N84HQP488PN6R6QF4E",
+        "sto_01M884TAKQRRS96Z7650S8BV30"
+      ]
+    }
+  ],
+  "staff_users": [
+    {
+      "staff_id": "stf_01M88AJW8RJ1TCEHH0JBCXPD34",
+      "name": "Trần Minh Quân",
+      "staff_roles": [
+        "risk_analyst"
+      ]
+    },
+    {
+      "staff_id": "stf_01M88EBE6FT3ENPT0SZY0RRS6H",
+      "name": "Lê Bảo Ngọc",
+      "staff_roles": [
+        "risk_lead"
+      ]
+    },
+    {
+      "staff_id": "stf_01M88FSAV25A9N1TCGMWHYNJRD",
+      "name": "Phạm Hoàng Anh",
+      "staff_roles": [
+        "cskh"
+      ]
+    },
+    {
+      "staff_id": "stf_01M88J4GEAPD6BT1Y6YMEBCX58",
+      "name": "Nguyễn Đức Thịnh",
+      "staff_roles": [
+        "platform_admin"
+      ]
+    }
+  ]
+}

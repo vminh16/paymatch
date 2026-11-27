@@ -1,0 +1,1264 @@
+{
+  "revenues": [
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2025-12",
+      "revenue_vnd": 336900000,
+      "transaction_count": 5223
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-01",
+      "revenue_vnd": 314000000,
+      "transaction_count": 4868
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-02",
+      "revenue_vnd": 317200000,
+      "transaction_count": 4918
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-03",
+      "revenue_vnd": 352400000,
+      "transaction_count": 5464
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-04",
+      "revenue_vnd": 377600000,
+      "transaction_count": 5854
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-05",
+      "revenue_vnd": 372400000,
+      "transaction_count": 5774
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-06",
+      "revenue_vnd": 357700000,
+      "transaction_count": 5546
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-07",
+      "revenue_vnd": 325500000,
+      "transaction_count": 5047
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-08",
+      "revenue_vnd": 331100000,
+      "transaction_count": 5133
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-09",
+      "revenue_vnd": 317400000,
+      "transaction_count": 4921
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-10",
+      "revenue_vnd": 332300000,
+      "transaction_count": 5152
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M8890N9Y7RRHWTHDZPHWM785",
+      "month": "2026-11",
+      "revenue_vnd": 343500000,
+      "transaction_count": 5326
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2025-12",
+      "revenue_vnd": 299800000,
+      "transaction_count": 4648
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-01",
+      "revenue_vnd": 297900000,
+      "transaction_count": 4619
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-02",
+      "revenue_vnd": 305700000,
+      "transaction_count": 4740
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-03",
+      "revenue_vnd": 338300000,
+      "transaction_count": 5245
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-04",
+      "revenue_vnd": 338900000,
+      "transaction_count": 5254
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-05",
+      "revenue_vnd": 345900000,
+      "transaction_count": 5363
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-06",
+      "revenue_vnd": 332400000,
+      "transaction_count": 5153
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-07",
+      "revenue_vnd": 302400000,
+      "transaction_count": 4688
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-08",
+      "revenue_vnd": 319300000,
+      "transaction_count": 4950
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-09",
+      "revenue_vnd": 313300000,
+      "transaction_count": 4857
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-10",
+      "revenue_vnd": 313900000,
+      "transaction_count": 4867
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88AH796F0YZQY7N8M0G9WEQ",
+      "month": "2026-11",
+      "revenue_vnd": 312300000,
+      "transaction_count": 4842
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2025-12",
+      "revenue_vnd": 299700000,
+      "transaction_count": 4647
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-01",
+      "revenue_vnd": 279500000,
+      "transaction_count": 4333
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-02",
+      "revenue_vnd": 271100000,
+      "transaction_count": 4203
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-03",
+      "revenue_vnd": 302600000,
+      "transaction_count": 4691
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-04",
+      "revenue_vnd": 330500000,
+      "transaction_count": 5124
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-05",
+      "revenue_vnd": 321200000,
+      "transaction_count": 4980
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-06",
+      "revenue_vnd": 308300000,
+      "transaction_count": 4780
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-07",
+      "revenue_vnd": 297400000,
+      "transaction_count": 4611
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-08",
+      "revenue_vnd": 289900000,
+      "transaction_count": 4495
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-09",
+      "revenue_vnd": 297000000,
+      "transaction_count": 4605
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-10",
+      "revenue_vnd": 292100000,
+      "transaction_count": 4529
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F95QCSJH586BGKGH3QDRP",
+      "month": "2026-11",
+      "revenue_vnd": 283200000,
+      "transaction_count": 4391
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2025-12",
+      "revenue_vnd": 231300000,
+      "transaction_count": 3586
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-01",
+      "revenue_vnd": 231500000,
+      "transaction_count": 3589
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-02",
+      "revenue_vnd": 225400000,
+      "transaction_count": 3495
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-03",
+      "revenue_vnd": 256300000,
+      "transaction_count": 3974
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-04",
+      "revenue_vnd": 257700000,
+      "transaction_count": 3995
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-05",
+      "revenue_vnd": 258000000,
+      "transaction_count": 4000
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-06",
+      "revenue_vnd": 231000000,
+      "transaction_count": 3581
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-07",
+      "revenue_vnd": 227600000,
+      "transaction_count": 3529
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-08",
+      "revenue_vnd": 226400000,
+      "transaction_count": 3510
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-09",
+      "revenue_vnd": 220300000,
+      "transaction_count": 3416
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-10",
+      "revenue_vnd": 230000000,
+      "transaction_count": 3566
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DVVCVFSCAZJ4EG65042EN",
+      "month": "2026-11",
+      "revenue_vnd": 229800000,
+      "transaction_count": 3563
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2025-12",
+      "revenue_vnd": 277200000,
+      "transaction_count": 4298
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-01",
+      "revenue_vnd": 279500000,
+      "transaction_count": 4333
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-02",
+      "revenue_vnd": 270600000,
+      "transaction_count": 4195
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-03",
+      "revenue_vnd": 302100000,
+      "transaction_count": 4684
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-04",
+      "revenue_vnd": 306600000,
+      "transaction_count": 4753
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-05",
+      "revenue_vnd": 305200000,
+      "transaction_count": 4732
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-06",
+      "revenue_vnd": 304000000,
+      "transaction_count": 4713
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-07",
+      "revenue_vnd": 288500000,
+      "transaction_count": 4473
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-08",
+      "revenue_vnd": 284700000,
+      "transaction_count": 4414
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-09",
+      "revenue_vnd": 272000000,
+      "transaction_count": 4217
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-10",
+      "revenue_vnd": 293300000,
+      "transaction_count": 4547
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88CQ1YPNGZSQBR64M53KG6X",
+      "month": "2026-11",
+      "revenue_vnd": 283000000,
+      "transaction_count": 4388
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2025-12",
+      "revenue_vnd": 300900000,
+      "transaction_count": 4665
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-01",
+      "revenue_vnd": 309300000,
+      "transaction_count": 4795
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-02",
+      "revenue_vnd": 297800000,
+      "transaction_count": 4617
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-03",
+      "revenue_vnd": 330100000,
+      "transaction_count": 5118
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-04",
+      "revenue_vnd": 342900000,
+      "transaction_count": 5316
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-05",
+      "revenue_vnd": 344000000,
+      "transaction_count": 5333
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-06",
+      "revenue_vnd": 323200000,
+      "transaction_count": 5011
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-07",
+      "revenue_vnd": 300200000,
+      "transaction_count": 4654
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-08",
+      "revenue_vnd": 292400000,
+      "transaction_count": 4533
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-09",
+      "revenue_vnd": 296300000,
+      "transaction_count": 4594
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-10",
+      "revenue_vnd": 304200000,
+      "transaction_count": 4716
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88GKJB26RN0ERWES3FK7PQ4",
+      "month": "2026-11",
+      "revenue_vnd": 305900000,
+      "transaction_count": 4743
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2025-12",
+      "revenue_vnd": 309500000,
+      "transaction_count": 4798
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-01",
+      "revenue_vnd": 301600000,
+      "transaction_count": 4676
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-02",
+      "revenue_vnd": 285500000,
+      "transaction_count": 4426
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-03",
+      "revenue_vnd": 327300000,
+      "transaction_count": 5074
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-04",
+      "revenue_vnd": 329700000,
+      "transaction_count": 5112
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-05",
+      "revenue_vnd": 340300000,
+      "transaction_count": 5276
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-06",
+      "revenue_vnd": 310100000,
+      "transaction_count": 4808
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-07",
+      "revenue_vnd": 296300000,
+      "transaction_count": 4594
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-08",
+      "revenue_vnd": 292800000,
+      "transaction_count": 4540
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-09",
+      "revenue_vnd": 297300000,
+      "transaction_count": 4609
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-10",
+      "revenue_vnd": 299200000,
+      "transaction_count": 4639
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F038XDMS7RRA9JXP4T02P",
+      "month": "2026-11",
+      "revenue_vnd": 310100000,
+      "transaction_count": 4808
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2025-12",
+      "revenue_vnd": 217400000,
+      "transaction_count": 3371
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-01",
+      "revenue_vnd": 204700000,
+      "transaction_count": 3174
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-02",
+      "revenue_vnd": 199700000,
+      "transaction_count": 3096
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-03",
+      "revenue_vnd": 237000000,
+      "transaction_count": 3674
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-04",
+      "revenue_vnd": 234500000,
+      "transaction_count": 3636
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-05",
+      "revenue_vnd": 224600000,
+      "transaction_count": 3482
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-06",
+      "revenue_vnd": 211400000,
+      "transaction_count": 3278
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-07",
+      "revenue_vnd": 206200000,
+      "transaction_count": 3197
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-08",
+      "revenue_vnd": 212800000,
+      "transaction_count": 3299
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-09",
+      "revenue_vnd": 213400000,
+      "transaction_count": 3309
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-10",
+      "revenue_vnd": 213700000,
+      "transaction_count": 3313
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88D9ZPNG6V5GAKPM64A3BNX",
+      "month": "2026-11",
+      "revenue_vnd": 209600000,
+      "transaction_count": 3250
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2025-12",
+      "revenue_vnd": 267900000,
+      "transaction_count": 4153
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-01",
+      "revenue_vnd": 275500000,
+      "transaction_count": 4271
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-02",
+      "revenue_vnd": 262800000,
+      "transaction_count": 4074
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-03",
+      "revenue_vnd": 303600000,
+      "transaction_count": 4707
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-04",
+      "revenue_vnd": 309500000,
+      "transaction_count": 4798
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-05",
+      "revenue_vnd": 286400000,
+      "transaction_count": 4440
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-06",
+      "revenue_vnd": 286500000,
+      "transaction_count": 4442
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-07",
+      "revenue_vnd": 277200000,
+      "transaction_count": 4298
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-08",
+      "revenue_vnd": 271300000,
+      "transaction_count": 4206
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-09",
+      "revenue_vnd": 262700000,
+      "transaction_count": 4073
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-10",
+      "revenue_vnd": 279100000,
+      "transaction_count": 4327
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JF33EBZ9ARGED7SCDTK72",
+      "month": "2026-11",
+      "revenue_vnd": 270100000,
+      "transaction_count": 4188
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2025-12",
+      "revenue_vnd": 323700000,
+      "transaction_count": 5019
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-01",
+      "revenue_vnd": 317500000,
+      "transaction_count": 4922
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-02",
+      "revenue_vnd": 326900000,
+      "transaction_count": 5068
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-03",
+      "revenue_vnd": 362500000,
+      "transaction_count": 5620
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-04",
+      "revenue_vnd": 355000000,
+      "transaction_count": 5504
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-05",
+      "revenue_vnd": 358600000,
+      "transaction_count": 5560
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-06",
+      "revenue_vnd": 329900000,
+      "transaction_count": 5115
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-07",
+      "revenue_vnd": 339500000,
+      "transaction_count": 5264
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-08",
+      "revenue_vnd": 335000000,
+      "transaction_count": 5194
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-09",
+      "revenue_vnd": 316800000,
+      "transaction_count": 4912
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-10",
+      "revenue_vnd": 335700000,
+      "transaction_count": 5205
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M885W4A9A4WF209CFGHNPDVR",
+      "month": "2026-11",
+      "revenue_vnd": 338200000,
+      "transaction_count": 5243
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2025-12",
+      "revenue_vnd": 309700000,
+      "transaction_count": 4802
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-01",
+      "revenue_vnd": 318600000,
+      "transaction_count": 4940
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-02",
+      "revenue_vnd": 309700000,
+      "transaction_count": 4802
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-03",
+      "revenue_vnd": 352200000,
+      "transaction_count": 5460
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-04",
+      "revenue_vnd": 355100000,
+      "transaction_count": 5505
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-05",
+      "revenue_vnd": 337000000,
+      "transaction_count": 5225
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-06",
+      "revenue_vnd": 326800000,
+      "transaction_count": 5067
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-07",
+      "revenue_vnd": 309400000,
+      "transaction_count": 4797
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-08",
+      "revenue_vnd": 329400000,
+      "transaction_count": 5107
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-09",
+      "revenue_vnd": 324800000,
+      "transaction_count": 5036
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-10",
+      "revenue_vnd": 333600000,
+      "transaction_count": 5172
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88JYQ1RA4Z27757ST5G002J",
+      "month": "2026-11",
+      "revenue_vnd": 323200000,
+      "transaction_count": 5011
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2025-12",
+      "revenue_vnd": 276000000,
+      "transaction_count": 4279
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-01",
+      "revenue_vnd": 288800000,
+      "transaction_count": 4478
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-02",
+      "revenue_vnd": 287300000,
+      "transaction_count": 4454
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-03",
+      "revenue_vnd": 299300000,
+      "transaction_count": 4640
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-04",
+      "revenue_vnd": 317900000,
+      "transaction_count": 4929
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-05",
+      "revenue_vnd": 304500000,
+      "transaction_count": 4721
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-06",
+      "revenue_vnd": 304000000,
+      "transaction_count": 4713
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-07",
+      "revenue_vnd": 295200000,
+      "transaction_count": 4577
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-08",
+      "revenue_vnd": 277700000,
+      "transaction_count": 4305
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-09",
+      "revenue_vnd": 282700000,
+      "transaction_count": 4383
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-10",
+      "revenue_vnd": 293200000,
+      "transaction_count": 4546
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88DJ8TYZBC3JDHYCJF0R6ZQ",
+      "month": "2026-11",
+      "revenue_vnd": 289400000,
+      "transaction_count": 4487
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2025-12",
+      "revenue_vnd": 260400000,
+      "transaction_count": 4037
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-01",
+      "revenue_vnd": 246200000,
+      "transaction_count": 3817
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-02",
+      "revenue_vnd": 239400000,
+      "transaction_count": 3712
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-03",
+      "revenue_vnd": 274300000,
+      "transaction_count": 4253
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-04",
+      "revenue_vnd": 286400000,
+      "transaction_count": 4440
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-05",
+      "revenue_vnd": 272000000,
+      "transaction_count": 4217
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-06",
+      "revenue_vnd": 259200000,
+      "transaction_count": 4019
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-07",
+      "revenue_vnd": 265500000,
+      "transaction_count": 4116
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-08",
+      "revenue_vnd": 255900000,
+      "transaction_count": 3967
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-09",
+      "revenue_vnd": 249000000,
+      "transaction_count": 3860
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-10",
+      "revenue_vnd": 258400000,
+      "transaction_count": 4006
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88BCW0E458D0J16V4Z3XQ4X",
+      "month": "2026-11",
+      "revenue_vnd": 252700000,
+      "transaction_count": 3918
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2025-12",
+      "revenue_vnd": 233900000,
+      "transaction_count": 3626
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-01",
+      "revenue_vnd": 231200000,
+      "transaction_count": 3584
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-02",
+      "revenue_vnd": 233400000,
+      "transaction_count": 3619
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-03",
+      "revenue_vnd": 253100000,
+      "transaction_count": 3924
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-04",
+      "revenue_vnd": 260000000,
+      "transaction_count": 4031
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-05",
+      "revenue_vnd": 254500000,
+      "transaction_count": 3946
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-06",
+      "revenue_vnd": 251500000,
+      "transaction_count": 3899
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-07",
+      "revenue_vnd": 236300000,
+      "transaction_count": 3664
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-08",
+      "revenue_vnd": 246900000,
+      "transaction_count": 3828
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-09",
+      "revenue_vnd": 243500000,
+      "transaction_count": 3775
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-10",
+      "revenue_vnd": 235600000,
+      "transaction_count": 3653
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M887WZW5ED7D9V9ZA6R3SXEK",
+      "month": "2026-11",
+      "revenue_vnd": 241300000,
+      "transaction_count": 3741
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2025-12",
+      "revenue_vnd": 345700000,
+      "transaction_count": 5360
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-01",
+      "revenue_vnd": 326400000,
+      "transaction_count": 5060
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-02",
+      "revenue_vnd": 320900000,
+      "transaction_count": 4975
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-03",
+      "revenue_vnd": 381700000,
+      "transaction_count": 5918
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-04",
+      "revenue_vnd": 381500000,
+      "transaction_count": 5915
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-05",
+      "revenue_vnd": 375000000,
+      "transaction_count": 5814
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-06",
+      "revenue_vnd": 363000000,
+      "transaction_count": 5628
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-07",
+      "revenue_vnd": 353000000,
+      "transaction_count": 5473
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-08",
+      "revenue_vnd": 332600000,
+      "transaction_count": 5157
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-09",
+      "revenue_vnd": 326700000,
+      "transaction_count": 5065
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-10",
+      "revenue_vnd": 346100000,
+      "transaction_count": 5366
+    },
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "store_ref": "sto_01M88F9XTZQGGZWJVC5YP4RYP4",
+      "month": "2026-11",
+      "revenue_vnd": 349300000,
+      "transaction_count": 5416
+    }
+  ]
+}

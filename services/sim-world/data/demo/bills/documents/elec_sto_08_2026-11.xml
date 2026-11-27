@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>K26TEC</KHHDon>
+      <SHDon>081101</SHDon>
+      <NLap>2026-11-21</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900009</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU</Ten>
+        <MST>0999010040-003</MST>
+        <DChi>Số 30 Đường Mẫu Điện Lực, Quận 7, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001042</SDThoai>
+        <DCTDTu>ketoan@dienlucnamtp.example</DCTDTu>
+        <STKNHang>990010000040</STKNHang>
+        <TNHang>Ngân hàng Mẫu Á Châu</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <MKHang>PE01009900008</MKHang>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Số 33 Đường Mẫu Bến Vân Đồn, Quận 4, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <THHDVu>Tiền điện kinh doanh hạ áp 1 giá kỳ 2026-11</THHDVu>
+          <DVTinh>kWh</DVTinh>
+          <SLuong>1142</SLuong>
+          <DGia>3089</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <ThTien>3527638</ThTien>
+          <TSuat>8%</TSuat>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>3527638</ThTien>
+            <TThue>282211</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>3527638</TgTCThue>
+        <TgTThue>282211</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>3809849</TgTTTBSo>
+        <TgTTTBChu>Ba triệu tám trăm lẻ chín nghìn tám trăm bốn mươi chín đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+    <TTKhac>
+      <TTin>
+        <TTruong>MaKhachHang</TTruong>
+        <KDLieu>string</KDLieu>
+        <DLieu>PE01009900008</DLieu>
+      </TTin>
+    </TTKhac>
+  </DLHDon>
+  <DLQRCode>00020101021238560010A0000007270126000699990101129900100000400208QRIBFTTA5303704540738098495802VN996501130999010040003020110306K26TEC04060811010508202611210607380984963042BAC</DLQRCode>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU, O=CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-21T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+  </DSCKS>
+</HDon>

@@ -1,0 +1,22 @@
+{
+  "indicators": [
+    {
+      "kind": "account_hash",
+      "value_hash": "c7dfe487bab58ead104ced293dedb9d0c93415fb6d57829084a2f0caba57212a",
+      "listed": true,
+      "list_ref": "SIMO-2026-00991"
+    },
+    {
+      "kind": "tax_id",
+      "value_hash": "525262f81a962f692fab3bb52e1547bcb86d35888eae1b8bc42661840e109663",
+      "listed": true,
+      "list_ref": "SIMO-2026-00991"
+    },
+    {
+      "kind": "phone",
+      "value_hash": "52b73a39a837a40b3b76c83b6ab9f32127337d5107e8d7020b705a18216edd7c",
+      "listed": true,
+      "list_ref": "SIMO-2026-00991"
+    }
+  ]
+}

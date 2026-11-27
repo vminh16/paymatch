@@ -1,0 +1,426 @@
+{
+  "wallets": [
+    {
+      "wallet_id": "wal_01M88AWF62TJ28TZPAQDR9KT4H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "balance_vnd": 350000000,
+      "as_of": "2026-11-26T08:00:00+07:00"
+    },
+    {
+      "wallet_id": "wal_01M887HYMWE0ZSE2MP9SNTT0P6",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "balance_vnd": 180000000,
+      "as_of": "2026-11-26T08:00:00+07:00"
+    }
+  ],
+  "external_bank_accounts": [
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000001",
+      "account_name": "CONG TY TNHH CA PHE RANG MOC TAY NGUYEN",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000002",
+      "account_name": "CONG TY TNHH SUA TUOI DONG XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000003",
+      "account_name": "CONG TY TNHH BAO BI NHUA XANH VIET",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000004",
+      "account_name": "CONG TY TNHH THUC PHAM SUA CAO NGUYEN DO",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000005",
+      "account_name": "CONG TY TNHH KEM SUA MAY TRANG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000006",
+      "account_name": "CONG TY TNHH DUONG MIA MIEN NAM",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000007",
+      "account_name": "CONG TY TNHH TRA THAO MOC BAO LOC",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000008",
+      "account_name": "CONG TY TNHH BOT PHA CHE PHUONG DONG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000009",
+      "account_name": "CONG TY TNHH HUONG LIEU PHA CHE HUONG VIET",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000010",
+      "account_name": "CONG TY TNHH TRAN CHAU & THACH NGOT NAM BO",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000011",
+      "account_name": "CONG TY TNHH NAP LY & PHU KIEN MIEN NAM",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000012",
+      "account_name": "CONG TY TNHH ONG HUT SINH HOC XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000013",
+      "account_name": "CONG TY TNHH TUI DONG GOI THANH DAT",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000014",
+      "account_name": "CONG TY TNHH HOP GIAY BAO BI SONG XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000015",
+      "account_name": "CONG TY TNHH GIAY KHAN VE SINH TINH KHOI",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000016",
+      "account_name": "CONG TY TNHH SUA THANH TRUNG BAO LOC",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000017",
+      "account_name": "CONG TY TNHH DA VIEN TINH KHIET BANG XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000018",
+      "account_name": "CONG TY TNHH LO BANH TUOI HUNG DONG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000019",
+      "account_name": "CONG TY TNHH BANH MI THU CONG PHO XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000020",
+      "account_name": "CONG TY TNHH DA VIEN SACH DONG THANH PHO",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000021",
+      "account_name": "CONG TY TNHH BANH NGOT TUOI NAM SAI GON",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000022",
+      "account_name": "CONG TY TNHH NONG SAN CHANH TUOI MIEN TAY",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000023",
+      "account_name": "CONG TY TNHH TRAI CAY CAO NGUYEN MUA XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000024",
+      "account_name": "CONG TY TNHH THUC PHAM TUOI SONG DONG BANG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000025",
+      "account_name": "CONG TY TNHH THUY HAI SAN BIEN XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000026",
+      "account_name": "CONG TY TNHH RAU CU SACH CAO NGUYEN XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000027",
+      "account_name": "CONG TY TNHH TRUNG & BO SUA AN NHIEN",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000028",
+      "account_name": "CONG TY TNHH COT BANH DONG LANH BAC NAM",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000029",
+      "account_name": "CONG TY TNHH TRAI CAY NHIET DOI NAM BO",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000030",
+      "account_name": "CONG TY TNHH GIA VI & NUOC SOT TU NHIEN",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000031",
+      "account_name": "CONG TY TNHH THUC PHAM SO CHE SONG HAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000033",
+      "account_name": "CONG TY TNHH PHAN MEM KE TOAN DAM MAY VIET",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000034",
+      "account_name": "CONG TY TNHH VIEN THONG HA TANG CAP QUANG MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000035",
+      "account_name": "CONG TY TNHH KY THUAT MAY PHA CA PHE PHUONG NAM",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000036",
+      "account_name": "CONG TY TNHH DIEN LANH CONG NGHIEP SAI GON MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000037",
+      "account_name": "CONG TY TNHH HOA CHAT VE SINH AN TOAN XANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000038",
+      "account_name": "CONG TY TNHH THIET KE & TRUYEN THONG ANH DUONG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000039",
+      "account_name": "CONG TY TNHH DICH VU VE SINH BEP & KIEM SOAT CON TRUNG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000045",
+      "account_name": "CONG TY TNHH VAN TAI LANH NOI DO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000040",
+      "account_name": "CHI NHANH DIEN LUC KHU VUC TRUNG TAM MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000041",
+      "account_name": "CONG TY CP CAP NUOC KHU VUC TRUNG TAM MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990010000042",
+      "account_name": "CONG TY CP CAP NUOC KHU VUC BAC THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990010000043",
+      "account_name": "CONG TY CP CAP NUOC KHU VUC NAM THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990010000044",
+      "account_name": "CONG TY CP CAP NUOC KHU VUC DONG THANH PHO MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "998812345601",
+      "account_name": "NGUYEN VAN MINH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "998800011100",
+      "account_name": "TRAN THI HANH",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "998899887701",
+      "account_name": "CTY TNHH TM SUA CAO NGUYEN VN MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "998822334455",
+      "account_name": "DOAN VAN CUONG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "998877665544",
+      "account_name": "HOANG MINH TAM",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "998855667788",
+      "account_name": "LE QUOC HUNG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "998866554433",
+      "account_name": "PHAM QUOC DUNG",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "998899887777",
+      "account_name": "NGUYEN VAN X",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "998800000002",
+      "account_name": "NGUYEN VAN MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990099990001",
+      "account_name": "TK TEST INSUFFICIENT FUNDS",
+      "simulate_failure": "INSUFFICIENT_FUNDS"
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990099990002",
+      "account_name": "TK TEST ACCOUNT NOT FOUND",
+      "simulate_failure": "ACCOUNT_NOT_FOUND"
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990099990003",
+      "account_name": "TK TEST NAME MISMATCH",
+      "simulate_failure": "NAME_MISMATCH"
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990099990004",
+      "account_name": "TK TEST RAIL DOWN",
+      "simulate_failure": "RAIL_DOWN"
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000002",
+      "account_name": "CONG TY TNHH THUONG MAI NGAN HA MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000003",
+      "account_name": "CONG TY TNHH VAT TU AN LOC MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990090000004",
+      "account_name": "HO KINH DOANH VAT TU MINH TAM MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000005",
+      "account_name": "CONG TY TNHH DICH VU THUONG MAI HOANG PHAT MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990090000006",
+      "account_name": "CONG TY TNHH TM TONG HOP BINH MINH PHAT",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990090000007",
+      "account_name": "CONG TY TNHH THIET BI BEP DONG DUONG MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000008",
+      "account_name": "CONG TY TNHH PHU LIEU BEP VIET TIEN MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB01",
+      "account_number": "990090000009",
+      "account_name": "CONG TY TNHH CUNG UNG THUC PHAM TAN TIEN MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB02",
+      "account_number": "990090000010",
+      "account_name": "HO KINH DOANH VAN CHUYEN NHANH HOA BINH MAU",
+      "simulate_failure": null
+    },
+    {
+      "bank_code": "VNMB03",
+      "account_number": "990090000012",
+      "account_name": "CONG TY TNHH TM DV THANH TIN MAU",
+      "simulate_failure": null
+    }
+  ],
+  "card_merchants": [
+    {
+      "merchant_id": "mrc_pos_cloud_01",
+      "name": "CONG TY TNHH PHAN MEM BAN HANG SAO VIET"
+    }
+  ]
+}

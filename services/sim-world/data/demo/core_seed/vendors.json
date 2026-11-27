@@ -1,0 +1,2831 @@
+{
+  "vendors": [
+    {
+      "vendor_id": "ven_01M88CGAPGH0KRTMDHYVB4JF3C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH CÀ PHÊ RANG MỘC TÂY NGUYÊN",
+      "tax_id": "0999010001",
+      "phone_on_file": "0280001001",
+      "phone_on_file_masked": "0280***001",
+      "email": "ketoan@caphetaynguyen.example",
+      "address": "Số 12 Đường Mẫu A, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M889PXQCH8DZNQQAHM3HBRH4",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH SỮA TƯƠI ĐỒNG XANH",
+      "tax_id": "0999010002",
+      "phone_on_file": "0280001002",
+      "phone_on_file_masked": "0280***002",
+      "email": "ketoan@suadongxanh.example",
+      "address": "Số 24 Đường Mẫu B, Quận Tân Bình, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M8876N5RKZ3A9GRME2NFSMH0",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH BAO BÌ NHỰA XANH VIỆT",
+      "tax_id": "0999010003",
+      "phone_on_file": "0280001003",
+      "phone_on_file_masked": "0280***003",
+      "email": "ketoan@baobinhuaxanh.example",
+      "address": "Lô C8 KCN Mẫu Vĩnh Lộc, Huyện Bình Chánh, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88FN88RZ6MQ8NPF8MXE908W",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH THỰC PHẨM SỮA CAO NGUYÊN ĐỎ",
+      "tax_id": "0999010004",
+      "phone_on_file": "0280001004",
+      "phone_on_file_masked": "0280***004",
+      "email": "ketoan@suacaonguyen.example",
+      "address": "Số 41 Đường Mẫu C, Quận Phú Nhuận, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M883TQMNYMR90AQ396724BMB",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH KEM SỮA MÂY TRẮNG",
+      "tax_id": "0999010005",
+      "phone_on_file": "0280001005",
+      "phone_on_file_masked": "0280***005",
+      "email": "ketoan@kemsuamaytrang.example",
+      "address": "Số 53 Đường Mẫu D, Quận 7, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M884AMS92SKW70F02KZYE55Z",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH ĐƯỜNG MÍA MIỀN NAM",
+      "tax_id": "0999010006",
+      "phone_on_file": "0280001006",
+      "phone_on_file_masked": "0280***006",
+      "email": "ketoan@duongmiamiennam.example",
+      "address": "Số 19 Đường Mẫu E, Quận 6, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M8845BKJ43BP28V9ZPE59NRD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TRÀ THẢO MỘC BẢO LỘC",
+      "tax_id": "0999010007",
+      "phone_on_file": "0280001007",
+      "phone_on_file_masked": "0280***007",
+      "email": "ketoan@trabaoloc.example",
+      "address": "Số 70 Đường Mẫu F, Quận Bình Thạnh, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88D3EKT3DH661G1KDWMW23H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH BỘT PHA CHẾ PHƯƠNG ĐÔNG",
+      "tax_id": "0999010008",
+      "phone_on_file": "0280001008",
+      "phone_on_file_masked": "0280***008",
+      "email": "ketoan@botphuongdong.example",
+      "address": "Số 82 Đường Mẫu G, Quận 11, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88BKHMTYYC7A0H1PPTC4Q93",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH HƯƠNG LIỆU PHA CHẾ HƯƠNG VIỆT",
+      "tax_id": "0999010009",
+      "phone_on_file": "0280001009",
+      "phone_on_file_masked": "0280***009",
+      "email": "ketoan@huongviet.example",
+      "address": "Số 95 Đường Mẫu H, Quận 10, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88DJHQ93PWJWKMGG79E718R",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TRÂN CHÂU & THẠCH NGỌT NAM BỘ",
+      "tax_id": "0999010010",
+      "phone_on_file": "0280001010",
+      "phone_on_file_masked": "0280***010",
+      "email": "ketoan@tranchaunambo.example",
+      "address": "Số 110 Đường Mẫu I, Quận Gò Vấp, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88A9P45JF75RWB3P18V7YYN",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH NẮP LY & PHỤ KIỆN MIỀN NAM",
+      "tax_id": "0999010011",
+      "phone_on_file": "0280001011",
+      "phone_on_file_masked": "0280***011",
+      "email": "ketoan@naplymiennam.example",
+      "address": "Số 122 Đường Mẫu K, Quận Bình Tân, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88BW4379B6025MRJ0ZK1TKD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH ỐNG HÚT SINH HỌC XANH",
+      "tax_id": "0999010012",
+      "phone_on_file": "0280001012",
+      "phone_on_file_masked": "0280***012",
+      "email": "ketoan@onghutsinhhoc.example",
+      "address": "Số 134 Đường Mẫu L, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M886CXR8T1KDQ5QJZX9YZBY1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TÚI ĐÓNG GÓI THÀNH ĐẠT",
+      "tax_id": "0999010013",
+      "phone_on_file": "0280001013",
+      "phone_on_file_masked": "0280***013",
+      "email": "ketoan@tuithanhdat.example",
+      "address": "Số 146 Đường Mẫu M, Quận Tân Phú, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M884W6YSEW5KD1Y2W192B505",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH HỘP GIẤY BAO BÌ SÔNG XANH",
+      "tax_id": "0999010014",
+      "phone_on_file": "0280001014",
+      "phone_on_file_masked": "0280***014",
+      "email": "ketoan@hopgiaysongxanh.example",
+      "address": "Số 158 Đường Mẫu N, Quận 12, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88EXVHRFHRKWYGQTP4XXCEE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH GIẤY KHĂN VỆ SINH TINH KHÔI",
+      "tax_id": "0999010015",
+      "phone_on_file": "0280001015",
+      "phone_on_file_masked": "0280***015",
+      "email": "ketoan@giaytinhkhoi.example",
+      "address": "Số 160 Đường Mẫu O, Quận 8, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88EKXC2HCCVC97SDGNYCNA6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH SỮA THANH TRÙNG BẢO LỘC",
+      "tax_id": "0999010016",
+      "phone_on_file": "0280001016",
+      "phone_on_file_masked": "0280***016",
+      "email": "ketoan@suathanhtrungbl.example",
+      "address": "Số 172 Đường Mẫu P, Quận Tân Bình, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88DQ8GE0JD3DSA5J1R3PD8Y",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH ĐÁ VIÊN TINH KHIẾT BĂNG XANH",
+      "tax_id": "0999010017",
+      "phone_on_file": "0280001017",
+      "phone_on_file_masked": "0280***017",
+      "email": "ketoan@davienbangxanh.example",
+      "address": "Số 184 Đường Mẫu Q, Quận 4, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88J6MMCRQ3XTPHWRR14SWST",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH LÒ BÁNH TƯƠI HỪNG ĐÔNG",
+      "tax_id": "0999010018",
+      "phone_on_file": "0280001018",
+      "phone_on_file_masked": "0280***018",
+      "email": "ketoan@lobanhhungdong.example",
+      "address": "Số 196 Đường Mẫu R, Quận 3, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M8885RH6292JXTNRHV3YC2WQ",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH BÁNH MÌ THỦ CÔNG PHỐ XANH",
+      "tax_id": "0999010019",
+      "phone_on_file": "0280001019",
+      "phone_on_file_masked": "0280***019",
+      "email": "ketoan@banhmiphoxanh.example",
+      "address": "Số 208 Đường Mẫu S, Quận Phú Nhuận, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88CCMBA8HE52P7S6ZBZDAYH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH ĐÁ VIÊN SẠCH ĐÔNG THÀNH PHỐ",
+      "tax_id": "0999010020",
+      "phone_on_file": "0280001020",
+      "phone_on_file_masked": "0280***020",
+      "email": "ketoan@daviendongtp.example",
+      "address": "Số 220 Đường Mẫu T, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88AX00V31TCEX0Q0FTMTKAM",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH BÁNH NGỌT TƯƠI NAM SÀI GÒN",
+      "tax_id": "0999010021",
+      "phone_on_file": "0280001021",
+      "phone_on_file_masked": "0280***021",
+      "email": "ketoan@banhngotnamsg.example",
+      "address": "Số 232 Đường Mẫu U, Quận 7, TP. Hồ Chí Minh",
+      "category": "direct_outlet",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M885FT6X64186NFXSWFCSQ7S",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH NÔNG SẢN CHANH TƯƠI MIỀN TÂY",
+      "tax_id": "0999010022",
+      "phone_on_file": "0280001022",
+      "phone_on_file_masked": "0280***022",
+      "email": "ketoan@chanhmientay.example",
+      "address": "Số 14 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M884K0JMFF13XFX6HBQ2DWC2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TRÁI CÂY CAO NGUYÊN MÙA XANH",
+      "tax_id": "0999010023",
+      "phone_on_file": "0280001023",
+      "phone_on_file_masked": "0280***023",
+      "email": "ketoan@traicaymuaxanh.example",
+      "address": "Số 26 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M884KJEW2WRX2W7BB5M99B2A",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH THỰC PHẨM TƯƠI SỐNG ĐỒNG BẰNG",
+      "tax_id": "0999010024",
+      "phone_on_file": "0280001024",
+      "phone_on_file_masked": "0280***024",
+      "email": "ketoan@thucphamdongbang.example",
+      "address": "Số 38 Đường Mẫu V, Huyện Hóc Môn, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M888K1M2DB2W25Y22ZZ8YKGH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH THỦY HẢI SẢN BIỂN XANH",
+      "tax_id": "0999010025",
+      "phone_on_file": "0280001025",
+      "phone_on_file_masked": "0280***025",
+      "email": "ketoan@haisanbienxanh.example",
+      "address": "Số 50 Đường Mẫu W, Quận 8, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88FEJWF21Q999M8AHHAE7G6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH RAU CỦ SẠCH CAO NGUYÊN XANH",
+      "tax_id": "0999010026",
+      "phone_on_file": "0280001026",
+      "phone_on_file_masked": "0280***026",
+      "email": "ketoan@raucucaonguyen.example",
+      "address": "Số 62 Đường Mẫu X, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88FVJJ90Z30GV0EC2DFGK18",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TRỨNG & BƠ SỮA AN NHIÊN",
+      "tax_id": "0999010027",
+      "phone_on_file": "0280001027",
+      "phone_on_file_masked": "0280***027",
+      "email": "ketoan@trungannhien.example",
+      "address": "Số 74 Đường Mẫu Y, Huyện Củ Chi, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M887MT5YAYHQSE7RTSHC9923",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH CỐT BÁNH ĐÔNG LẠNH BẮC NAM",
+      "tax_id": "0999010028",
+      "phone_on_file": "0280001028",
+      "phone_on_file_masked": "0280***028",
+      "email": "ketoan@cotbanhbacnam.example",
+      "address": "Số 86 Đường Mẫu Z, Quận Bình Tân, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88JAB7PJDDFZ8XH7GV4D51J",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH TRÁI CÂY NHIỆT ĐỚI NAM BỘ",
+      "tax_id": "0999010029",
+      "phone_on_file": "0280001029",
+      "phone_on_file_masked": "0280***029",
+      "email": "ketoan@traicaynhietdoi.example",
+      "address": "Số 98 Chợ Đầu Mối Mẫu, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88BFX4FJMW0GR6B0WJY75G1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH GIA VỊ & NƯỚC SỐT TỰ NHIÊN",
+      "tax_id": "0999010030",
+      "phone_on_file": "0280001030",
+      "phone_on_file_masked": "0280***030",
+      "email": "ketoan@giavitunhien.example",
+      "address": "Số 112 Đường Mẫu AA, Quận 5, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M886GBRZFG4GVEXS9NPE4PR3",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH THỰC PHẨM SƠ CHẾ SÔNG HẬU",
+      "tax_id": "0999010031",
+      "phone_on_file": "0280001031",
+      "phone_on_file_masked": "0280***031",
+      "email": "ketoan@sochesonghau.example",
+      "address": "Số 124 Đường Mẫu AB, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "fresh_ck",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88EEW45VVABHHJ1TRXJQM4V",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH PHẦN MỀM BÁN HÀNG SAO VIỆT",
+      "tax_id": "0999010032",
+      "phone_on_file": "0280001032",
+      "phone_on_file_masked": "0280***032",
+      "email": "ketoan@saovietpos.example",
+      "address": "Tầng 8 Tòa nhà Mẫu Công Nghệ, Quận 1, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88C1KYBZTYVSK9Q5MBF0HQX",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH PHẦN MỀM KẾ TOÁN ĐÁM MÂY VIỆT",
+      "tax_id": "0999010033",
+      "phone_on_file": "0280001033",
+      "phone_on_file_masked": "0280***033",
+      "email": "ketoan@ketoandammay.example",
+      "address": "Tầng 5 Tòa nhà Mẫu Số Hóa, Quận 3, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M887B9DVN8G24HSW1H0TS8ZC",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH VIỄN THÔNG HẠ TẦNG CÁP QUANG MẪU",
+      "tax_id": "0999010034",
+      "phone_on_file": "0280001034",
+      "phone_on_file_masked": "0280***034",
+      "email": "ketoan@vienthongcapquang.example",
+      "address": "Số 200 Đường Mẫu Viễn Thông, Quận 10, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88EXX9KBE0A1YGGSTAYXB2C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH KỸ THUẬT MÁY PHA CÀ PHÊ PHƯƠNG NAM",
+      "tax_id": "0999010035",
+      "phone_on_file": "0280001035",
+      "phone_on_file_masked": "0280***035",
+      "email": "ketoan@mayphaphuongnam.example",
+      "address": "Số 88 Đường Mẫu Kỹ Thuật, Quận Tân Bình, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M889VS5ARW8VV6138SFH2V4D",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH ĐIỆN LẠNH CÔNG NGHIỆP SÀI GÒN MẪU",
+      "tax_id": "0999010036",
+      "phone_on_file": "0280001036",
+      "phone_on_file_masked": "0280***036",
+      "email": "ketoan@dienlanhsgmau.example",
+      "address": "Số 99 Đường Mẫu Công Nghiệp, Quận Bình Thạnh, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88FF9BAJNH11TMR8JMT7VRG",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH HÓA CHẤT VỆ SINH AN TOÀN XANH",
+      "tax_id": "0999010037",
+      "phone_on_file": "0280001037",
+      "phone_on_file_masked": "0280***037",
+      "email": "ketoan@vesinhantoanxanh.example",
+      "address": "Số 45 Đường Mẫu Vệ Sinh, Quận 12, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88KCYDB92FY30971YK15FBA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH THIẾT KẾ & TRUYỀN THÔNG ÁNH DƯƠNG",
+      "tax_id": "0999010038",
+      "phone_on_file": "0280001038",
+      "phone_on_file_masked": "0280***038",
+      "email": "ketoan@thietkeanhduong.example",
+      "address": "Số 101 Đường Mẫu Sáng Tạo, Quận 3, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M887FKRS52CDHP136MT37532",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH DỊCH VỤ VỆ SINH BẾP & KIỂM SOÁT CÔN TRÙNG",
+      "tax_id": "0999010039",
+      "phone_on_file": "0280001039",
+      "phone_on_file_masked": "0280***039",
+      "email": "ketoan@kiemsoatcontrung.example",
+      "address": "Số 55 Đường Mẫu An Toàn, Quận Gò Vấp, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88A4P80CJGQZQ78BYR6VSVT",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY TNHH VẬN TẢI LẠNH NỘI ĐÔ MẪU",
+      "tax_id": "0999010045",
+      "phone_on_file": "0280001045",
+      "phone_on_file_masked": "0280***045",
+      "email": "ketoan@vantailanhnoido.example",
+      "address": "Số 300 Đường Mẫu Vận Tải, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88EZ0Y3CWRA0WAAHT1BMXTA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC TRUNG TÂM MẪU",
+      "tax_id": "0999010040-001",
+      "phone_on_file": "0280001040",
+      "phone_on_file_masked": "0280***040",
+      "email": "ketoan@dienluctrungtam.example",
+      "address": "Số 10 Đường Mẫu Điện Lực, Quận 1, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M8858DWR2A1E3Y3X583W88JY",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC BẮC THÀNH PHỐ MẪU",
+      "tax_id": "0999010040-002",
+      "phone_on_file": "0280001041",
+      "phone_on_file_masked": "0280***041",
+      "email": "ketoan@dienlucbactp.example",
+      "address": "Số 20 Đường Mẫu Điện Lực, Quận Bình Thạnh, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88BWRHWWXVQQE9AXJ5J5Z3H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC NAM THÀNH PHỐ MẪU",
+      "tax_id": "0999010040-003",
+      "phone_on_file": "0280001042",
+      "phone_on_file_masked": "0280***042",
+      "email": "ketoan@dienlucnamtp.example",
+      "address": "Số 30 Đường Mẫu Điện Lực, Quận 7, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88F76YPJ315154P6W39C535",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CHI NHÁNH ĐIỆN LỰC KHU VỰC ĐÔNG THÀNH PHỐ MẪU",
+      "tax_id": "0999010040-004",
+      "phone_on_file": "0280001043",
+      "phone_on_file_masked": "0280***043",
+      "email": "ketoan@dienlucdongtp.example",
+      "address": "Số 40 Đường Mẫu Điện Lực, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M886VENYGPKXF5A9SEGVGNPS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC TRUNG TÂM MẪU",
+      "tax_id": "0999010041",
+      "phone_on_file": "0280001046",
+      "phone_on_file_masked": "0280***046",
+      "email": "ketoan@capnuoctrungtam.example",
+      "address": "Số 15 Đường Mẫu Cấp Nước, Quận 3, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88537WJSQTDBH0KJ347ZHD7",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC BẮC THÀNH PHỐ MẪU",
+      "tax_id": "0999010042",
+      "phone_on_file": "0280001047",
+      "phone_on_file_masked": "0280***047",
+      "email": "ketoan@capnuocbactp.example",
+      "address": "Số 25 Đường Mẫu Cấp Nước, Quận Bình Thạnh, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M888Z4CWZ8YXNV691EDNE2N2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC NAM THÀNH PHỐ MẪU",
+      "tax_id": "0999010043",
+      "phone_on_file": "0280001048",
+      "phone_on_file_masked": "0280***048",
+      "email": "ketoan@capnuocnamtp.example",
+      "address": "Số 35 Đường Mẫu Cấp Nước, Quận 7, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88B3E63AED7RTW56P4V5KZE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC ĐÔNG THÀNH PHỐ MẪU",
+      "tax_id": "0999010044",
+      "phone_on_file": "0280001049",
+      "phone_on_file_masked": "0280***049",
+      "email": "ketoan@capnuocdongtp.example",
+      "address": "Số 45 Đường Mẫu Cấp Nước, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-01-05T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M885WE2Y51C95Z2R05TYT0CM",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "CÔNG TY TNHH CÀ PHÊ RANG MỘC TÂY NGUYÊN",
+      "tax_id": "0999010001",
+      "phone_on_file": "0280001001",
+      "phone_on_file_masked": "0280***001",
+      "email": "ketoan@caphetaynguyen.example",
+      "address": "Số 12 Đường Mẫu A, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-02-01T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M88HE3TEM5T66X4GEX33KBGH",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "CÔNG TY TNHH SỮA TƯƠI ĐỒNG XANH",
+      "tax_id": "0999010002",
+      "phone_on_file": "0280001002",
+      "phone_on_file_masked": "0280***002",
+      "email": "ketoan@suadongxanh.example",
+      "address": "Số 24 Đường Mẫu B, Quận Tân Bình, TP. Hồ Chí Minh",
+      "category": "dry_packaging",
+      "status": "active",
+      "created_at": "2026-02-01T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M887CGH9GWSQA18W00RN0DYT",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "CÔNG TY TNHH PHẦN MỀM BÁN HÀNG SAO VIỆT",
+      "tax_id": "0999010032",
+      "phone_on_file": "0280001032",
+      "phone_on_file_masked": "0280***032",
+      "email": "ketoan@saovietpos.example",
+      "address": "Tầng 8 Tòa nhà Mẫu Công Nghệ, Quận 1, TP. Hồ Chí Minh",
+      "category": "software_ops",
+      "status": "active",
+      "created_at": "2026-02-01T08:00:00+07:00"
+    },
+    {
+      "vendor_id": "ven_01M884MEYX1TWNA7GNED1PDK6X",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "name": "CÔNG TY CP CẤP NƯỚC KHU VỰC TRUNG TÂM MẪU",
+      "tax_id": "0999010041",
+      "phone_on_file": "0280001046",
+      "phone_on_file_masked": "0280***046",
+      "email": "ketoan@capnuoctrungtam.example",
+      "address": "Số 15 Đường Mẫu Cấp Nước, Quận 3, TP. Hồ Chí Minh",
+      "category": "utility",
+      "status": "active",
+      "created_at": "2026-02-01T08:00:00+07:00"
+    }
+  ],
+  "vendor_accounts": [
+    {
+      "vendor_account_id": "vac_01M885170DEVTBBKXKDK90DBAS",
+      "vendor_id": "ven_01M88CGAPGH0KRTMDHYVB4JF3C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000001",
+      "account_number_masked": "****0001",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH CA PHE RANG MOC TAY NGUYEN",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88KE5BENSWTKXA3HJBKBH2Y",
+      "vendor_id": "ven_01M889PXQCH8DZNQQAHM3HBRH4",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000002",
+      "account_number_masked": "****0002",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH SUA TUOI DONG XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M883RZCB3B6Y8WG7WQVC1BBY",
+      "vendor_id": "ven_01M8876N5RKZ3A9GRME2NFSMH0",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000003",
+      "account_number_masked": "****0003",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH BAO BI NHUA XANH VIET",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88817BEW7CPN78MWZDY72JM",
+      "vendor_id": "ven_01M88FN88RZ6MQ8NPF8MXE908W",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000004",
+      "account_number_masked": "****0004",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THUC PHAM SUA CAO NGUYEN DO",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88CBC2MM5ZC5EVVKD73KSR0",
+      "vendor_id": "ven_01M883TQMNYMR90AQ396724BMB",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000005",
+      "account_number_masked": "****0005",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH KEM SUA MAY TRANG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88EY474RRCCH6HXG9FFYCT7",
+      "vendor_id": "ven_01M884AMS92SKW70F02KZYE55Z",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000006",
+      "account_number_masked": "****0006",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH DUONG MIA MIEN NAM",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M889CNWHS7RY877BK3FW26V0",
+      "vendor_id": "ven_01M8845BKJ43BP28V9ZPE59NRD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000007",
+      "account_number_masked": "****0007",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TRA THAO MOC BAO LOC",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M886X7CNA1XWJEY081M3WQ24",
+      "vendor_id": "ven_01M88D3EKT3DH661G1KDWMW23H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000008",
+      "account_number_masked": "****0008",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH BOT PHA CHE PHUONG DONG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88G34MZ0RFZYB366E8RRWRE",
+      "vendor_id": "ven_01M88BKHMTYYC7A0H1PPTC4Q93",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000009",
+      "account_number_masked": "****0009",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH HUONG LIEU PHA CHE HUONG VIET",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88KB4C9HBVFGZ1TT3EADQMJ",
+      "vendor_id": "ven_01M88DJHQ93PWJWKMGG79E718R",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000010",
+      "account_number_masked": "****0010",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TRAN CHAU & THACH NGOT NAM BO",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88GAEF6MTV306XG9J78W27P",
+      "vendor_id": "ven_01M88A9P45JF75RWB3P18V7YYN",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000011",
+      "account_number_masked": "****0011",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH NAP LY & PHU KIEN MIEN NAM",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M885S13BNQ093ND1ATZWE9YM",
+      "vendor_id": "ven_01M88BW4379B6025MRJ0ZK1TKD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000012",
+      "account_number_masked": "****0012",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH ONG HUT SINH HOC XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88FEZ9H22T046FEW6RXHMAT",
+      "vendor_id": "ven_01M886CXR8T1KDQ5QJZX9YZBY1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000013",
+      "account_number_masked": "****0013",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TUI DONG GOI THANH DAT",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88K9VVC6SK4D0RJSKFAEKGQ",
+      "vendor_id": "ven_01M884W6YSEW5KD1Y2W192B505",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000014",
+      "account_number_masked": "****0014",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH HOP GIAY BAO BI SONG XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88JXWEKRSJRE0YDRW6KMHC0",
+      "vendor_id": "ven_01M88EXVHRFHRKWYGQTP4XXCEE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000015",
+      "account_number_masked": "****0015",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH GIAY KHAN VE SINH TINH KHOI",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88DGVSS1T14XQ7B1EKCATP9",
+      "vendor_id": "ven_01M88EKXC2HCCVC97SDGNYCNA6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000016",
+      "account_number_masked": "****0016",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH SUA THANH TRUNG BAO LOC",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M8844JX938DVESP1WTWDKNG7",
+      "vendor_id": "ven_01M88DQ8GE0JD3DSA5J1R3PD8Y",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000017",
+      "account_number_masked": "****0017",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH DA VIEN TINH KHIET BANG XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88JA6XGC9ZKXT7CN6MK4779",
+      "vendor_id": "ven_01M88J6MMCRQ3XTPHWRR14SWST",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000018",
+      "account_number_masked": "****0018",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH LO BANH TUOI HUNG DONG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M886EJFWPDKABBYFQDCMRP1B",
+      "vendor_id": "ven_01M8885RH6292JXTNRHV3YC2WQ",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000019",
+      "account_number_masked": "****0019",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH BANH MI THU CONG PHO XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M889KTEC2HSJX03AVX0K0670",
+      "vendor_id": "ven_01M88CCMBA8HE52P7S6ZBZDAYH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000020",
+      "account_number_masked": "****0020",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH DA VIEN SACH DONG THANH PHO",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88E11NBZ115Z45GBRN6EE04",
+      "vendor_id": "ven_01M88AX00V31TCEX0Q0FTMTKAM",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000021",
+      "account_number_masked": "****0021",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH BANH NGOT TUOI NAM SAI GON",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88K845P2WHG1TSGXFJXS9GP",
+      "vendor_id": "ven_01M885FT6X64186NFXSWFCSQ7S",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000022",
+      "account_number_masked": "****0022",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH NONG SAN CHANH TUOI MIEN TAY",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M888SBD6MVX5333C21YGXJDH",
+      "vendor_id": "ven_01M884K0JMFF13XFX6HBQ2DWC2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000023",
+      "account_number_masked": "****0023",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TRAI CAY CAO NGUYEN MUA XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M889E56XTV14NB94TJXANZR4",
+      "vendor_id": "ven_01M884KJEW2WRX2W7BB5M99B2A",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000024",
+      "account_number_masked": "****0024",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THUC PHAM TUOI SONG DONG BANG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88F1HWR788K545Q6P1X0Y32",
+      "vendor_id": "ven_01M888K1M2DB2W25Y22ZZ8YKGH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000025",
+      "account_number_masked": "****0025",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THUY HAI SAN BIEN XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88GPSBFJ2ZG5WZRGV4RVKWB",
+      "vendor_id": "ven_01M88FEJWF21Q999M8AHHAE7G6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000026",
+      "account_number_masked": "****0026",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH RAU CU SACH CAO NGUYEN XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M883SP0K256BAE2VS7Y7NBP9",
+      "vendor_id": "ven_01M88FVJJ90Z30GV0EC2DFGK18",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000027",
+      "account_number_masked": "****0027",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TRUNG & BO SUA AN NHIEN",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88FGHDSJ81R2DJN442CT5RE",
+      "vendor_id": "ven_01M887MT5YAYHQSE7RTSHC9923",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000028",
+      "account_number_masked": "****0028",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH COT BANH DONG LANH BAC NAM",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M889MCYD5KXSC5Q2PV8B1DZE",
+      "vendor_id": "ven_01M88JAB7PJDDFZ8XH7GV4D51J",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000029",
+      "account_number_masked": "****0029",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH TRAI CAY NHIET DOI NAM BO",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88GM52QJJ0J6C6XM4DT41QD",
+      "vendor_id": "ven_01M88BFX4FJMW0GR6B0WJY75G1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000030",
+      "account_number_masked": "****0030",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH GIA VI & NUOC SOT TU NHIEN",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M886QGBTD2E2WGCPTDJSE3WK",
+      "vendor_id": "ven_01M886GBRZFG4GVEXS9NPE4PR3",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000031",
+      "account_number_masked": "****0031",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THUC PHAM SO CHE SONG HAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M886BQPPTZR4D9H21Q5CM9PT",
+      "vendor_id": "ven_01M88EEW45VVABHHJ1TRXJQM4V",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "card_merchant",
+      "bank_code": null,
+      "bank_name": null,
+      "account_number": null,
+      "account_number_masked": null,
+      "merchant_id": "mrc_pos_cloud_01",
+      "account_name": "CONG TY TNHH PHAN MEM BAN HANG SAO VIET",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88BPP585GX600H2H1CB6VYS",
+      "vendor_id": "ven_01M88C1KYBZTYVSK9Q5MBF0HQX",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000033",
+      "account_number_masked": "****0033",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH PHAN MEM KE TOAN DAM MAY VIET",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88ENVRK11H9DPBVGFJX8S93",
+      "vendor_id": "ven_01M887B9DVN8G24HSW1H0TS8ZC",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000034",
+      "account_number_masked": "****0034",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH VIEN THONG HA TANG CAP QUANG MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M884WFQ688CD31ZEJF1WJCVP",
+      "vendor_id": "ven_01M88EXX9KBE0A1YGGSTAYXB2C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000035",
+      "account_number_masked": "****0035",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH KY THUAT MAY PHA CA PHE PHUONG NAM",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88G6JV1E4XVB7D1CJXF3GV6",
+      "vendor_id": "ven_01M889VS5ARW8VV6138SFH2V4D",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000036",
+      "account_number_masked": "****0036",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH DIEN LANH CONG NGHIEP SAI GON MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M887RW726M90DECPTQAYA11B",
+      "vendor_id": "ven_01M88FF9BAJNH11TMR8JMT7VRG",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000037",
+      "account_number_masked": "****0037",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH HOA CHAT VE SINH AN TOAN XANH",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88C3D7JPVP3DHBXGJTZR9EH",
+      "vendor_id": "ven_01M88KCYDB92FY30971YK15FBA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000038",
+      "account_number_masked": "****0038",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH THIET KE & TRUYEN THONG ANH DUONG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88CXMVFCZ9MC8ZZHPCFGNQ6",
+      "vendor_id": "ven_01M887FKRS52CDHP136MT37532",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000039",
+      "account_number_masked": "****0039",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH DICH VU VE SINH BEP & KIEM SOAT CON TRUNG",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M8862H5XQFXFAZY4TFS6AWZW",
+      "vendor_id": "ven_01M88A4P80CJGQZQ78BYR6VSVT",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000045",
+      "account_number_masked": "****0045",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH VAN TAI LANH NOI DO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M8848A9YXPQYRZSVB2CTAYY5",
+      "vendor_id": "ven_01M88EZ0Y3CWRA0WAAHT1BMXTA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000040",
+      "account_number_masked": "****0040",
+      "merchant_id": null,
+      "account_name": "CHI NHANH DIEN LUC KHU VUC TRUNG TAM MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88JDP2QE8RJ4E86MM4QWW92",
+      "vendor_id": "ven_01M8858DWR2A1E3Y3X583W88JY",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000040",
+      "account_number_masked": "****0040",
+      "merchant_id": null,
+      "account_name": "CHI NHANH DIEN LUC KHU VUC BAC THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88GATZXSM3G57TDEW60Q2JQ",
+      "vendor_id": "ven_01M88BWRHWWXVQQE9AXJ5J5Z3H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000040",
+      "account_number_masked": "****0040",
+      "merchant_id": null,
+      "account_name": "CHI NHANH DIEN LUC KHU VUC NAM THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88EAB96S52Y8S5RQACDQYJT",
+      "vendor_id": "ven_01M88F76YPJ315154P6W39C535",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000040",
+      "account_number_masked": "****0040",
+      "merchant_id": null,
+      "account_name": "CHI NHANH DIEN LUC KHU VUC DONG THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88BKWSP8FYCAT672B8G9FJG",
+      "vendor_id": "ven_01M886VENYGPKXF5A9SEGVGNPS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000041",
+      "account_number_masked": "****0041",
+      "merchant_id": null,
+      "account_name": "CONG TY CP CAP NUOC KHU VUC TRUNG TAM MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M888WPMVF80076JZMCYXB7HC",
+      "vendor_id": "ven_01M88537WJSQTDBH0KJ347ZHD7",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB03",
+      "bank_name": "Ngân hàng Mẫu Thành Công",
+      "account_number": "990010000042",
+      "account_number_masked": "****0042",
+      "merchant_id": null,
+      "account_name": "CONG TY CP CAP NUOC KHU VUC BAC THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M887WH5KX2GBWFNNDKEE20XJ",
+      "vendor_id": "ven_01M888Z4CWZ8YXNV691EDNE2N2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000043",
+      "account_number_masked": "****0043",
+      "merchant_id": null,
+      "account_name": "CONG TY CP CAP NUOC KHU VUC NAM THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88FD2MM7D5SNGW1MGCTQXRT",
+      "vendor_id": "ven_01M88B3E63AED7RTW56P4V5KZE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000044",
+      "account_number_masked": "****0044",
+      "merchant_id": null,
+      "account_name": "CONG TY CP CAP NUOC KHU VUC DONG THANH PHO MAU",
+      "status": "verified",
+      "verified_at": "2026-01-06T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M88GH88YQYX2G9XPKG1EDHSX",
+      "vendor_id": "ven_01M885WE2Y51C95Z2R05TYT0CM",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000001",
+      "account_number_masked": "****0001",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH CA PHE RANG MOC TAY NGUYEN",
+      "status": "verified",
+      "verified_at": "2026-02-02T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M8887TA2MHS12A13DW3MXQSZ",
+      "vendor_id": "ven_01M88HE3TEM5T66X4GEX33KBGH",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "kind": "bank_account",
+      "bank_code": "VNMB01",
+      "bank_name": "Ngân hàng Mẫu Á Châu",
+      "account_number": "990010000002",
+      "account_number_masked": "****0002",
+      "merchant_id": null,
+      "account_name": "CONG TY TNHH SUA TUOI DONG XANH",
+      "status": "verified",
+      "verified_at": "2026-02-02T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M8895J5N5QC1358RXA32NKZX",
+      "vendor_id": "ven_01M887CGH9GWSQA18W00RN0DYT",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "kind": "card_merchant",
+      "bank_code": null,
+      "bank_name": null,
+      "account_number": null,
+      "account_number_masked": null,
+      "merchant_id": "mrc_pos_cloud_01",
+      "account_name": "CONG TY TNHH PHAN MEM BAN HANG SAO VIET",
+      "status": "verified",
+      "verified_at": "2026-02-02T09:00:00+07:00"
+    },
+    {
+      "vendor_account_id": "vac_01M885DF23VDVDEG37NJ84QE6C",
+      "vendor_id": "ven_01M884MEYX1TWNA7GNED1PDK6X",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "kind": "bank_account",
+      "bank_code": "VNMB02",
+      "bank_name": "Ngân hàng Mẫu Nam Việt",
+      "account_number": "990010000041",
+      "account_number_masked": "****0041",
+      "merchant_id": null,
+      "account_name": "CONG TY CP CAP NUOC KHU VUC TRUNG TAM MAU",
+      "status": "verified",
+      "verified_at": "2026-02-02T09:00:00+07:00"
+    }
+  ],
+  "vendor_contracts": [
+    {
+      "contract_id": "ctr_01M888ZA6PDQP5GGY3VMV20P76",
+      "vendor_id": "ven_01M88CGAPGH0KRTMDHYVB4JF3C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88D1ZC46CERGE52GWEPSKTS",
+          "sku": "COF-ROB-1KG",
+          "name": "Cà phê hạt Robusta Đắk Nông rang mộc 1kg",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "272633.744444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L4"
+        },
+        {
+          "item_id": "itm_01M888XTSVE5X1XP2BHZQM3YBA",
+          "sku": "COF-ARA-1KG",
+          "name": "Cà phê hạt Arabica Cầu Đất rang vừa 1kg",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "425925.925926",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L3"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88B58TG0VAXPXD9HT8EQS7C",
+      "vendor_id": "ven_01M889PXQCH8DZNQQAHM3HBRH4",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88A76SGTVZMPJ6D77X6W6Q2",
+          "sku": "MLK-UHT-12X1L-CK",
+          "name": "Sữa tươi tiệt trùng Đồng Xanh không đường 1L (giao bếp trung tâm)",
+          "base_unit": "lít",
+          "pack_spec": "thùng 12 hộp x 1L",
+          "pack_qty": "12.000000",
+          "unit_price": "358796.300000",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L21"
+        },
+        {
+          "item_id": "itm_01M8858FH2M40QFKVHSM7PGRES",
+          "sku": "MLK-UHT-12X1L-OUT",
+          "name": "Sữa tươi tiệt trùng Đồng Xanh không đường 1L (giao lẻ quán)",
+          "base_unit": "lít",
+          "pack_spec": "thùng 12 hộp x 1L",
+          "pack_qty": "12.000000",
+          "unit_price": "388888.888889",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L20"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88BZAW88XZF4TZ6P7SWK72N",
+      "vendor_id": "ven_01M8876N5RKZ3A9GRME2NFSMH0",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88CSDFSBSMNDF8409DYVJBZ",
+          "sku": "CUP-PP500-1000",
+          "name": "Ly nhựa PP 500ml đáy bằng in logo Lá Xanh",
+          "base_unit": "cái",
+          "pack_spec": "thùng 1.000 cái",
+          "pack_qty": "1000.000000",
+          "unit_price": "532407.407407",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L71"
+        },
+        {
+          "item_id": "itm_01M887D56J4CEGS3RBB7WYGCZC",
+          "sku": "CUP-PP700-1000",
+          "name": "Ly nhựa PP 700ml đáy bằng in logo Lá Xanh",
+          "base_unit": "cái",
+          "pack_spec": "thùng 1.000 cái",
+          "pack_qty": "1000.000000",
+          "unit_price": "648148.148148",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L72"
+        },
+        {
+          "item_id": "itm_01M886X4WZ06EVJ936M0M65053",
+          "sku": "CUP-PET500-1000",
+          "name": "Ly nhựa PET 500ml kèm nắp cầu",
+          "base_unit": "bộ",
+          "pack_spec": "thùng 1.000 bộ",
+          "pack_qty": "1000.000000",
+          "unit_price": "972222.222222",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L79"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88CXKKDDFNE0AE6BHYPT0Q5",
+      "vendor_id": "ven_01M88FN88RZ6MQ8NPF8MXE908W",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M888NEWHDBVQYBJX5GRT80WS",
+          "sku": "CMLK-1284G-12",
+          "name": "Sữa đặc có đường Cao Nguyên Đỏ hộp giấy 1284g",
+          "base_unit": "hộp",
+          "pack_spec": "thùng 12 hộp x 1284g",
+          "pack_qty": "12.000000",
+          "unit_price": "679012.345679",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L15"
+        },
+        {
+          "item_id": "itm_01M88BE93WA9M4E2AA1SDVQQ4K",
+          "sku": "CMLK-380G-48",
+          "name": "Sữa đặc có đường Cao Nguyên Đỏ lon 380g",
+          "base_unit": "lon",
+          "pack_spec": "thùng 48 lon x 380g",
+          "pack_qty": "48.000000",
+          "unit_price": "1166666.666667",
+          "vat_rate": "8%",
+          "price_source_ref": "research/claude/prices-2026-11.csv#L10"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88BAZ66RGK4925R2EBX385Z",
+      "vendor_id": "ven_01M883TQMNYMR90AQ396724BMB",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88BFCRA0C5YZAEAAS2B77ZE",
+          "sku": "CRM-WHIP-1L-12",
+          "name": "Kem sữa Whipping Mây Trắng hộp 1L",
+          "base_unit": "hộp",
+          "pack_spec": "thùng 12 hộp x 1L",
+          "pack_qty": "12.000000",
+          "unit_price": "1733333.333333",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L29"
+        },
+        {
+          "item_id": "itm_01M884TB4DQ07BKHZBW6WH6FTV",
+          "sku": "CRM-VEG-907G-12",
+          "name": "Kem béo thực vật Hoàng Kim hộp 907g",
+          "base_unit": "hộp",
+          "pack_spec": "thùng 12 hộp x 907g",
+          "pack_qty": "12.000000",
+          "unit_price": "796296.296296",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L26"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88F58SWVYS0MYQQ68KYXTFZ",
+      "vendor_id": "ven_01M884AMS92SKW70F02KZYE55Z",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M8874CE7Z4Y3PNKHFCNGH1YW",
+          "sku": "SUG-LIQ-25KG",
+          "name": "Đường nước pha chế Miền Nam can 25kg",
+          "base_unit": "kg",
+          "pack_spec": "can 25kg",
+          "pack_qty": "25.000000",
+          "unit_price": "544444.444444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L34"
+        },
+        {
+          "item_id": "itm_01M88JZ5WRBQRC5BYSCG5SX027",
+          "sku": "SUG-WHT-1KG-20",
+          "name": "Đường tinh luyện Miền Nam túi 1kg",
+          "base_unit": "kg",
+          "pack_spec": "bao 20 túi x 1kg",
+          "pack_qty": "20.000000",
+          "unit_price": "518518.518519",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L30"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88G0EBFG9D74FFGF7H1DHY4",
+      "vendor_id": "ven_01M8845BKJ43BP28V9ZPE59NRD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M885Q68MT36ZFH2F5WG90JHQ",
+          "sku": "TEA-BLK-500G-24",
+          "name": "Trà đen thượng hạng Bảo Lộc gói 500g",
+          "base_unit": "gói",
+          "pack_spec": "thùng 24 gói x 500g",
+          "pack_qty": "24.000000",
+          "unit_price": "2843400.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L36"
+        },
+        {
+          "item_id": "itm_01M88JMQ4CP0684M2H8J8Z9HXW",
+          "sku": "TEA-OOL-1KG-12",
+          "name": "Trà Ô Long lá nhuyễn Bảo Lộc gói 1kg",
+          "base_unit": "gói",
+          "pack_spec": "thùng 12 gói x 1kg",
+          "pack_qty": "12.000000",
+          "unit_price": "2986111.111111",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L42"
+        },
+        {
+          "item_id": "itm_01M88GYCP1HR8MJS0YJ21S9VDF",
+          "sku": "TEA-JAS-500G-24",
+          "name": "Lục trà lài Bảo Lộc gói 500g",
+          "base_unit": "gói",
+          "pack_spec": "thùng 24 gói x 500g",
+          "pack_qty": "24.000000",
+          "unit_price": "1822222.222222",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L38"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8875YGTWNY2FNPKD0R5P695",
+      "vendor_id": "ven_01M88D3EKT3DH661G1KDWMW23H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88GECZSVF5QVJSGD4X4D0Q8",
+          "sku": "PWD-MAT-500G",
+          "name": "Bột trà xanh Matcha Cao Nguyên gói 500g",
+          "base_unit": "gói",
+          "pack_spec": "gói 500g",
+          "pack_qty": "1.000000",
+          "unit_price": "398148.148148",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L44"
+        },
+        {
+          "item_id": "itm_01M88926NYEE3GB5553BJBN1DQ",
+          "sku": "PWD-CRM-25KG",
+          "name": "Bột kem béo pha chế Phương Đông bao 25kg",
+          "base_unit": "kg",
+          "pack_spec": "bao 25kg",
+          "pack_qty": "25.000000",
+          "unit_price": "2029629.629630",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L49"
+        },
+        {
+          "item_id": "itm_01M88C5W4GVV6GP6FYZ84PWDRH",
+          "sku": "PWD-CAC-1KG",
+          "name": "Bột cacao nguyên chất Phương Đông bịch 1kg",
+          "base_unit": "kg",
+          "pack_spec": "bịch 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "144444.444444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L46"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8898H5C7533BGD872JBC8HB",
+      "vendor_id": "ven_01M88BKHMTYYC7A0H1PPTC4Q93",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88D6K96N29FM6F017ZZ62RE",
+          "sku": "SYR-PCH-750ML",
+          "name": "Si-rô đào Hương Việt chai 750ml",
+          "base_unit": "chai",
+          "pack_spec": "chai 750ml",
+          "pack_qty": "1.000000",
+          "unit_price": "162962.960000",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L51"
+        },
+        {
+          "item_id": "itm_01M88JXGP5HEFCTCDT3R9KED3E",
+          "sku": "SYR-LYC-700ML",
+          "name": "Si-rô vải Hương Việt chai 700ml",
+          "base_unit": "chai",
+          "pack_spec": "chai 700ml",
+          "pack_qty": "1.000000",
+          "unit_price": "194444.444444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L54"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M888RMNYSPE9MJGCFTWCAWHW",
+      "vendor_id": "ven_01M88DJHQ93PWJWKMGG79E718R",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88E6MCTZGW7RDFM6KSRD1YW",
+          "sku": "TOP-PRL-1KG-18",
+          "name": "Trân châu đen Nam Bộ gói 1kg",
+          "base_unit": "gói",
+          "pack_spec": "thùng 18 gói x 1kg",
+          "pack_qty": "18.000000",
+          "unit_price": "566666.666667",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L57"
+        },
+        {
+          "item_id": "itm_01M88GQKFN5HBRS45F1D118A0C",
+          "sku": "TOP-3Q-2KG-6",
+          "name": "Trân châu trắng ăn liền Nam Bộ gói 2kg",
+          "base_unit": "gói",
+          "pack_spec": "thùng 6 gói x 2kg",
+          "pack_qty": "6.000000",
+          "unit_price": "255555.555556",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L60"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88C6GS7077Z9EP084WP7HM8",
+      "vendor_id": "ven_01M88A9P45JF75RWB3P18V7YYN",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88A8RXS84PAYQQ1PV9SAMHS",
+          "sku": "LID-FLT95-1000",
+          "name": "Nắp PET bằng phi 95mm Miền Nam",
+          "base_unit": "cái",
+          "pack_spec": "thùng 1.000 cái",
+          "pack_qty": "1000.000000",
+          "unit_price": "166666.666667",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L81"
+        },
+        {
+          "item_id": "itm_01M885B2BSN981SGF42VGTA04A",
+          "sku": "LID-DOM95-1000",
+          "name": "Nắp cầu PET phi 95mm Miền Nam",
+          "base_unit": "cái",
+          "pack_spec": "thùng 1.000 cái",
+          "pack_qty": "1000.000000",
+          "unit_price": "203703.703704",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L82"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88FZW399JKZAAZ6JQ72BEP1",
+      "vendor_id": "ven_01M88BW4379B6025MRJ0ZK1TKD",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88JENXNP978Y2CZ7TD3Y5ZE",
+          "sku": "STR-PAP6-10000",
+          "name": "Ống hút giấy phi 6 Sinh Học Xanh",
+          "base_unit": "cái",
+          "pack_spec": "thùng 10.000 cái",
+          "pack_qty": "10000.000000",
+          "unit_price": "1532407.407407",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L87"
+        },
+        {
+          "item_id": "itm_01M889BFRFV5EQ4F9EDV9PKWHS",
+          "sku": "STR-BLK12-500G",
+          "name": "Ống hút đen phi 12 bọc màng bịch 500g",
+          "base_unit": "bịch",
+          "pack_spec": "bịch 500g",
+          "pack_qty": "1.000000",
+          "unit_price": "37037.037037",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L86"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88FSZ13N89M8SJ9FR1XV3J9",
+      "vendor_id": "ven_01M886CXR8T1KDQ5QJZX9YZBY1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M8875V98DXX8X9K8WFTJQH6P",
+          "sku": "BAG-1CUP-25KG",
+          "name": "Túi mang đi 1 ly Thành Đạt bao 25kg",
+          "base_unit": "kg",
+          "pack_spec": "bao 25kg",
+          "pack_qty": "25.000000",
+          "unit_price": "1574074.074074",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L89"
+        },
+        {
+          "item_id": "itm_01M885ES17GQTB680WM2X25A7E",
+          "sku": "BAG-2CUP-25KG",
+          "name": "Túi mang đi 2 ly Thành Đạt bao 25kg",
+          "base_unit": "kg",
+          "pack_spec": "bao 25kg",
+          "pack_qty": "25.000000",
+          "unit_price": "1620370.370370",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L90"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8864EZWHRN0D9W4NC4HQV9T",
+      "vendor_id": "ven_01M884W6YSEW5KD1Y2W192B505",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88JPFS918B7AM5A8K2CKD2Y",
+          "sku": "BOX-KRF700-200",
+          "name": "Hộp giấy kraft nắp gài 700ml Sông Xanh",
+          "base_unit": "cái",
+          "pack_spec": "thùng 200 cái",
+          "pack_qty": "200.000000",
+          "unit_price": "462962.962963",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L91"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88J4X6K7GG99S3W2NM88AX4",
+      "vendor_id": "ven_01M88EXVHRFHRKWYGQTP4XXCEE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M887ZKSSQC12ZZ76DMPAGWP5",
+          "sku": "NAP-2PLY-180-40",
+          "name": "Khăn giấy rút 2 lớp Tinh Khôi gói 180 tờ",
+          "base_unit": "gói",
+          "pack_spec": "thùng 40 gói x 180 tờ",
+          "pack_qty": "40.000000",
+          "unit_price": "444444.444444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L94"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M886JSEBHBRE4N9V58AVTVR5",
+      "vendor_id": "ven_01M88EKXC2HCCVC97SDGNYCNA6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88GB95Q233EBRFJADV5MT6Y",
+          "sku": "MLK-PAST-950ML",
+          "name": "Sữa tươi thanh trùng Bảo Lộc nguyên chất 950ml",
+          "base_unit": "hộp",
+          "pack_spec": "hộp 950ml",
+          "pack_qty": "1.000000",
+          "unit_price": "44444.444444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L18"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88757WZ0YG4CGVDKDEV4S6Y",
+      "vendor_id": "ven_01M88DQ8GE0JD3DSA5J1R3PD8Y",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M887VE4PV1N7ZHKD2SZQBHJS",
+          "sku": "ICE-20KG-CK",
+          "name": "Đá viên tinh khiết Băng Xanh bao 20kg (giao bếp trung tâm)",
+          "base_unit": "bao",
+          "pack_spec": "bao 20kg",
+          "pack_qty": "20.000000",
+          "unit_price": "25000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L78"
+        },
+        {
+          "item_id": "itm_01M886FM6R749YV0NR3W4PWJXW",
+          "sku": "ICE-20KG-OUT",
+          "name": "Đá viên tinh khiết Băng Xanh bao 20kg (giao thẳng quán)",
+          "base_unit": "bao",
+          "pack_spec": "bao 20kg",
+          "pack_qty": "20.000000",
+          "unit_price": "28000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L78"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8875B6QRMA75PKDVYGDE6K6",
+      "vendor_id": "ven_01M88J6MMCRQ3XTPHWRR14SWST",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M883XH7T49G4WTTNPYFXMKKJ",
+          "sku": "BKR-CROI-250G",
+          "name": "Bánh sừng bò Croissant bơ Pháp Hừng Đông gói 250g",
+          "base_unit": "gói",
+          "pack_spec": "gói 250g",
+          "pack_qty": "1.000000",
+          "unit_price": "59259.259259",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L62"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88AEN7B9TZ9Q1E4AVPBNGM7",
+      "vendor_id": "ven_01M8885RH6292JXTNRHV3YC2WQ",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M8876TARX21W7ZFZW8443YBD",
+          "sku": "BKR-SNDW-420G",
+          "name": "Bánh mì sandwich tươi lạt Phố Xanh gói 420g",
+          "base_unit": "gói",
+          "pack_spec": "gói 420g",
+          "pack_qty": "1.000000",
+          "unit_price": "27777.777778",
+          "vat_rate": "8%",
+          "price_source_ref": "research/claude/prices-2026-11.csv#L39"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M888TP61EHKB2D3BNKFPWJ8M",
+      "vendor_id": "ven_01M88CCMBA8HE52P7S6ZBZDAYH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88ABQH3MXC0F9QSHRRF0X9F",
+          "sku": "ICE-EAST-20KG",
+          "name": "Đá viên sạch Đông Thành Phố bao 20kg",
+          "base_unit": "bao",
+          "pack_spec": "bao 20kg",
+          "pack_qty": "20.000000",
+          "unit_price": "27000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L78"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88F86Y2NT08JP65FG892Y0R",
+      "vendor_id": "ven_01M88AX00V31TCEX0Q0FTMTKAM",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M883T1MD1FSEGP9P9YDF5BD9",
+          "sku": "BKR-CAST-150G",
+          "name": "Bánh bông lan phô mai trứng muối Nam Sài Gòn túi 150g",
+          "base_unit": "túi",
+          "pack_spec": "túi 150g",
+          "pack_qty": "1.000000",
+          "unit_price": "27777.777778",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L65"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8872KA4JB0DDA880PTV5B22",
+      "vendor_id": "ven_01M885FT6X64186NFXSWFCSQ7S",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M887C30N1F3Q4G9ABQTS4ZH8",
+          "sku": "FRT-LIME-1KG",
+          "name": "Chanh không hạt miền Tây loại 1",
+          "base_unit": "kg",
+          "pack_spec": "cân ký 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "15000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "references/prices-2026-11.csv#L66"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88AJE3DAZEF1XG0MB9BEF6D",
+      "vendor_id": "ven_01M884K0JMFF13XFX6HBQ2DWC2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88JH37CYSBHH02SZYHRGF86",
+          "sku": "FRT-STRW-1KG",
+          "name": "Dâu tây cao nguyên loại 1",
+          "base_unit": "kg",
+          "pack_spec": "cân ký 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "250000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "references/prices-2026-11.csv#L68"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8843XKJVQMB4020BTFYBETY",
+      "vendor_id": "ven_01M884KJEW2WRX2W7BB5M99B2A",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88CZ2TSDSJ04S0J97EEZ0XS",
+          "sku": "MET-CHK-1KG",
+          "name": "Ức gà phi-lê tươi sơ chế Đồng Bằng",
+          "base_unit": "kg",
+          "pack_spec": "khay 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "92000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88EWKVHSXN5N6F4MAJK3BAZ",
+      "vendor_id": "ven_01M888K1M2DB2W25Y22ZZ8YKGH",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88A4W2KKW1FG1WTX5ZWMNB6",
+          "sku": "SEA-SHR-1KG",
+          "name": "Tôm thẻ bóc vỏ đông lạnh Biển Xanh",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "215000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88GBWNV7WYVSBZGK2T7BG2Z",
+      "vendor_id": "ven_01M88FEJWF21Q999M8AHHAE7G6",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M8877V6PTXTP6KB5AQ9GSY67",
+          "sku": "VEG-LET-1KG",
+          "name": "Xà lách thủy canh Cao Nguyên Xanh",
+          "base_unit": "kg",
+          "pack_spec": "cân ký 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "42000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M885AW5PQ60PTFAVPFN3F7G5",
+      "vendor_id": "ven_01M88FVJJ90Z30GV0EC2DFGK18",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M886FYV1REZSC72KTXCTMEHP",
+          "sku": "EGG-30-TRAY",
+          "name": "Trứng gà tươi sạch An Nhiên vỉ 30 quả",
+          "base_unit": "vỉ",
+          "pack_spec": "vỉ 30 quả",
+          "pack_qty": "30.000000",
+          "unit_price": "85000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88BNTZX46BB63JHCY4QW6JG",
+      "vendor_id": "ven_01M887MT5YAYHQSE7RTSHC9923",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88JPR4QCVT9PQ6BQW7CD7RR",
+          "sku": "DGH-PSTRY-5KG",
+          "name": "Cốt bột bánh ngàn lớp đông lạnh thùng 5kg",
+          "base_unit": "thùng",
+          "pack_spec": "thùng 5kg",
+          "pack_qty": "5.000000",
+          "unit_price": "420000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88CXY850JV76TJ27G9FNGMQ",
+      "vendor_id": "ven_01M88JAB7PJDDFZ8XH7GV4D51J",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M889SFMYDEEVX7BG714MKY60",
+          "sku": "FRT-ORNG-1KG",
+          "name": "Cam sành loại 1 Nam Bộ",
+          "base_unit": "kg",
+          "pack_spec": "cân ký 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "22000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "references/prices-2026-11.csv#L67"
+        },
+        {
+          "item_id": "itm_01M88DGGS7PA1RSK7XGZHBKMF1",
+          "sku": "FRT-PASS-1KG",
+          "name": "Chanh dây tươi Nam Bộ",
+          "base_unit": "kg",
+          "pack_spec": "cân ký 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "48000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "research/claude/prices-2026-11.csv#L41"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88CYTEYENGEZYYPPEBZWYXS",
+      "vendor_id": "ven_01M88BFX4FJMW0GR6B0WJY75G1",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88BKQ4FQ456TG4C2F66F4W6",
+          "sku": "SPC-SAUCE-5L",
+          "name": "Nước sốt nền nấu bếp Tự Nhiên can 5L",
+          "base_unit": "can",
+          "pack_spec": "can 5L",
+          "pack_qty": "5.000000",
+          "unit_price": "260000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/persona.md#L34"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M889VH33N5ZQDEJV390F357H",
+      "vendor_id": "ven_01M886GBRZFG4GVEXS9NPE4PR3",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M887B7HFE257WEGMYWHTCK1N",
+          "sku": "FRT-PINE-1KG",
+          "name": "Thơm gọt sẵn hút chân không Sông Hậu",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "24000.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "research/claude/prices-2026-11.csv#L42"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M889XCSZWYT8EVQF8ZK3X2H8",
+      "vendor_id": "ven_01M88EEW45VVABHHJ1TRXJQM4V",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88DP3TTP5CA1D7XAGPD5A9X",
+          "sku": "SW-POS-STORE-M",
+          "name": "Phí thuê bao phần mềm bán hàng POS theo điểm bán/tháng",
+          "base_unit": "Điểm bán",
+          "pack_spec": "1 điểm bán / tháng",
+          "pack_qty": "1.000000",
+          "unit_price": "750000.000000",
+          "vat_rate": "KCT",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L443"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88B6W5TFYPVGQNHYD4WV2MA",
+      "vendor_id": "ven_01M88C1KYBZTYVSK9Q5MBF0HQX",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M888X2YVG2JD3TJ65T9C8T5W",
+          "sku": "SW-ACC-SUITE-M",
+          "name": "Phí gói phần mềm kế toán doanh nghiệp chuỗi/tháng",
+          "base_unit": "Tháng",
+          "pack_spec": "gói chuỗi 16 điểm",
+          "pack_qty": "1.000000",
+          "unit_price": "3500000.000000",
+          "vat_rate": "KCT",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88DYFE3G6WK6ED3SEX94AF9",
+      "vendor_id": "ven_01M887B9DVN8G24HSW1H0TS8ZC",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M884EJRCC1TY7J6ZADVNBKXY",
+          "sku": "OPS-NET-STORE-M",
+          "name": "Cước đường truyền internet cáp quang doanh nghiệp/điểm",
+          "base_unit": "Điểm",
+          "pack_spec": "1 điểm / tháng",
+          "pack_qty": "1.000000",
+          "unit_price": "450000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M884G534E3R3DQTFBE6JVTW0",
+      "vendor_id": "ven_01M88EXX9KBE0A1YGGSTAYXB2C",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M885E7Y5RP499415124RTNV8",
+          "sku": "OPS-MAINT-ESP",
+          "name": "Dịch vụ bảo trì định kỳ máy pha cà phê & máy xay",
+          "base_unit": "Lần",
+          "pack_spec": "gói bảo trì 1 máy",
+          "pack_qty": "1.000000",
+          "unit_price": "1200000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88CBKDZ0T5JSK5NFKYAKJ59",
+      "vendor_id": "ven_01M889VS5ARW8VV6138SFH2V4D",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88C9FBD6B3EVQY29SREKBDD",
+          "sku": "OPS-MAINT-HVAC",
+          "name": "Vệ sinh bảo dưỡng hệ thống máy lạnh & tủ mát quán",
+          "base_unit": "Điểm",
+          "pack_spec": "1 quán / đợt",
+          "pack_qty": "1.000000",
+          "unit_price": "1500000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M888M005PZ9ZW8PSYJQT8TK8",
+      "vendor_id": "ven_01M88FF9BAJNH11TMR8JMT7VRG",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88D8HQ96K9BHFWH2SDDPG9V",
+          "sku": "OPS-CLN-KIT",
+          "name": "Bộ dung dịch vệ sinh quầy bar & máy pha thực phẩm",
+          "base_unit": "Bộ",
+          "pack_spec": "bộ 5 can x 2L",
+          "pack_qty": "5.000000",
+          "unit_price": "1342592.592593",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88BAQ3620588BQ5G98RHZKE",
+      "vendor_id": "ven_01M88KCYDB92FY30971YK15FBA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88AA6WBDF583T96EV78S72X",
+          "sku": "OPS-MKT-POSM",
+          "name": "Thiết kế & in ấn ấn phẩm thực đơn mùa lễ hội",
+          "base_unit": "Gói",
+          "pack_spec": "gói 15 quán",
+          "pack_qty": "1.000000",
+          "unit_price": "9500000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88KA7JZGK244VJR34BEKYPM",
+      "vendor_id": "ven_01M887FKRS52CDHP136MT37532",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88HC0SGT20A1SHK552MW6PT",
+          "sku": "OPS-PEST-M",
+          "name": "Dịch vụ kiểm soát côn trùng định kỳ chuỗi cửa hàng",
+          "base_unit": "Điểm",
+          "pack_spec": "1 điểm / tháng",
+          "pack_qty": "1.000000",
+          "unit_price": "500000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M8844EST5NTPYANXYPPM1J3X",
+      "vendor_id": "ven_01M88A4P80CJGQZQ78BYR6VSVT",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88AZ48W8NWY6HAR84741T0Q",
+          "sku": "OPS-COLD-TRIP",
+          "name": "Dịch vụ xe tải lạnh vận chuyển nội bộ bếp trung tâm",
+          "base_unit": "Chuyến",
+          "pack_spec": "1 chuyến xe lạnh",
+          "pack_qty": "1.000000",
+          "unit_price": "650000.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L417"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M889SR6RW7EJPPRQQ4AERX9Y",
+      "vendor_id": "ven_01M88EZ0Y3CWRA0WAAHT1BMXTA",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88J1W2NBQMEMT67M1JN52Z4",
+          "sku": "UTL-ELEC-TOU",
+          "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)",
+          "base_unit": "kWh",
+          "pack_spec": "1 kWh",
+          "pack_qty": "1.000000",
+          "unit_price": "3089.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L28"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88AX820SQ56RAA367D0F0AN",
+      "vendor_id": "ven_01M8858DWR2A1E3Y3X583W88JY",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88AY088XJETNM8ZRNG2F7BS",
+          "sku": "UTL-ELEC-TOU",
+          "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)",
+          "base_unit": "kWh",
+          "pack_spec": "1 kWh",
+          "pack_qty": "1.000000",
+          "unit_price": "3089.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L28"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M884DGE4RCA1X7FR9S8KAY88",
+      "vendor_id": "ven_01M88BWRHWWXVQQE9AXJ5J5Z3H",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88K0SBK75Y1K91D94VR52BC",
+          "sku": "UTL-ELEC-TOU",
+          "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)",
+          "base_unit": "kWh",
+          "pack_spec": "1 kWh",
+          "pack_qty": "1.000000",
+          "unit_price": "3089.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L28"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88BYRZ2TZ3NXVTXKZRX0RNM",
+      "vendor_id": "ven_01M88F76YPJ315154P6W39C535",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88BFNA3MY57345DAH1PHV0X",
+          "sku": "UTL-ELEC-TOU",
+          "name": "Tiền điện kinh doanh hạ áp (QĐ 2892)",
+          "base_unit": "kWh",
+          "pack_spec": "1 kWh",
+          "pack_qty": "1.000000",
+          "unit_price": "3089.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L28"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88DZ6BK1ET7AAFP9FV7MPCN",
+      "vendor_id": "ven_01M886VENYGPKXF5A9SEGVGNPS",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M884XW6XKZB278NDDYMPT61G",
+          "sku": "UTL-WAT-SUP",
+          "name": "Tiền nước sạch kinh doanh dịch vụ",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "21300.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        },
+        {
+          "item_id": "itm_01M88DYKQRGBSQNA3ZMQA3S3XP",
+          "sku": "UTL-WAT-WST",
+          "name": "Tiền dịch vụ thoát nước và xử lý nước thải (30%)",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "6390.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88JFNMCHVRQ3JYCQEH30CZE",
+      "vendor_id": "ven_01M88537WJSQTDBH0KJ347ZHD7",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88HFPBHDHR7DA9WX6WTMVAV",
+          "sku": "UTL-WAT-SUP",
+          "name": "Tiền nước sạch kinh doanh dịch vụ",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "21300.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        },
+        {
+          "item_id": "itm_01M88C6393KZ2H1HK6WGC0ESAQ",
+          "sku": "UTL-WAT-WST",
+          "name": "Tiền dịch vụ thoát nước và xử lý nước thải (30%)",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "6390.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M885AXC754S8CR8XV501VKPN",
+      "vendor_id": "ven_01M888Z4CWZ8YXNV691EDNE2N2",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M88783CC3M0RX3C8T69G91W6",
+          "sku": "UTL-WAT-SUP",
+          "name": "Tiền nước sạch kinh doanh dịch vụ",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "21300.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        },
+        {
+          "item_id": "itm_01M8840TCH7FYNQZZMMBRXKVQ6",
+          "sku": "UTL-WAT-WST",
+          "name": "Tiền dịch vụ thoát nước và xử lý nước thải (30%)",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "6390.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88EVQ0XC1CR7RYX5ZF4MY8X",
+      "vendor_id": "ven_01M88B3E63AED7RTW56P4V5KZE",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "status": "active",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "item_id": "itm_01M885J5B71WQFP8G1BSZ7JGA7",
+          "sku": "UTL-WAT-SUP",
+          "name": "Tiền nước sạch kinh doanh dịch vụ",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "21300.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        },
+        {
+          "item_id": "itm_01M88BQT18W601VKR17RYE64E2",
+          "sku": "UTL-WAT-WST",
+          "name": "Tiền dịch vụ thoát nước và xử lý nước thải (30%)",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "6390.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L51"
+        }
+      ],
+      "activated_by": "usr_01M885AXP309SER6BAC46N5FJT"
+    },
+    {
+      "contract_id": "ctr_01M88GVTGNTX7VYNZES42J4FCQ",
+      "vendor_id": "ven_01M885WE2Y51C95Z2R05TYT0CM",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "status": "active",
+      "valid_from": "2026-02-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "sku": "COF-ROB-1KG",
+          "name": "Cà phê hạt Robusta Đắk Nông rang mộc 1kg",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "272633.744444",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L4",
+          "item_id": "itm_01M88EQ9Z89QK89CZT8DY6FPE9"
+        },
+        {
+          "sku": "COF-ARA-1KG",
+          "name": "Cà phê hạt Arabica Cầu Đất rang vừa 1kg",
+          "base_unit": "kg",
+          "pack_spec": "gói 1kg",
+          "pack_qty": "1.000000",
+          "unit_price": "425925.925926",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L3",
+          "item_id": "itm_01M88BV3STCKN0DZ2Q02DY0K79"
+        }
+      ],
+      "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"
+    },
+    {
+      "contract_id": "ctr_01M88BKNRBAKNGT0CJXXAKFGGZ",
+      "vendor_id": "ven_01M88HE3TEM5T66X4GEX33KBGH",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "status": "active",
+      "valid_from": "2026-02-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "sku": "MLK-UHT-12X1L-CK",
+          "name": "Sữa tươi tiệt trùng Đồng Xanh không đường 1L (giao bếp trung tâm)",
+          "base_unit": "lít",
+          "pack_spec": "thùng 12 hộp x 1L",
+          "pack_qty": "12.000000",
+          "unit_price": "358796.300000",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L21",
+          "item_id": "itm_01M8874E767Z5M1WSY9F615PZE"
+        },
+        {
+          "sku": "MLK-UHT-12X1L-OUT",
+          "name": "Sữa tươi tiệt trùng Đồng Xanh không đường 1L (giao lẻ quán)",
+          "base_unit": "lít",
+          "pack_spec": "thùng 12 hộp x 1L",
+          "pack_qty": "12.000000",
+          "unit_price": "388888.888889",
+          "vat_rate": "8%",
+          "price_source_ref": "references/prices-2026-11.csv#L20",
+          "item_id": "itm_01M885X9E19CNGY2QNJF65ZQTC"
+        }
+      ],
+      "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"
+    },
+    {
+      "contract_id": "ctr_01M885935JBWZR3GJNW8W6NP8Y",
+      "vendor_id": "ven_01M887CGH9GWSQA18W00RN0DYT",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "status": "active",
+      "valid_from": "2026-02-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "sku": "SW-POS-STORE-M",
+          "name": "Phí thuê bao phần mềm bán hàng POS theo điểm bán/tháng",
+          "base_unit": "Điểm bán",
+          "pack_spec": "1 điểm bán / tháng",
+          "pack_qty": "1.000000",
+          "unit_price": "750000.000000",
+          "vat_rate": "KCT",
+          "price_source_ref": "docs/04-data/sim-world-dataset.md#L443",
+          "item_id": "itm_01M88J91FV50DG241P8E1TC8ZJ"
+        }
+      ],
+      "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"
+    },
+    {
+      "contract_id": "ctr_01M888J7S6DMVP1MSJ5DB3WQXK",
+      "vendor_id": "ven_01M884MEYX1TWNA7GNED1PDK6X",
+      "tenant_id": "ten_01M88AXX2KPMD46VQQTDDH040J",
+      "status": "active",
+      "valid_from": "2026-02-01",
+      "valid_to": "2026-12-31",
+      "items": [
+        {
+          "sku": "UTL-WAT-SUP",
+          "name": "Tiền nước sạch kinh doanh dịch vụ",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "21300.000000",
+          "vat_rate": "5%",
+          "price_source_ref": "docs/04-data/sources.md#L51",
+          "item_id": "itm_01M888YN5YSPGVXXF10HEXSX2W"
+        },
+        {
+          "sku": "UTL-WAT-WST",
+          "name": "Tiền dịch vụ thoát nước và xử lý nước thải (30%)",
+          "base_unit": "m3",
+          "pack_spec": "1 m3",
+          "pack_qty": "1.000000",
+          "unit_price": "6390.000000",
+          "vat_rate": "8%",
+          "price_source_ref": "docs/04-data/sources.md#L51",
+          "item_id": "itm_01M885YNQX4271CAWFH6AEGE4N"
+        }
+      ],
+      "activated_by": "usr_01M88GTF6Q5RJ7F8RPCTW9RXZX"
+    }
+  ]
+}

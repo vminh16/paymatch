@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HDon>
+  <DLHDon Id="ID1">
+    <TTChung>
+      <PBan>2.1.0</PBan>
+      <THDon>Hóa đơn giá trị gia tăng</THDon>
+      <KHMSHDon>1</KHMSHDon>
+      <KHHDon>K26TBX</KHHDon>
+      <SHDon>482</SHDon>
+      <NLap>2026-11-25</NLap>
+      <HDCTTChinh>0</HDCTTChinh>
+      <DVTTe>VND</DVTTe>
+      <TGia>1</TGia>
+      <HTTToan>Chuyển khoản</HTTToan>
+      <MSTTCGP>0999900006</MSTTCGP>
+    </TTChung>
+    <NDHDon>
+      <NBan>
+        <Ten>CÔNG TY TNHH ĐÁ VIÊN TINH KHIẾT BĂNG XANH</Ten>
+        <MST>0999010017</MST>
+        <DChi>Số 184 Đường Mẫu Q, Quận 4, TP. Hồ Chí Minh</DChi>
+        <SDThoai>0280001017</SDThoai>
+        <DCTDTu>ketoan@davienbangxanh.example</DCTDTu>
+        <STKNHang>990010000017</STKNHang>
+        <TNHang>Ngân hàng Mẫu Nam Việt</TNHang>
+      </NBan>
+      <NMua>
+        <Ten>CÔNG TY TNHH CHUỖI CÀ PHÊ &amp; BÁNH LÁ XANH</Ten>
+        <MST>0999000001</MST>
+        <DChi>Số 18 Đường Mẫu Đồng Khởi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</DChi>
+        <DCTDTu>hoadon@laxanh-fnb.example</DCTDTu>
+        <TTKhac>
+          <TTin>
+            <TTruong>DiaChiSuDung</TTruong>
+            <KDLieu>string</KDLieu>
+            <DLieu>Số 18 Đường Mẫu Đồng Khởi, Quận 1, TP. Hồ Chí Minh</DLieu>
+          </TTin>
+        </TTKhac>
+      </NMua>
+      <DSHHDVu>
+        <HHDVu>
+          <TChat>1</TChat>
+          <STT>1</STT>
+          <MHHDVu>ICE-20KG-OUT</MHHDVu>
+          <THHDVu>Đá viên tinh khiết Băng Xanh bao 20kg (giao thẳng quán)</THHDVu>
+          <DVTinh>Bao</DVTinh>
+          <SLuong>120</SLuong>
+          <DGia>28000</DGia>
+          <TLCKhau>0</TLCKhau>
+          <STCKhau>0</STCKhau>
+          <TSuat>8%</TSuat>
+          <ThTien>3360000</ThTien>
+        </HHDVu>
+      </DSHHDVu>
+      <TToan>
+        <DSLPhi />
+        <THTTLTSuat>
+          <LTSuat>
+            <TSuat>8%</TSuat>
+            <ThTien>3360000</ThTien>
+            <TThue>268800</TThue>
+          </LTSuat>
+        </THTTLTSuat>
+        <TgTCThue>3360000</TgTCThue>
+        <TgTThue>268800</TgTThue>
+        <TTCKTMai>0</TTCKTMai>
+        <TgTTTBSo>3628800</TgTTTBSo>
+        <TgTTTBChu>Ba triệu sáu trăm hai mươi tám nghìn tám trăm đồng</TgTTTBChu>
+      </TToan>
+    </NDHDon>
+  </DLHDon>
+  <DSCKS>
+    <NBan>
+      <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <SignedInfo>
+          <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+          <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+          <Reference URI="#ID1">
+            <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+            <DigestValue>DEMO-DIGEST-STUB</DigestValue>
+          </Reference>
+        </SignedInfo>
+        <SignatureValue>DEMO-SIGNATURE-STUB</SignatureValue>
+        <KeyInfo>
+          <X509Data>
+            <X509SubjectName>CN=CÔNG TY TNHH ĐÁ VIÊN TINH KHIẾT BĂNG XANH, O=CÔNG TY TNHH ĐÁ VIÊN TINH KHIẾT BĂNG XANH</X509SubjectName>
+            <X509Certificate>DEMO-CERT-STUB</X509Certificate>
+          </X509Data>
+        </KeyInfo>
+        <Object Id="ID_SIGNING_TIME">
+          <SignatureProperties>
+            <SignatureProperty Target="#ID1">
+              <SigningTime>2026-11-25T09:15:00</SigningTime>
+            </SignatureProperty>
+          </SignatureProperties>
+        </Object>
+      </Signature>
+    </NBan>
+  </DSCKS>
+  <Fkey>FKEY-482</Fkey>
+</HDon>
