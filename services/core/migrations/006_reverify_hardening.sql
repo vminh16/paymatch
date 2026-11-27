@@ -17,8 +17,12 @@ FROM core.processed_events
 ON CONFLICT (source, event_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- 2. I5: Tenant-keyed composite FKs on payment_intent_links & approval_previews
+-- 2. I5 & N2: Tenant-keyed composite FKs & Gate-authoritative link timestamp
 -- ---------------------------------------------------------------------------
+ALTER TABLE core.payment_intent_links
+    ADD COLUMN IF NOT EXISTS gate_created_at TIMESTAMPTZ NULL;
+GRANT UPDATE ON core.payment_intent_links TO worker;
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_payment_intent_links_tenant_inv') THEN
@@ -100,31 +104,51 @@ SECURITY DEFINER
 SET search_path = pg_catalog, core, pg_temp
 AS $$
 DECLARE
-    v_now TIMESTAMPTZ := clock_timestamp();
-    v_lease_until TIMESTAMPTZ := v_now + make_interval(secs => GREATEST(p_lease_seconds, 1));
+    v_now TIMESTAMPTZ;
+    v_lease_until TIMESTAMPTZ;
     v_cand RECORD;
     v_running INT;
     v_locked_id TEXT;
 BEGIN
+    -- N6: Round-robin per-tenant window (top 3 per tenant) so a saturated tenant cannot starve others
     FOR v_cand IN
-        SELECT j.job_id, j.tenant_id
-        FROM core.jobs j
-        WHERE j.task_type = ANY(p_allowed_types)
-          AND (
-            j.status = 'queued'
-            OR (j.status = 'running' AND j.lease_expires_at < v_now)
-          )
-        ORDER BY
-          CASE j.task_type
-            WHEN 'question' THEN 0
-            WHEN 'investigate_invoice' THEN 1
-            ELSE 2
-          END ASC,
-          j.created_at ASC
-        LIMIT 50
+        SELECT ranked.job_id, ranked.tenant_id
+        FROM (
+            SELECT
+                j.job_id,
+                j.tenant_id,
+                CASE j.task_type
+                    WHEN 'question' THEN 0
+                    WHEN 'investigate_invoice' THEN 1
+                    ELSE 2
+                END AS prio,
+                j.created_at,
+                ROW_NUMBER() OVER (
+                    PARTITION BY j.tenant_id
+                    ORDER BY
+                        CASE j.task_type
+                            WHEN 'question' THEN 0
+                            WHEN 'investigate_invoice' THEN 1
+                            ELSE 2
+                        END ASC,
+                        j.created_at ASC
+                ) AS rn
+            FROM core.jobs j
+            WHERE j.task_type = ANY(p_allowed_types)
+              AND (
+                j.status = 'queued'
+                OR (j.status = 'running' AND j.lease_expires_at < clock_timestamp())
+              )
+        ) ranked
+        WHERE ranked.rn <= 3
+        ORDER BY ranked.rn ASC, ranked.prio ASC, ranked.created_at ASC
     LOOP
         -- Serialize concurrent claims per tenant so max_concurrent cannot be exceeded (I4)
         PERFORM pg_advisory_xact_lock(hashtextextended('paymatch:claim:' || v_cand.tenant_id, 0));
+
+        -- Sample clock_timestamp() AFTER any advisory-lock wait so the lease window is full-length
+        v_now := clock_timestamp();
+        v_lease_until := v_now + make_interval(secs => GREATEST(p_lease_seconds, 1));
 
         SELECT COUNT(*) INTO v_running
         FROM core.jobs r
@@ -311,15 +335,19 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA core, control, risk TO demo
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA core, control, risk TO demo_reset;
 
 -- ---------------------------------------------------------------------------
--- 7. B4: Conditional ledger grants & default privileges for worker
+-- 7. B4/N7: Narrow conditional ledger grants for worker (only outbox & payment_intents;
+--    payment-gate migrations supply the reciprocal grant when running after core)
 -- ---------------------------------------------------------------------------
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ledger') THEN
         EXECUTE 'GRANT USAGE ON SCHEMA ledger TO worker';
-        EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA ledger TO worker';
-        EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ledger GRANT SELECT ON TABLES TO worker';
+        IF to_regclass('ledger.outbox') IS NOT NULL THEN
+            EXECUTE 'GRANT SELECT ON TABLE ledger.outbox TO worker';
+        END IF;
+        IF to_regclass('ledger.payment_intents') IS NOT NULL THEN
+            EXECUTE 'GRANT SELECT ON TABLE ledger.payment_intents TO worker';
+        END IF;
     END IF;
 END
 $$;
-ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA core GRANT SELECT ON TABLES TO worker;

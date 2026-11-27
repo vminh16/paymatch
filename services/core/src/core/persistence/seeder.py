@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 import psycopg
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from core.persistence.default_bots import DEFAULT_MODEL_CONFIGS, SYSTEM_BOTS
@@ -25,7 +26,8 @@ def truncate_all(conn: psycopg.Connection) -> None:
     has_fn = conn.execute(
         "SELECT to_regprocedure('core.truncate_for_demo_reset()') AS fn"
     ).fetchone()
-    if has_fn is not None and has_fn["fn"] is not None:
+    fn_val = (has_fn["fn"] if isinstance(has_fn, dict) else has_fn[0]) if has_fn is not None else None
+    if fn_val is not None:
         conn.execute("SELECT core.truncate_for_demo_reset()")
         return
     conn.execute(
@@ -553,7 +555,7 @@ def load_core_seed(
 def seed_dsn(dsn: str, seed_dir: pathlib.Path = DEFAULT_SEED_DIR, *, reset: bool = True) -> dict[str, int]:
     from core.persistence.migrator import apply_migrations
 
-    with psycopg.connect(dsn) as conn:
+    with psycopg.connect(dsn, row_factory=dict_row) as conn:
         apply_migrations(conn)
         return load_core_seed(conn, seed_dir=seed_dir, reset=reset)
 

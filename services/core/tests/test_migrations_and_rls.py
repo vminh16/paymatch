@@ -381,3 +381,145 @@ def test_i1_i7_backfill_receipts_staff_kill_switch_and_demo_reset_role(
     finally:
         with psycopg.connect(pg_dsn, autocommit=True) as admin_conn:
             admin_conn.execute(f"DROP DATABASE IF EXISTS {upgrade_db}")
+
+
+@pytest.mark.db
+def test_n8_cli_migrator_and_seeder_and_n7_negative_ledger_grant_and_n6_fair_claim(
+    pg_dsn: str,
+    seeded_db: Database,
+    internal_db: Database,
+) -> None:
+    """N8: real CLI `python -m core.persistence.migrator` + `seeder` & default-tuple `truncate_all` work against Postgres.
+    N7: worker gets narrow SELECT on ledger.outbox/payment_intents only — DENIED on unrelated ledger.payment_tokens.
+    N6: 60 queued jobs in a saturated tenant cannot starve another tenant's eligible job in core.claim_next_job.
+    """
+    import json
+    import os
+    import subprocess
+    import sys
+    from urllib.parse import urlparse, urlunparse
+    from core.persistence.db import dsn_for_role
+    from core.persistence.job_lease import claim_next_job
+    from core.persistence.seeder import load_core_seed, seed_dsn
+
+    # --- N8 + N7: Fresh DB with ledger (including unrelated ledger.payment_tokens) -> run REAL CLI migrator + seeder ---
+    cli_db = "test_n8_cli_seeder"
+    with psycopg.connect(pg_dsn, autocommit=True) as admin:
+        admin.execute(f"DROP DATABASE IF EXISTS {cli_db}")
+        admin.execute(f"CREATE DATABASE {cli_db}")
+    parsed = urlparse(pg_dsn)
+    cli_dsn = urlunparse(parsed._replace(path=f"/{cli_db}"))
+    try:
+        with psycopg.connect(cli_dsn) as conn:
+            with conn.transaction():
+                conn.execute("CREATE SCHEMA ledger")
+                conn.execute(
+                    """
+                    CREATE TABLE ledger.outbox (
+                        seq BIGSERIAL, event_id TEXT PRIMARY KEY, type TEXT NOT NULL,
+                        schema_version INT NOT NULL DEFAULT 1, occurred_at TIMESTAMPTZ NOT NULL,
+                        tenant_id TEXT NULL, trace_id TEXT NULL, data JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE ledger.payment_intents (
+                        payment_intent_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+                        invoice_id TEXT NOT NULL, approval_id TEXT NOT NULL,
+                        status TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE ledger.payment_tokens (
+                        token_id TEXT PRIMARY KEY, secret_pan TEXT NOT NULL
+                    )
+                    """
+                )
+
+        env = {**os.environ, "DATABASE_URL": cli_dsn}
+        r_mig = subprocess.run(
+            [sys.executable, "-m", "core.persistence.migrator"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert "006_reverify_hardening.sql" in r_mig.stdout
+
+        r_seed = subprocess.run(
+            [sys.executable, "-m", "core.persistence.seeder"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        seed_counts = json.loads(r_seed.stdout)
+        assert seed_counts["tenants"] == 2
+        assert seed_counts["bots"] == 6
+
+        # Also verify direct seed_dsn() and tuple-row connection load_core_seed(reset=True)
+        counts2 = seed_dsn(cli_dsn, seed_dir=DEMO_SEED_DIR, reset=True)
+        assert counts2["tenants"] == 2
+        with psycopg.connect(cli_dsn) as tuple_conn:
+            counts3 = load_core_seed(tuple_conn, seed_dir=DEMO_SEED_DIR, reset=True)
+            assert counts3["tenants"] == 2
+
+        # N7: negative ledger grant test — worker CAN read outbox & payment_intents, CANNOT read unrelated ledger.payment_tokens!
+        worker_cli_dsn = dsn_for_role(cli_dsn, "worker", "worker_dev")
+        with psycopg.connect(worker_cli_dsn, row_factory=dict_row) as wconn:
+            wconn.execute("SELECT event_id FROM ledger.outbox").fetchall()
+            wconn.execute("SELECT payment_intent_id FROM ledger.payment_intents").fetchall()
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                wconn.execute("SELECT * FROM ledger.payment_tokens").fetchall()
+            wconn.rollback()
+    finally:
+        with psycopg.connect(pg_dsn, autocommit=True) as admin:
+            admin.execute(f"DROP DATABASE IF EXISTS {cli_db}")
+
+    # --- N6: Saturated Tenant A (1 running + 60 older queued jobs) MUST NOT starve Tenant B's newer queued job ---
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute("DELETE FROM core.jobs")
+            # Tenant A already has 1 running job (saturates max_concurrent=1)
+            conn.execute(
+                """
+                INSERT INTO core.jobs (job_id, tenant_id, task_type, subject, status, attempt, worker_id, lease_expires_at, created_at)
+                VALUES (%s, %s, 'investigate_invoice', '{}'::jsonb, 'running', 1, 'w_busy', clock_timestamp() + interval '5 minutes', now() - interval '2 hours')
+                """,
+                (new_id("job"), TENANT_A),
+            )
+            # 60 older queued jobs for saturated Tenant A
+            for i in range(60):
+                conn.execute(
+                    """
+                    INSERT INTO core.jobs (job_id, tenant_id, task_type, subject, status, created_at)
+                    VALUES (%s, %s, 'investigate_invoice', '{}'::jsonb, 'queued', now() - interval '1 hour' + make_interval(secs => %s))
+                    """,
+                    (new_id("job"), TENANT_A, i),
+                )
+            # 1 newer queued job for idle Tenant B
+            job_b = new_id("job")
+            conn.execute(
+                """
+                INSERT INTO core.jobs (job_id, tenant_id, task_type, subject, status, created_at)
+                VALUES (%s, %s, 'investigate_invoice', '{}'::jsonb, 'queued', now())
+                """,
+                (job_b, TENANT_B),
+            )
+
+    with internal_db.connect() as iconn:
+        with iconn.transaction():
+            claimed = claim_next_job(
+                iconn,
+                worker_id="w_fair",
+                allowed_types=["investigate_invoice"],
+                lease_seconds=120,
+                max_concurrent_per_tenant=1,
+            )
+    assert claimed is not None
+    assert claimed["job_id"] == job_b
+    assert claimed["tenant_id"] == TENANT_B
