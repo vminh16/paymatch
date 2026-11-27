@@ -12,7 +12,7 @@ Mọi endpoint nghiệp vụ cần `Authorization: Bearer <session_jwt>` (trừ 
 | GET | `/m/me` | O A S | `User` + `tenant {tenant_id, name}` + `permissions[]` |
 
 Luồng step-up (một lần cho mỗi hành động nhạy cảm):
-1. Client lấy `action_hash` từ endpoint xem trước tương ứng (approval-preview, batch preview, escrow-preview), hoặc tự tính bằng hàm dùng chung cho mandate, bot, NCC.
+1. Client lấy `action_hash` từ endpoint xem trước tương ứng (approval-preview, batch preview, escrow-preview); **client không tự cài JCS/SHA-256**. Duyệt có xác minh gọi lại: `POST /m/invoices/{id}/approval-preview {verification}`. Mandate, bot, NCC: endpoint xem trước trả `action_hash` sẽ chốt khi các endpoint đó vào `contracts/`.
 2. Client gọi bên định danh `POST /sim/identity/step-up-challenges {momo_token, action_hash}` rồi `:verify {otp}` → `auth_proof`. Ngoài đời đây là SDK sinh trắc/OTP của MoMo; core không giữ OTP.
 3. Client gửi `auth_proof` trong body. Core kiểm chữ ký, `sub` = người dùng, `action_hash` = hash core tự tính lại, `amr` có yếu tố mạnh, `jti` chưa dùng, còn hạn.
 
@@ -40,6 +40,7 @@ Luồng step-up (một lần cho mỗi hành động nhạy cảm):
 | GET | `/m/invoices/{invoice_id}/findings` | O A | `[Finding]` của job hoàn tất mới nhất; `?job_id=` cho job cũ |
 | GET | `/m/invoices/{invoice_id}/jobs` | O A | `[Job]` (mỗi lần điều tra lại là một job) |
 | GET | `/m/invoices/{invoice_id}/approval-preview` | O | `ApprovalPreview` (kèm `job_id` của lần điều tra đang xem). Core gọi `POST /gate/evaluate`. Gate không trả lời → `503 UPSTREAM_UNAVAILABLE`, UI khóa nút Duyệt |
+| POST | `/m/invoices/{invoice_id}/approval-preview` | O | `{verification: Verification \| null}` → `ApprovalPreview` với `action_hash` phủ `verification` (dùng sau khi gọi lại xác minh). Không tác dụng phụ |
 | POST | `/m/invoices/{invoice_id}:approve` | O, step-up | `{intent_hash, job_id, auth_proof, verification?}` → `200 {approval: Approval, invoice: InvoiceSummary}`. Chỉ khi `pending_approval`, hoặc `escrow_held` (hóa đơn 🔴 đã gỡ bằng cọc; chỉ kênh `escrow`). `job_id` khác job hoàn tất mới nhất → `409 INTENT_HASH_MISMATCH` (đã có kết quả điều tra mới). Hóa đơn gắn PO có escrow `held` → approval có `channel = escrow`, core-worker giải ngân khi đủ phiếu nhập. Lỗi khác: `409 INVALID_STATE`; `422 GATE_DENIED`; `403 STEP_UP_REQUIRED`; thiếu `verification` khi bắt buộc hoặc `result ≠ confirmed` → `400 VALIDATION_FAILED` field `verification`. Muốn trả ngay thì gọi `:pay-now` sau khi duyệt |
 | POST | `/m/invoices/{invoice_id}:reject` | O | `{reason_code: PRICE_ABOVE_CONTRACT \| PACK_SIZE_CHANGED \| QUANTITY_ABOVE_NORM \| NO_GOODS_RECEIPT \| DUPLICATE_INVOICE \| OTHER, note?}` → `{invoice: InvoiceSummary, adjustment_request: AdjustmentRequest \| null}`. Từ `pending_approval`, `blocked`, `approved`, `scheduled` (hai trạng thái sau: hủy intent `authorized` trước) |
 | GET | `/m/invoices/{invoice_id}/adjustment-request` | O A | `AdjustmentRequest`. Nội dung do **code** điền mẫu từ con số tool tính, không do LLM viết. Chủ chuỗi tự gửi (D3) |

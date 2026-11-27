@@ -40,7 +40,8 @@
       "$ref": "./decimal.schema.json"
     },
     "unit_price": {
-      "$ref": "./decimal.schema.json"
+      "$ref": "./decimal.schema.json",
+      "description": "Giá một `pack_spec`, CHƯA VAT; giá/`base_unit` = `unit_price / pack_qty`."
     },
     "vat_rate": {
       "type": "string",

@@ -16,8 +16,13 @@ class PurchaseOrderLine(BaseModel):
         populate_by_name=True,
     )
     sku: Annotated[str, Field(min_length=1)]
-    quantity: decimal_schema.Decimal
-    unit_price: decimal_schema.Decimal
+    quantity: Annotated[
+        decimal_schema.Decimal, Field(description='Số lượng theo đơn vị `pack_spec`.')
+    ]
+    unit_price: Annotated[
+        decimal_schema.Decimal,
+        Field(description='Giá hợp đồng một `pack_spec`, CHƯA VAT.'),
+    ]
 
 
 class Status(StrEnum):
@@ -36,7 +41,10 @@ class PurchaseOrder(BaseModel):
     vendor_id: Annotated[str, Field(pattern='^ven_[0-9A-HJKMNP-TV-Z]{26}$')]
     store_id: Annotated[str, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]
     lines: Annotated[list[PurchaseOrderLine], Field(min_length=1)]
-    total_vnd: money_vnd_schema.MoneyVnd
+    total_vnd: Annotated[
+        money_vnd_schema.MoneyVnd,
+        Field(description='Tổng PO GỒM VAT (so được với `total_vnd` của hóa đơn).'),
+    ]
     status: Status
     created_by: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     created_at: timestamp_schema.Timestamp

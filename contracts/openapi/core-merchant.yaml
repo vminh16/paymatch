@@ -1418,6 +1418,52 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: previewApprovalWithVerification
+      summary: Xem trước duyệt chi kèm kết quả gọi lại xác minh, để core tính lại action_hash
+      description: |
+        Vai được phép — **chỉ `owner`**. Giống `GET` nhưng `action_hash` phủ `verification` đã nhập
+        (schemas.md §4), để client không phải tự cài JCS/SHA-256. Không tác dụng phụ; core vẫn tự tính lại
+        hash khi nhận `:approve`.
+      tags: [Invoices]
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalPreviewRequest'
+            examples:
+              trap_02_called_back:
+                summary: Đã gọi lại số lưu sẵn trong danh bạ và NCC xác nhận
+                value:
+                  verification:
+                    called_phone_on_file: true
+                    result: confirmed
+                    note: null
+                    at: '2026-11-26T08:31:00+07:00'
+      responses:
+        '200':
+          description: '`ApprovalPreview` với `action_hash` tính trên `verification` đã gửi'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/approval-preview.schema.json'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /m/invoices/{invoice_id}:approve:
     post:
@@ -2679,6 +2725,16 @@ components:
           pattern: '^job_[0-9A-HJKMNP-TV-Z]{26}$'
         status:
           $ref: '../schemas/invoice-status.schema.json'
+
+    ApprovalPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [verification]
+      properties:
+        verification:
+          anyOf:
+            - $ref: '../schemas/verification.schema.json'
+            - type: 'null'
 
     ApproveInvoiceRequest:
       type: object

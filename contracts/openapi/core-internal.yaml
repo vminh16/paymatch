@@ -2217,8 +2217,10 @@ components:
                 - 'null'
                 pattern: ^itm_[0-9A-HJKMNP-TV-Z]{26}$
               unit_price_invoice:
+                description: Đơn giá trên hóa đơn quy về một `base_unit`, CHƯA VAT.
                 $ref: ../schemas/decimal.schema.json
               unit_price_contract:
+                description: Đơn giá hợp đồng quy về một `base_unit`, CHƯA VAT.
                 $ref: ../schemas/decimal.schema.json
               delta_pct:
                 $ref: ../schemas/decimal.schema.json

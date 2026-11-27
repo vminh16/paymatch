@@ -46,16 +46,19 @@
             "minLength": 1
           },
           "quantity": {
-            "$ref": "./decimal.schema.json"
+            "$ref": "./decimal.schema.json",
+            "description": "Số lượng theo đơn vị `pack_spec`."
           },
           "unit_price": {
-            "$ref": "./decimal.schema.json"
+            "$ref": "./decimal.schema.json",
+            "description": "Giá hợp đồng một `pack_spec`, CHƯA VAT."
           }
         }
       }
     },
     "total_vnd": {
-      "$ref": "./money-vnd.schema.json"
+      "$ref": "./money-vnd.schema.json",
+      "description": "Tổng PO GỒM VAT (so được với `total_vnd` của hóa đơn)."
     },
     "status": {
       "type": "string",

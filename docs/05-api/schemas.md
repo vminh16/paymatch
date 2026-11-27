@@ -158,7 +158,7 @@ ApprovalMethod: single | bulk | mandate
 #                           (khi verification != null, đối tượng luôn đủ 4 khóa {"called_phone_on_file","result","note","at"};
 #                            nếu vắng note thì chuẩn hóa thành "note": null; trường `at` được chuẩn hóa về UTC
 #                            `YYYY-MM-DDTHH:MM:SSZ` (bỏ phần thập phân giây) trước khi băm; approval-preview tính sẵn
-#                            với verification = null, còn khi có verification thì client/core tính lại với Verification đã nhập)
+#                            với verification = null; khi có verification thì client gọi POST approval-preview để core tính lại)
 #   payload_hash (batch)  = H({"preview_id", "items": [[invoice_id, intent_hash], …] sắp tăng dần theo invoice_id (UTF-16 code unit)})
 #   action_hash           = H({"v":1,"action","resource_id","payload_hash"})
 #                           (action snake_case: approve_invoice | approve_batch | create_escrow | sign_mandate

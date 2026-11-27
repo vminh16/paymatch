@@ -241,6 +241,7 @@ Chủ chuỗi mở HĐ 🟡 ──► GET /approval-preview (Core hỏi Gate /ev
   1. Nếu verification_required = true (CROSS_ALERT_HIT):
      Bắt buộc tích "Đã gọi SĐT lưu sẵn 0900***001 → NCC xác nhận đúng (confirmed)" (số từ phone_on_file_masked)
      (Nếu chọn not_reachable / denied_by_vendor → chỉ mở nút "Từ chối")
+     Đã nhập verification → POST /m/invoices/{id}/approval-preview {verification} để lấy action_hash mới (client không tự băm)
   2. Hiển thị: Số tiền + Bằng chữ + TK danh bạ (****0003) + Nội dung CK chuẩn D2
   3. Gọi /sim/identity/step-up-challenges {momo_token, action_hash}
      → Điền nhanh / nhập OTP (demo_otp: 123456) → :verify → nhận auth_proof (JWT 1 lần)

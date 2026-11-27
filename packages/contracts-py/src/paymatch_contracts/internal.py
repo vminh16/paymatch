@@ -738,7 +738,12 @@ class ContractItem(BaseModel):
     base_unit: Annotated[str, Field(min_length=1)]
     pack_spec: Annotated[str, Field(min_length=1)]
     pack_qty: Decimal
-    unit_price: Decimal
+    unit_price: Annotated[
+        Decimal,
+        Field(
+            description='Giá một `pack_spec`, CHƯA VAT; giá/`base_unit` = `unit_price / pack_qty`.'
+        ),
+    ]
     vat_rate: Annotated[str, Field(min_length=1)]
 
 
@@ -769,8 +774,13 @@ class PriceCheckLineResult(BaseModel):
     contract_item_id: Annotated[
         str | None, Field(pattern='^itm_[0-9A-HJKMNP-TV-Z]{26}$')
     ]
-    unit_price_invoice: Decimal
-    unit_price_contract: Decimal
+    unit_price_invoice: Annotated[
+        Decimal,
+        Field(description='Đơn giá trên hóa đơn quy về một `base_unit`, CHƯA VAT.'),
+    ]
+    unit_price_contract: Annotated[
+        Decimal, Field(description='Đơn giá hợp đồng quy về một `base_unit`, CHƯA VAT.')
+    ]
     delta_pct: Decimal
     pack_qty_contract: Decimal
     pack_qty_parsed: Decimal | None
@@ -832,8 +842,10 @@ class PurchaseOrderLine(BaseModel):
         populate_by_name=True,
     )
     sku: Annotated[str, Field(min_length=1)]
-    quantity: Decimal
-    unit_price: Decimal
+    quantity: Annotated[Decimal, Field(description='Số lượng theo đơn vị `pack_spec`.')]
+    unit_price: Annotated[
+        Decimal, Field(description='Giá hợp đồng một `pack_spec`, CHƯA VAT.')
+    ]
 
 
 class Status1(StrEnum):
@@ -2080,7 +2092,10 @@ class PurchaseOrder(BaseModel):
     vendor_id: Annotated[str, Field(pattern='^ven_[0-9A-HJKMNP-TV-Z]{26}$')]
     store_id: Annotated[str, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]
     lines: Annotated[list[PurchaseOrderLine], Field(min_length=1)]
-    total_vnd: MoneyVnd
+    total_vnd: Annotated[
+        MoneyVnd,
+        Field(description='Tổng PO GỒM VAT (so được với `total_vnd` của hóa đơn).'),
+    ]
     status: Status1
     created_by: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     created_at: Timestamp

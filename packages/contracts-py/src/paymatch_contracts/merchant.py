@@ -200,6 +200,20 @@ class Verification(BaseModel):
     at: Timestamp
 
 
+class ApproveInvoiceRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    intent_hash: Annotated[str, Field(pattern='^[0-9a-f]{64}$')]
+    job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
+    auth_proof: Annotated[
+        str,
+        Field(description='Step-up JWT một lần gắn đúng `action_hash`.', min_length=1),
+    ]
+    verification: Verification | None = None
+
+
 class Status(StrEnum):
     active = 'active'
     superseded = 'superseded'
@@ -469,18 +483,12 @@ class Notification(BaseModel):
     created_at: Timestamp
 
 
-class ApproveInvoiceRequest(BaseModel):
+class ApprovalPreviewRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
         populate_by_name=True,
     )
-    intent_hash: Annotated[str, Field(pattern='^[0-9a-f]{64}$')]
-    job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
-    auth_proof: Annotated[
-        str,
-        Field(description='Step-up JWT một lần gắn đúng `action_hash`.', min_length=1),
-    ]
-    verification: Verification | None = None
+    verification: Verification | None
 
 
 class Approval(BaseModel):

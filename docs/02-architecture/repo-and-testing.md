@@ -16,7 +16,8 @@ paymatch/
 │   ├── schemas/                      # finding, bot-manifest, tool-result, capability-token
 │   └── events/                       # indicator.flagged, payment.executed, cross_alert.published, ...
 ├── packages/
-│   └── contracts-py/             # model sinh từ contracts/ (không sửa tay)
+│   ├── contracts-py/             # model sinh từ contracts/ (không sửa tay)
+│   └── paymatch-hashing/         # intent_hash, payload_hash, action_hash (RFC 8785 + sha256), test vector ở contracts/test-vectors/
 ├── services/
 │   ├── core/
 │   │   ├── src/core/{ingest,merchant,risk,control,tools}/{domain,application,adapters}/

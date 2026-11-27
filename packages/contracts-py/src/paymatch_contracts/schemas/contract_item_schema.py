@@ -20,5 +20,10 @@ class ContractItem(BaseModel):
     base_unit: Annotated[str, Field(min_length=1)]
     pack_spec: Annotated[str, Field(min_length=1)]
     pack_qty: decimal_schema.Decimal
-    unit_price: decimal_schema.Decimal
+    unit_price: Annotated[
+        decimal_schema.Decimal,
+        Field(
+            description='Giá một `pack_spec`, CHƯA VAT; giá/`base_unit` = `unit_price / pack_qty`.'
+        ),
+    ]
     vat_rate: Annotated[str, Field(min_length=1)]
