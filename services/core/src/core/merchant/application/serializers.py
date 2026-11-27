@@ -162,7 +162,7 @@ def build_full_invoice(
 
     latest_job = conn.execute(
         """
-        SELECT job_id FROM core.jobs
+        SELECT job_id, attempt FROM core.jobs
         WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
         ORDER BY completed_at DESC NULLS LAST, created_at DESC
         LIMIT 1
@@ -171,23 +171,30 @@ def build_full_invoice(
     ).fetchone()
 
     if latest_job:
+        # I5: derive current findings_summary from the latest completed job's final attempt (plus invoice-level ingest/cross-alert findings)
         f_rows = conn.execute(
             """
             SELECT bot_id, severity, reason_codes
             FROM core.findings
             WHERE tenant_id = %s AND invoice_id = %s
               AND superseded = FALSE
-              AND (job_id = %s OR bot_id IN ('ingest', 'system'))
+              AND (
+                (job_id = %s AND attempt = %s)
+                OR bot_id = 'ingest'
+                OR (job_id IS NULL AND bot_id = 'system')
+              )
             ORDER BY created_at ASC
             """,
-            (tenant_id, invoice_id, latest_job["job_id"]),
+            (tenant_id, invoice_id, latest_job["job_id"], int(latest_job["attempt"])),
         ).fetchall()
     else:
         f_rows = conn.execute(
             """
             SELECT bot_id, severity, reason_codes
             FROM core.findings
-            WHERE tenant_id = %s AND invoice_id = %s AND superseded = FALSE
+            WHERE tenant_id = %s AND invoice_id = %s
+              AND superseded = FALSE
+              AND (bot_id = 'ingest' OR (job_id IS NULL AND bot_id = 'system'))
             ORDER BY created_at ASC
             """,
             (tenant_id, invoice_id),

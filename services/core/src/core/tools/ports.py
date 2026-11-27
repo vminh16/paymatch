@@ -9,10 +9,17 @@ from typing import Any, Protocol
 class UpstreamToolError(Exception):
     """Raised by adapters when an external service times out or fails (mapped to ToolResult.error)."""
 
-    def __init__(self, code: str, detail: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        detail: str,
+        *,
+        partial_output: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(detail)
         self.code = code  # UPSTREAM_TIMEOUT | UPSTREAM_UNAVAILABLE | NOT_FOUND
         self.detail = detail
+        self.partial_output = partial_output
 
 
 class SimWorldToolPort(Protocol):

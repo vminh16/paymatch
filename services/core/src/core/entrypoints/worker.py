@@ -377,15 +377,28 @@ def _handle_invoice_status_changed(
 
     sched_date = inv["scheduled_for"]
     if sched_date is None:
-        tf = conn.execute(
+        # I5: derive treasury proposed_pay_on ONLY from the latest completed job's final attempt
+        latest_job = conn.execute(
             """
-            SELECT proposed_pay_on FROM core.findings
-            WHERE tenant_id = %s AND invoice_id = %s AND bot_id = 'treasury'
-              AND superseded = FALSE AND proposed_pay_on IS NOT NULL
-            ORDER BY created_at DESC LIMIT 1
+            SELECT job_id, attempt FROM core.jobs
+            WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+            ORDER BY completed_at DESC NULLS LAST, created_at DESC
+            LIMIT 1
             """,
             (tid, invoice_id),
         ).fetchone()
+        tf = None
+        if latest_job is not None:
+            tf = conn.execute(
+                """
+                SELECT proposed_pay_on FROM core.findings
+                WHERE tenant_id = %s AND invoice_id = %s
+                  AND job_id = %s AND attempt = %s
+                  AND bot_id = 'treasury' AND superseded = FALSE AND proposed_pay_on IS NOT NULL
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (tid, invoice_id, latest_job["job_id"], int(latest_job["attempt"])),
+            ).fetchone()
         if tf and tf["proposed_pay_on"]:
             sched_date = tf["proposed_pay_on"]
         elif inv["due_on"]:

@@ -211,3 +211,61 @@ def test_evaluate_tool_call_floors_covers_all_tools_and_dedups() -> None:
     assert by_code["CROSS_ALERT_HIT"].severity == "yellow"
     assert by_code["MST_INACTIVE"].severity == "red"
     assert by_code["INVOICE_NOT_FOUND_ON_PORTAL"].severity == "red"
+
+
+def test_b1_tool_specific_coverage_and_partial_simo_hit() -> None:
+    """B1: empty wrapper / wrong taxpayer does not satisfy mandatory prefetch; partial SIMO hit still floors red."""
+    from core.risk.domain.aggregation import (
+        evaluate_mandatory_prefetch_coverage,
+        extract_tool_floor_reason_codes,
+        is_tool_call_successful,
+    )
+
+    # Empty collection wrapper does NOT satisfy `invoices`
+    assert not is_tool_call_successful(
+        {"tool_id": "invoices", "error": None, "output": {"invoices": []}},
+        expected_invoice_id="inv_1",
+    )
+    assert is_tool_call_successful(
+        {"tool_id": "invoices", "error": None, "output": {"invoices": [{"invoice_id": "inv_1"}]}},
+        expected_invoice_id="inv_1",
+    )
+    # Wrong taxpayer or missing status_code does NOT satisfy tax_id_lookup / tax_risk_list
+    assert not is_tool_call_successful(
+        {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0111111111", "status_code": "00"}},
+        expected_tax_id="0999010001",
+    )
+    assert not is_tool_call_successful(
+        {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0999010001"}},
+        expected_tax_id="0999010001",
+    )
+    assert is_tool_call_successful(
+        {"tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0999010001", "status_code": "00"}},
+        expected_tax_id="0999010001",
+    )
+    assert not is_tool_call_successful(
+        {"tool_id": "tax_risk_list", "error": None, "output": {"tax_id": "0111111111", "listed": False}},
+        expected_tax_id="0999010001",
+    )
+
+    # Coverage flags BOT_NOT_RUN when wrong taxpayer was returned
+    specs = evaluate_mandatory_prefetch_coverage(
+        required_prefetch_by_bot={"tax": ["tax_id_lookup", "tax_risk_list"]},
+        attempt_tool_calls=[
+            {"bot_id": "tax", "tool_id": "tax_id_lookup", "error": None, "output": {"tax_id": "0111111111", "status_code": "00"}},
+            {"bot_id": "tax", "tool_id": "tax_risk_list", "error": None, "output": {"tax_id": "0999010001", "listed": False}},
+        ],
+        expected_tax_id="0999010001",
+    )
+    assert len(specs) == 1
+    assert specs[0].reason_codes == ("BOT_NOT_RUN",)
+
+    # Partial SIMO call with confirmed hit AND error still triggers OFFICIAL_FRAUD_LIST floor
+    partial_simo = {
+        "tool_call_id": "tcl_01TEST00000000000000000009",
+        "tool_id": "official_fraud_list",
+        "output": {"listed": True, "matches": [{"kind": "account_hash", "listed": True, "list_ref": "SIMO-1"}]},
+        "error": {"code": "UPSTREAM_TIMEOUT", "detail": "second indicator timed out"},
+    }
+    assert extract_tool_floor_reason_codes([partial_simo]) == ["OFFICIAL_FRAUD_LIST"]
+    assert not is_tool_call_successful(partial_simo)

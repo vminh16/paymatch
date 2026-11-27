@@ -534,35 +534,51 @@ def create_merchant_app(
             if inv is None:
                 raise ProblemError(404, "NOT_FOUND", "Invoice not found", "Không tìm thấy hóa đơn.")
 
-            target_job_id = job_id
-            if target_job_id is None:
-                jrow = conn.execute(
+            target_job: dict[str, Any] | None = None
+            if job_id is not None:
+                target_job = conn.execute(
                     """
-                    SELECT job_id FROM core.jobs
+                    SELECT job_id, attempt FROM core.jobs
+                    WHERE tenant_id = %s AND invoice_id = %s AND job_id = %s
+                    """,
+                    (principal.tenant_id, invoice_id, job_id),
+                ).fetchone()
+            else:
+                target_job = conn.execute(
+                    """
+                    SELECT job_id, attempt FROM core.jobs
                     WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
                     ORDER BY completed_at DESC NULLS LAST, created_at DESC
                     LIMIT 1
                     """,
                     (principal.tenant_id, invoice_id),
                 ).fetchone()
-                target_job_id = jrow["job_id"] if jrow else None
 
-            if target_job_id:
+            if target_job is not None:
+                # I5: derive current findings from the completed attempt only (preserving prior attempts as history)
                 rows = conn.execute(
                     """
                     SELECT * FROM core.findings
                     WHERE tenant_id = %s AND invoice_id = %s
                       AND superseded = FALSE
-                      AND (job_id = %s OR bot_id IN ('ingest', 'system'))
+                      AND (
+                        (job_id = %s AND attempt = %s)
+                        OR bot_id = 'ingest'
+                        OR (job_id IS NULL AND bot_id = 'system')
+                      )
                     ORDER BY created_at ASC
                     """,
-                    (principal.tenant_id, invoice_id, target_job_id),
+                    (principal.tenant_id, invoice_id, target_job["job_id"], int(target_job["attempt"])),
                 ).fetchall()
+            elif job_id is not None:
+                rows = []
             else:
                 rows = conn.execute(
                     """
                     SELECT * FROM core.findings
-                    WHERE tenant_id = %s AND invoice_id = %s AND superseded = FALSE
+                    WHERE tenant_id = %s AND invoice_id = %s
+                      AND superseded = FALSE
+                      AND (bot_id = 'ingest' OR (job_id IS NULL AND bot_id = 'system'))
                     ORDER BY created_at ASC
                     """,
                     (principal.tenant_id, invoice_id),

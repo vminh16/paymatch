@@ -193,14 +193,21 @@ def _to_decimal(val: Any) -> Decimal | None:
 
 
 def extract_tool_floor_reason_codes(tool_calls: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Derive mandatory reason codes from trusted tool call outputs (internal-api.md §3)."""
+    """Derive mandatory reason codes from trusted tool call outputs (internal-api.md §3).
+
+    B1: Confirmed positive SIMO hits (`official_fraud_list` with `listed=True`) are preserved even when
+    a later indicator in the same multi-indicator call errored and populated `error`.
+    """
     added: list[str] = []
     for tc in tool_calls:
-        if tc.get("error"):
-            continue
         tool_id = tc.get("tool_id")
         output = tc.get("output") or {}
         if not isinstance(output, Mapping):
+            continue
+        if tc.get("error"):
+            # B1: Preserve confirmed positive hits from partially completed official_fraud_list calls
+            if tool_id == "official_fraud_list" and output.get("listed") is True:
+                added.append("OFFICIAL_FRAUD_LIST")
             continue
 
         if tool_id == "price_check":
@@ -256,6 +263,109 @@ def extract_tool_floor_reason_codes(tool_calls: Iterable[Mapping[str, Any]]) -> 
 
     # Deduplicate preserving order
     return list(dict.fromkeys(added))
+
+
+def is_tool_call_successful(
+    tool_call: Mapping[str, Any],
+    *,
+    expected_tax_id: str | None = None,
+    expected_invoice_id: str | None = None,
+) -> bool:
+    """Evaluate tool-specific success semantics for mandatory prefetch coverage (B1).
+
+    Never treats a generic truthy wrapper (e.g. `{"invoices": []}` or missing `status_code`) as successful.
+    """
+    if tool_call.get("error") is not None:
+        return False
+    output = tool_call.get("output")
+    if not isinstance(output, Mapping) or not output:
+        return False
+
+    tool_id = str(tool_call.get("tool_id") or "")
+    exp_tax = expected_tax_id.strip() if isinstance(expected_tax_id, str) and expected_tax_id.strip() else None
+
+    if tool_id == "tax_id_lookup":
+        status_code = output.get("status_code")
+        if not isinstance(status_code, str) or not status_code.strip():
+            return False
+        if exp_tax is not None:
+            actual_tax = str(output.get("tax_id") or "").strip()
+            if actual_tax != exp_tax:
+                return False
+        return True
+
+    if tool_id == "tax_risk_list":
+        if not isinstance(output.get("listed"), bool):
+            return False
+        if exp_tax is not None:
+            actual_tax = str(output.get("tax_id") or "").strip()
+            if actual_tax != exp_tax:
+                return False
+        return True
+
+    if tool_id == "einvoice_portal":
+        found = output.get("found")
+        if not isinstance(found, bool):
+            return False
+        if found is True:
+            return (
+                output.get("invoice_status_code") is not None
+                or output.get("processing_status_code") is not None
+            )
+        return True
+
+    if tool_id == "invoices":
+        invs = output.get("invoices")
+        if not isinstance(invs, list) or len(invs) == 0:
+            return False
+        if expected_invoice_id is not None:
+            return any(
+                isinstance(item, Mapping) and item.get("invoice_id") == expected_invoice_id
+                for item in invs
+            )
+        return True
+
+    if tool_id == "vendor_contracts":
+        return isinstance(output.get("contracts"), list)
+
+    if tool_id == "three_way_match":
+        return isinstance(output.get("missing_goods_receipt"), bool) and isinstance(
+            output.get("quantity_above_norm"), bool
+        )
+
+    if tool_id == "vendor_registry":
+        return (
+            "vendor" in output
+            and isinstance(output.get("accounts"), list)
+            and isinstance(output.get("approved_verifications"), list)
+        )
+
+    if tool_id == "cross_alerts":
+        return isinstance(output.get("matched"), bool) and isinstance(output.get("hits"), list)
+
+    if tool_id == "official_fraud_list":
+        return isinstance(output.get("listed"), bool) and isinstance(output.get("matches"), list)
+
+    if tool_id == "utility_bills":
+        return isinstance(output.get("readings"), list)
+
+    if tool_id == "utility_baseline":
+        return isinstance(output.get("out_of_range"), bool)
+
+    if tool_id == "account_balance":
+        avail = output.get("available_vnd")
+        return isinstance(avail, int) and not isinstance(avail, bool)
+
+    if tool_id == "spending_limits":
+        return isinstance(output.get("platform_limits"), Mapping) and isinstance(
+            output.get("daily_budget"), Mapping
+        )
+
+    if tool_id == "payment_policy_preview":
+        dec = output.get("decision")
+        return isinstance(dec, str) and bool(dec.strip())
+
+    return bool(output)
 
 
 @dataclass(frozen=True)
@@ -321,10 +431,12 @@ def evaluate_mandatory_prefetch_coverage(
     required_prefetch_by_bot: Mapping[str, Collection[str]],
     attempt_tool_calls: Iterable[Mapping[str, Any]],
     skipped_bot_ids: Collection[str] = (),
+    expected_tax_id: str | None = None,
+    expected_invoice_id: str | None = None,
 ) -> list[SystemFindingSpec]:
-    """Ensure every mandatory prefetch tool of every non-skipped required bot succeeded with non-empty output (B3).
+    """Ensure every mandatory prefetch tool of every non-skipped required bot succeeded with tool-specific semantics (B1, B3).
 
-    An errored, timed-out, revoked, or empty mandatory prefetch counts as not run (yellow floor).
+    An errored, timed-out, revoked, wrong-target, or empty mandatory prefetch counts as not run (yellow floor).
     """
     skipped = set(skipped_bot_ids)
     tcs_by_bot_tool: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
@@ -341,7 +453,11 @@ def evaluate_mandatory_prefetch_coverage(
         for tool_id in prefetch_tools:
             calls = tcs_by_bot_tool.get((bot_id, tool_id), [])
             succeeded = any(
-                (c.get("error") is None) and bool(c.get("output"))
+                is_tool_call_successful(
+                    c,
+                    expected_tax_id=expected_tax_id,
+                    expected_invoice_id=expected_invoice_id,
+                )
                 for c in calls
             )
             if succeeded:

@@ -36,6 +36,7 @@ from core.risk.domain.aggregation import (
     evaluate_system_checks,
     evaluate_tool_call_floors,
     extract_tool_floor_reason_codes,
+    is_tool_call_successful,
     normalize_reason_codes,
 )
 from core.shared.clock import Clock, SimWorldClock, SystemClock
@@ -567,11 +568,13 @@ def _complete_investigation_job(
         existing_reason_codes=covered_codes,
     )
 
-    # B3: Mandatory prefetch success coverage on the current attempt (errored/empty/revoked -> yellow floor)
+    # B1/B3: Mandatory prefetch success coverage on the current attempt with tool-specific & entity-bound semantics
     prefetch_cov_specs = evaluate_mandatory_prefetch_coverage(
         required_prefetch_by_bot=prefetch_by_bot,
         attempt_tool_calls=attempt_tool_calls,
         skipped_bot_ids=skipped_bot_ids,
+        expected_tax_id=inv.get("seller_tax_id"),
+        expected_invoice_id=invoice_id,
     )
 
     # B3: Carry forward confirmed red evidence from earlier attempts of this job
@@ -961,9 +964,14 @@ def create_internal_app(
                 )
         sub = claims.get("sub")
         bot_ver = claims.get("bot_version")
+        tools_claim = claims.get("tools")
         if (
             not isinstance(sub, str)
             or not sub
+            or not isinstance(claims.get("jti"), str)
+            or not claims["jti"]
+            or "invoice_id" not in claims
+            or (claims["invoice_id"] is not None and not isinstance(claims["invoice_id"], str))
             or not isinstance(claims.get("tenant_id"), str)
             or not claims["tenant_id"]
             or not isinstance(claims.get("job_id"), str)
@@ -971,8 +979,10 @@ def create_internal_app(
             or not isinstance(claims.get("worker_id"), str)
             or not claims["worker_id"]
             or not isinstance(claims.get("attempt"), int)
+            or isinstance(claims.get("attempt"), bool)
             or int(claims["attempt"]) < 1
-            or not isinstance(claims.get("tools"), list)
+            or not isinstance(tools_claim, list)
+            or not all(isinstance(t, str) and bool(t) for t in tools_claim)
         ):
             raise ProblemError(401, "UNAUTHENTICATED", "Invalid capability claims", "Thiếu claim bắt buộc trong capability token.")
         if sub == "supervisor" and bot_ver is not None:
@@ -1341,7 +1351,13 @@ def create_internal_app(
                         errors=[{"field": "prefetch", "code": "missing", "detail": ", ".join(missing_prefetch)}],
                     )
 
-                # B3: Any revoked, errored, or empty mandatory prefetch forces at least yellow floor
+                # B1/B3: Any revoked, errored, wrong-target, or semantically empty mandatory prefetch forces at least yellow floor
+                bound_inv = conn.execute(
+                    "SELECT seller_tax_id FROM core.invoices WHERE tenant_id = %s AND invoice_id = %s",
+                    (tid, job["invoice_id"]),
+                ).fetchone()
+                expected_tax_id = bound_inv["seller_tax_id"] if bound_inv else None
+
                 prefetch_fail_codes: list[str] = []
                 if ungranted_prefetch:
                     prefetch_fail_codes.append("BOT_DISABLED")
@@ -1349,7 +1365,14 @@ def create_internal_app(
                     if p in ungranted_prefetch or p in missing_prefetch:
                         continue
                     p_calls = [tc for tc in tcs if tc["tool_id"] == p]
-                    succeeded = any((tc["error"] is None) and bool(tc["output"]) for tc in p_calls)
+                    succeeded = any(
+                        is_tool_call_successful(
+                            tc,
+                            expected_tax_id=expected_tax_id,
+                            expected_invoice_id=job["invoice_id"],
+                        )
+                        for tc in p_calls
+                    )
                     if not succeeded:
                         had_timeout = any(
                             isinstance(tc.get("error"), dict) and tc["error"].get("code") == "UPSTREAM_TIMEOUT"

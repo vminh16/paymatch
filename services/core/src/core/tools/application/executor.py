@@ -194,7 +194,8 @@ def invoke_tool(
             utility_outlier_ratio=utility_outlier_ratio,
         )
     except UpstreamToolError as exc:
-        output_data = {}
+        # B1: preserve confirmed partial hits (e.g. SIMO listed=True before a later indicator errored)
+        output_data = dict(exc.partial_output) if exc.partial_output else {}
         error_obj = {"code": exc.code, "detail": exc.detail}
 
     with conn.transaction():
@@ -895,13 +896,19 @@ def _dispatch_tool(
         pairs = _collect_invoice_indicator_pairs(conn, inv)
         matches = []
         listed_any = False
+        first_err: UpstreamToolError | None = None
         for kind, val_hash in pairs:
             if kind not in {"account_hash", "phone", "tax_id"}:
                 continue
             # SIMO expects 64-char sha256 hex
             if len(val_hash) != 64:
                 continue
-            res = sim_world.check_simo_indicator(kind=kind, value_hash=val_hash)
+            try:
+                res = sim_world.check_simo_indicator(kind=kind, value_hash=val_hash)
+            except UpstreamToolError as exc:
+                if first_err is None:
+                    first_err = exc
+                continue
             if res.get("listed"):
                 listed_any = True
                 matches.append(
@@ -911,7 +918,11 @@ def _dispatch_tool(
                         "list_ref": res.get("list_ref"),
                     }
                 )
-        return {"listed": listed_any, "matches": matches}
+        result = {"listed": listed_any, "matches": matches}
+        if first_err is not None:
+            # B1: keep confirmed positive hits alongside the error so red floor is never lost
+            raise UpstreamToolError(first_err.code, first_err.detail, partial_output=result)
+        return result
 
     # ---- 14. einvoice_portal (sim-world) ----
     if tool_id == "einvoice_portal":
@@ -933,26 +944,43 @@ def _dispatch_tool(
             number=inv["number"],
         )
 
-    # ---- 15. tax_id_lookup (sim-world) ----
+    # ---- 15. tax_id_lookup (sim-world; B1: always bind to invoice seller_tax_id on investigations) ----
     if tool_id == "tax_id_lookup":
-        res = sim_world.lookup_taxpayer(tax_id=inp["tax_id"])
+        if is_investigation:
+            target_tax_id = (inv.get("seller_tax_id") or "").strip() if inv else ""
+            if not target_tax_id:
+                raise UpstreamToolError("NOT_FOUND", "Bound invoice has no seller_tax_id.")
+        else:
+            target_tax_id = str(inp["tax_id"]).strip()
+        res = sim_world.lookup_taxpayer(tax_id=target_tax_id)
         if res is None:
-            raise UpstreamToolError("NOT_FOUND", f"Taxpayer {inp['tax_id']} not found.")
-        return res
+            raise UpstreamToolError("NOT_FOUND", f"Taxpayer {target_tax_id} not found.")
+        return {**res, "tax_id": target_tax_id}
 
-    # ---- 16. tax_risk_list (sim-world) ----
+    # ---- 16. tax_risk_list (sim-world; B1: always bind to invoice seller_tax_id on investigations) ----
     if tool_id == "tax_risk_list":
-        res = sim_world.lookup_tax_risk_list(tax_id=inp["tax_id"])
+        if is_investigation:
+            target_tax_id = (inv.get("seller_tax_id") or "").strip() if inv else ""
+            if not target_tax_id:
+                raise UpstreamToolError("NOT_FOUND", "Bound invoice has no seller_tax_id.")
+        else:
+            target_tax_id = str(inp["tax_id"]).strip()
+        res = sim_world.lookup_tax_risk_list(tax_id=target_tax_id)
         return {
-            "tax_id": inp["tax_id"],
+            "tax_id": target_tax_id,
             "listed": bool(res.get("listed", False)),
             "list_name": res.get("list_name"),
             "listed_on": res.get("listed_on"),
         }
 
-    # ---- 17. utility_bills ----
+    # ---- 17. utility_bills (B1/I6: bind strictly to invoice store on investigations, store_ids on Q&A) ----
     if tool_id == "utility_bills":
-        store_id = inp.get("store_id") or (inv["store_id"] if inv else None)
+        if is_investigation:
+            store_id = inv["store_id"] if inv else None
+        else:
+            store_id = inp.get("store_id")
+            if ctx.store_ids is not None and store_id and store_id not in ctx.store_ids:
+                return {"readings": []}
         months = int(inp.get("months", 12))
         if store_id:
             rows = conn.execute(
@@ -965,6 +993,20 @@ def _dispatch_tool(
                 LIMIT %s
                 """,
                 (tid, store_id, months * 2),
+            ).fetchall()
+        elif is_investigation:
+            rows = []
+        elif ctx.store_ids is not None:
+            rows = conn.execute(
+                """
+                SELECT reading_id, store_id, utility_type, billing_period, period_start, period_end,
+                       total_usage, usage_unit, total_vnd
+                FROM core.utility_readings
+                WHERE tenant_id = %s AND store_id = ANY(%s)
+                ORDER BY billing_period DESC
+                LIMIT %s
+                """,
+                (tid, ctx.store_ids, months * 2),
             ).fetchall()
         else:
             rows = conn.execute(
@@ -995,9 +1037,14 @@ def _dispatch_tool(
             ]
         }
 
-    # ---- 18. utility_baseline ----
+    # ---- 18. utility_baseline (B1/I6: bind strictly to invoice store on investigations) ----
     if tool_id == "utility_baseline":
-        store_id = inp.get("store_id") or (inv["store_id"] if inv else None)
+        if is_investigation:
+            store_id = inv["store_id"] if inv else None
+        else:
+            store_id = inp.get("store_id")
+            if ctx.store_ids is not None and store_id and store_id not in ctx.store_ids:
+                store_id = None
         months = int(inp.get("months", 12))
         util_type: str | None = None
         if inv and inv.get("vendor_id"):
@@ -1206,15 +1253,44 @@ def _dispatch_tool(
                 (tid, target["vendor_id"]),
             ).fetchone()
             vname = v["name"] if v else None
-        f_rows = conn.execute(
+        latest_job = conn.execute(
             """
-            SELECT finding_id, bot_id, severity, reason_codes, evidence
-            FROM core.findings
-            WHERE tenant_id = %s AND invoice_id = %s AND superseded = FALSE
-            ORDER BY created_at ASC
+            SELECT job_id, attempt FROM core.jobs
+            WHERE tenant_id = %s AND invoice_id = %s AND status = 'completed'
+            ORDER BY completed_at DESC NULLS LAST, created_at DESC
+            LIMIT 1
             """,
             (tid, target["invoice_id"]),
-        ).fetchall()
+        ).fetchone()
+        if latest_job is not None:
+            # I5: derive current findings from the completed attempt only
+            f_rows = conn.execute(
+                """
+                SELECT finding_id, bot_id, severity, reason_codes, evidence
+                FROM core.findings
+                WHERE tenant_id = %s AND invoice_id = %s
+                  AND superseded = FALSE
+                  AND (
+                    (job_id = %s AND attempt = %s)
+                    OR bot_id = 'ingest'
+                    OR (job_id IS NULL AND bot_id = 'system')
+                  )
+                ORDER BY created_at ASC
+                """,
+                (tid, target["invoice_id"], latest_job["job_id"], int(latest_job["attempt"])),
+            ).fetchall()
+        else:
+            f_rows = conn.execute(
+                """
+                SELECT finding_id, bot_id, severity, reason_codes, evidence
+                FROM core.findings
+                WHERE tenant_id = %s AND invoice_id = %s
+                  AND superseded = FALSE
+                  AND (bot_id = 'ingest' OR (job_id IS NULL AND bot_id = 'system'))
+                ORDER BY created_at ASC
+                """,
+                (tid, target["invoice_id"]),
+            ).fetchall()
         return {
             "invoice": build_supervisor_invoice_summary(
                 target,

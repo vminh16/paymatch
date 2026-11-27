@@ -1183,10 +1183,15 @@ def test_b6_two_connection_deterministic_lease_handoff_fencing(
 
     class HandoffSim(FakeSimWorld):
         def get_wallet_balance(self, *, wallet_id: str):
-            # Simulate Worker 1 stalling past lease expiry while Worker 2 reclaims the job on a second connection!
+            # Simulate Worker 1 stalling past DB lease expiry while Worker 2 reclaims the job on a second connection!
             if not handoff_done["ran"]:
                 handoff_done["ran"] = True
-                sec_clock.advance(timedelta(seconds=180))
+                with seeded_db.connect() as expire_conn:
+                    with expire_conn.transaction():
+                        expire_conn.execute(
+                            "UPDATE core.jobs SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE job_id = %s",
+                            (job_id,),
+                        )
                 c2, _ = _make_client(seeded_db, fixed_clock, security_clock=sec_clock)
                 reclaimed = c2.post("/internal/jobs:claim", json={"worker_id": "w2"}, headers=agent_hdr)
                 assert reclaimed.status_code == 200
@@ -1224,7 +1229,24 @@ def test_b6_two_connection_deterministic_lease_handoff_fencing(
     assert job_row["worker_id"] == "w2" and job_row["attempt"] == 2
     w2_lease_before = job_row["lease_expires_at"]
 
-    # Worker 1's stale heartbeat, progress, and complete ALL fail with 409 LEASE_LOST and leave w2 untouched
+    # Worker 1's stale finding, heartbeat, progress, and complete ALL fail with 409 LEASE_LOST and leave w2 untouched
+    f1 = client1.post(
+        f"/internal/jobs/{job_id}/findings",
+        json={
+            "bot_id": "treasury",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:stale",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "Stale attempt 1 finding",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers={"Authorization": f"Bearer {tr_tok1}"},
+    )
+    assert f1.status_code == 409 and f1.json()["code"] == "LEASE_LOST"
+
     hb1 = client1.post(
         f"/internal/jobs/{job_id}/heartbeat",
         json={"worker_id": "w1", "attempt": 1},
@@ -1499,3 +1521,205 @@ def test_b4_i6_nit2_supervisor_projection_tool_scoping_and_missing_policy(
     ).json()
     assert sl_res["data"]["platform_limits"]["auto_pay_per_invoice_vnd"] == 0
     assert sl_res["data"]["platform_limits"]["auto_pay_per_day_vnd"] == 0
+
+
+@pytest.mark.db
+def test_b1_tax_target_binding_partial_simo_and_i4_concurrent_claim_and_i5_completed_attempt(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B1: tax prefetch ignores caller tax_id and always checks invoice seller_tax_id; partial SIMO hit floors red.
+    I4: DB clock_timestamp() rejects expired lease even before reclaim; per-tenant advisory lock enforces max_concurrent=1.
+    I5: invoice_explain & build_full_invoice return only the completed attempt's findings (not prior attempt's).
+    """
+    import threading
+    from core.merchant.application.serializers import build_full_invoice
+    from core.tools.ports import UpstreamToolError
+
+    agent_hdr = {"X-Service-Key": AGENT_KEY}
+
+    # --- B1a: tax_id_lookup & tax_risk_list ignore caller-supplied healthy tax_id and query bound seller_tax_id ---
+    inv1, job1 = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001425.xml", fixed_clock)
+    with seeded_db.connect() as conn:
+        bound_tax_id = conn.execute(
+            "SELECT seller_tax_id FROM core.invoices WHERE invoice_id = %s", (inv1,)
+        ).fetchone()["seller_tax_id"]
+    assert bound_tax_id and bound_tax_id != "0111111111"
+
+    seen_tax_queries: list[tuple[str, str]] = []
+
+    class TargetAwareSim(FakeSimWorld):
+        def lookup_taxpayer(self, *, tax_id: str):
+            seen_tax_queries.append(("tax_id_lookup", tax_id))
+            if tax_id == bound_tax_id:
+                return {"tax_id": tax_id, "name": "Risky Seller", "status_code": "06", "status_reason_code": "01"}
+            return {"tax_id": tax_id, "name": "Healthy Decoy", "status_code": "00", "status_reason_code": None}
+
+        def lookup_tax_risk_list(self, *, tax_id: str):
+            seen_tax_queries.append(("tax_risk_list", tax_id))
+            return {"listed": tax_id == bound_tax_id, "list_name": "DS-RR" if tax_id == bound_tax_id else None, "listed_on": "2026-11-01" if tax_id == bound_tax_id else None}
+
+    client1, _ = _make_client(seeded_db, fixed_clock, sim=TargetAwareSim())
+    c1 = client1.post("/internal/jobs:claim", json={"worker_id": "w1"}, headers=agent_hdr).json()
+    assert c1["job_id"] == job1
+    sess1 = client1.post(f"/internal/jobs/{job1}/session", json={"worker_id": "w1", "attempt": 1}, headers=agent_hdr).json()
+    tax_tok = next(b["capability_token"] for b in sess1["bots"] if b["bot_id"] == "tax")
+    thdr = {"Authorization": f"Bearer {tax_tok}"}
+
+    # Bot tries to spoof a healthy decoy taxpayer "0111111111"
+    r_tl = client1.post("/internal/tools/tax_id_lookup:invoke", json={"input": {"tax_id": "0111111111"}}, headers=thdr)
+    r_tr = client1.post("/internal/tools/tax_risk_list:invoke", json={"input": {"tax_id": "0111111111"}}, headers=thdr)
+    assert r_tl.status_code == 200 and r_tl.json()["data"]["tax_id"] == bound_tax_id
+    assert r_tr.status_code == 200 and r_tr.json()["data"]["tax_id"] == bound_tax_id
+    assert seen_tax_queries == [("tax_id_lookup", bound_tax_id), ("tax_risk_list", bound_tax_id)]
+
+    # Complete -> MUST floor red MST_INACTIVE + TAX_RISK_LIST even though bot passed decoy tax_id!
+    comp1 = client1.post(
+        f"/internal/jobs/{job1}:complete",
+        json={"worker_id": "w1", "attempt": 1, "result": {"brief": {"lines": ["Done."], "cited_evidence": [], "model": "m", "prompt_hash": "p"}}},
+        headers=agent_hdr,
+    )
+    assert comp1.status_code == 200 and comp1.json()["final_severity"] == "red"
+    with seeded_db.connect() as conn:
+        r1 = conn.execute("SELECT reason_codes FROM core.invoices WHERE invoice_id = %s", (inv1,)).fetchone()
+    assert "MST_INACTIVE" in r1["reason_codes"] and "TAX_RISK_LIST" in r1["reason_codes"]
+
+    # --- B1b: partial SIMO failure preserves confirmed positive hit and floors red ---
+    inv2, job2 = _ingest_demo(seeded_db, "inbox/attachments/1C26TTN_00001430.xml", fixed_clock)
+    simo_calls = {"n": 0}
+
+    class PartialSimo(FakeSimWorld):
+        def check_simo_indicator(self, *, kind: str, value_hash: str):
+            simo_calls["n"] += 1
+            if simo_calls["n"] == 1:
+                return {"listed": True, "list_ref": "SIMO-2026-PARTIAL"}
+            raise UpstreamToolError("UPSTREAM_TIMEOUT", "second SIMO indicator timed out")
+
+    client2, _ = _make_client(seeded_db, fixed_clock, sim=PartialSimo())
+    c2 = client2.post("/internal/jobs:claim", json={"worker_id": "w2"}, headers=agent_hdr).json()
+    assert c2["job_id"] == job2
+    sess2 = client2.post(f"/internal/jobs/{job2}/session", json={"worker_id": "w2", "attempt": 1}, headers=agent_hdr).json()
+    fc_tok = next(b["capability_token"] for b in sess2["bots"] if b["bot_id"] == "fraud-control")
+    r_simo = client2.post(
+        "/internal/tools/official_fraud_list:invoke",
+        json={"input": {}},
+        headers={"Authorization": f"Bearer {fc_tok}"},
+    )
+    assert r_simo.status_code == 200
+    assert r_simo.json()["data"]["listed"] is True
+    assert r_simo.json()["error"]["code"] == "UPSTREAM_TIMEOUT"
+
+    # Also test I5 on job2: submit a yellow procurement finding on attempt 1, fail attempt 1 -> retry attempt 2 ->
+    # submit green procurement finding on attempt 2 -> complete -> invoice_explain & build_full_invoice show ONLY attempt 2!
+    proc_tok1 = next(b["capability_token"] for b in sess2["bots"] if b["bot_id"] == "procurement")
+    for pf in ("invoices", "vendor_contracts"):
+        client2.post(f"/internal/tools/{pf}:invoke", json={"input": {}}, headers={"Authorization": f"Bearer {proc_tok1}"})
+    client2.post(
+        f"/internal/jobs/{job2}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:a1",
+            "severity_reported": "yellow",
+            "reason_codes": ["PRICE_ABOVE_CONTRACT"],
+            "reason": "Attempt 1 stale yellow",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers={"Authorization": f"Bearer {proc_tok1}"},
+    )
+    client2.post(
+        f"/internal/jobs/{job2}:fail",
+        json={"worker_id": "w2", "attempt": 1, "error_code": "TRANSIENT", "detail": "retry"},
+        headers=agent_hdr,
+    )
+    c2_a2 = client2.post("/internal/jobs:claim", json={"worker_id": "w2"}, headers=agent_hdr).json()
+    assert c2_a2["job_id"] == job2 and c2_a2["attempt"] == 2
+    sess2_a2 = client2.post(f"/internal/jobs/{job2}/session", json={"worker_id": "w2", "attempt": 2}, headers=agent_hdr).json()
+    proc_tok2 = next(b["capability_token"] for b in sess2_a2["bots"] if b["bot_id"] == "procurement")
+    for pf in ("invoices", "vendor_contracts"):
+        client2.post(f"/internal/tools/{pf}:invoke", json={"input": {}}, headers={"Authorization": f"Bearer {proc_tok2}"})
+    client2.post(
+        f"/internal/jobs/{job2}/findings",
+        json={
+            "bot_id": "procurement",
+            "bot_version": 1,
+            "skill_version": 1,
+            "prompt_hash": "sha256:a2",
+            "severity_reported": "green",
+            "reason_codes": ["OK"],
+            "reason": "Attempt 2 clean",
+            "evidence": [],
+            "provenance": "trusted",
+        },
+        headers={"Authorization": f"Bearer {proc_tok2}"},
+    )
+    comp2 = client2.post(
+        f"/internal/jobs/{job2}:complete",
+        json={"worker_id": "w2", "attempt": 2, "result": {"brief": {"lines": ["Done 2."], "cited_evidence": [], "model": "m", "prompt_hash": "p"}}},
+        headers=agent_hdr,
+    )
+    # Partial SIMO hit from attempt 1 carried forward as red OFFICIAL_FRAUD_LIST!
+    assert comp2.status_code == 200 and comp2.json()["final_severity"] == "red"
+    with seeded_db.connect() as conn:
+        inv2_row = conn.execute("SELECT * FROM core.invoices WHERE invoice_id = %s", (inv2,)).fetchone()
+        full2 = build_full_invoice(conn, inv2_row)
+        # History preserved: attempt 1 procurement finding still in DB
+        a1_rows = conn.execute(
+            "SELECT * FROM core.findings WHERE job_id = %s AND attempt = 1 AND bot_id = 'procurement'", (job2,)
+        ).fetchall()
+    assert len(a1_rows) == 1
+    assert "OFFICIAL_FRAUD_LIST" in inv2_row["reason_codes"]
+    # I5: build_full_invoice findings_summary includes ONLY attempt 2 procurement (OK), NOT attempt 1 PRICE_ABOVE_CONTRACT!
+    proc_summaries = [f for f in full2["findings_summary"] if f["bot_id"] == "procurement"]
+    assert len(proc_summaries) == 1 and proc_summaries[0]["reason_codes"] == ["OK"]
+
+    # --- I4: DB clock_timestamp() lease expiry before reclaim AND concurrent per-tenant claim limit ---
+    inv3, job3 = _ingest_demo(seeded_db, "inbox/attachments/1C26TAC_00000088.xml", fixed_clock)
+    inv4, job4 = _ingest_demo(seeded_db, "inbox/attachments/1C26TAC_00000089.xml", fixed_clock)
+    assert job3 != job4
+
+    # Concurrent claims with max_concurrent_jobs_per_tenant=1 -> strictly ONE wins, ONE gets 204!
+    from core.persistence.db import dsn_for_role
+    cfg_lim = CoreSettings(
+        database_url=dsn_for_role(seeded_db.dsn, "internal_api", "internal_api_dev"),
+        internal_agent_service_key=AGENT_KEY,
+        max_concurrent_jobs_per_tenant=1,
+    )
+    app_lim = create_internal_app(cfg_lim, sim_world=FakeSimWorld(), gate_client=FakeGate(), clock=fixed_clock)
+    barrier = threading.Barrier(2)
+    claim_results: list[tuple[int, str | None]] = []
+    lock = threading.Lock()
+
+    def _claim_worker(wid: str) -> None:
+        c = TestClient(app_lim)
+        barrier.wait()
+        resp = c.post("/internal/jobs:claim", json={"worker_id": wid}, headers=agent_hdr)
+        with lock:
+            claim_results.append((resp.status_code, resp.json()["job_id"] if resp.status_code == 200 else None))
+
+    t1 = threading.Thread(target=_claim_worker, args=("cw1",))
+    t2 = threading.Thread(target=_claim_worker, args=("cw2",))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    codes = sorted(r[0] for r in claim_results)
+    assert codes == [200, 204], f"Expected [200, 204] under per-tenant advisory lock, got {claim_results}"
+
+    won_job_id = next(r[1] for r in claim_results if r[0] == 200)
+    assert won_job_id is not None
+    with seeded_db.connect() as conn:
+        won_row = conn.execute("SELECT worker_id, attempt FROM core.jobs WHERE job_id = %s", (won_job_id,)).fetchone()
+        # Expire lease in DB without reclaiming -> heartbeat MUST immediately fail with 409 LEASE_LOST!
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.jobs SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE job_id = %s",
+                (won_job_id,),
+            )
+    hb_expired = TestClient(app_lim).post(
+        f"/internal/jobs/{won_job_id}/heartbeat",
+        json={"worker_id": won_row["worker_id"], "attempt": won_row["attempt"]},
+        headers=agent_hdr,
+    )
+    assert hb_expired.status_code == 409 and hb_expired.json()["code"] == "LEASE_LOST"
