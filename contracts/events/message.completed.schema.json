@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/message.completed.schema.json",
+  "title": "MessageCompletedEvent",
+  "description": "Tin nhắn trả lời của trợ lý trong hội thoại đã hoàn tất kiểm trích dẫn.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "message.completed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "MessageCompletedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conversation_id",
+        "message_id",
+        "job_id",
+        "status"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "pattern": "^cnv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "message_id": {
+          "type": "string",
+          "pattern": "^cmg_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810BB2BCDEFGHJKMNPQRST",
+      "type": "message.completed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T09:10:12+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "conversation_id": "cnv_01M885AXP309SER6BAC46N5FJT",
+        "message_id": "cmg_01M885AXP309SER6BAC46N5FJV",
+        "job_id": "job_01M8805YK9HV0SN8KFN95Y0RPC",
+        "status": "completed"
+      }
+    }
+  ]
+}

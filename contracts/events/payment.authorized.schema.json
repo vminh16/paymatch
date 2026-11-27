@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/payment.authorized.schema.json",
+  "title": "PaymentAuthorizedEvent",
+  "description": "PaymentIntent đã giữ chỗ ngân sách ngày và chuyển sang authorized.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "payment.authorized"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "PaymentAuthorizedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payment_intent_id",
+        "invoice_id",
+        "amount_vnd",
+        "channel"
+      ],
+      "properties": {
+        "payment_intent_id": {
+          "type": "string",
+          "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "amount_vnd": {
+          "$ref": "../schemas/money-vnd.schema.json"
+        },
+        "channel": {
+          "$ref": "../schemas/channel.schema.json"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810PP3BCDEFGHJKMNPQRST",
+      "type": "payment.authorized",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:06:05+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "payment_intent_id": "pi_01M88557BXGABQA8KPG2382VH5",
+        "invoice_id": "inv_01M8808XXD8017SJ9NTGTNC48Y",
+        "amount_vnd": 26500000,
+        "channel": "bank_transfer"
+      }
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/job.progressed.schema.json",
+  "title": "JobProgressedEvent",
+  "description": "Sự kiện tiến trình của job do internal-api ghi để đẩy SSE /m/jobs/{job_id}/events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "job.progressed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "JobProgressedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "task_type",
+        "attempt",
+        "type",
+        "at"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "task_type": {
+          "$ref": "../schemas/task-type.schema.json"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "supervisor.step",
+            "bot.started",
+            "bot.tool_called",
+            "bot.finished",
+            "bot.failed",
+            "answer.delta"
+          ]
+        },
+        "step": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "bot_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "$ref": "../schemas/severity.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "$ref": "../schemas/reason-code.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text_delta": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Chỉ được phép (và bắt buộc dạng chuỗi) khi type = 'answer.delta'."
+        },
+        "at": {
+          "$ref": "../schemas/timestamp.schema.json"
+        }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "const": "answer.delta"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "required": [
+          "text_delta"
+        ],
+        "properties": {
+          "text_delta": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "text_delta": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M887PSZPEFG02RYZ4V72XBG1",
+      "type": "job.progressed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:25:18+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "job_id": "job_01M882G20CAMSQWE8SVGP02RHD",
+        "task_type": "investigate_invoice",
+        "attempt": 1,
+        "type": "bot.finished",
+        "bot_id": "procurement",
+        "severity": "yellow",
+        "at": "2026-11-26T08:25:18+07:00"
+      }
+    }
+  ]
+}

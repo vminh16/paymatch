@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/payment.failed.schema.json",
+  "title": "PaymentFailedEvent",
+  "description": "Lệnh chi thất bại tại rail (ví dụ INSUFFICIENT_FUNDS, ACCOUNT_NOT_FOUND).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "payment.failed"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "PaymentFailedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payment_intent_id",
+        "invoice_id",
+        "failure_code"
+      ],
+      "properties": {
+        "payment_intent_id": {
+          "type": "string",
+          "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "failure_code": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810QQ4BCDEFGHJKMNPQRST",
+      "type": "payment.failed",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:40:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "payment_intent_id": "pi_01M8867BQMQG52GZYDE75JHF2V",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "failure_code": "INSUFFICIENT_FUNDS"
+      }
+    }
+  ]
+}

@@ -7,7 +7,13 @@ from typing import Annotated
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 
-from . import gate_reason_schema, invoice_status_schema
+from . import (
+    escrow_status_schema,
+    gate_reason_schema,
+    invoice_status_schema,
+    job_status_schema,
+    payment_intent_status_schema,
+)
 
 
 class Code(StrEnum):
@@ -42,6 +48,7 @@ class Code(StrEnum):
 class ProblemErrorItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     field: str
     code: str
@@ -51,6 +58,7 @@ class ProblemErrorItem(BaseModel):
 class Problem(BaseModel):
     model_config = ConfigDict(
         extra='allow',
+        populate_by_name=True,
     )
     type: AnyUrl
     title: str
@@ -59,7 +67,13 @@ class Problem(BaseModel):
     detail: str | None = None
     instance: str | None = None
     errors: list[ProblemErrorItem] | None = None
-    current_status: invoice_status_schema.InvoiceStatus | None = None
+    current_status: (
+        invoice_status_schema.InvoiceStatus
+        | payment_intent_status_schema.PaymentIntentStatus
+        | escrow_status_schema.EscrowStatus
+        | job_status_schema.JobStatus
+        | None
+    ) = None
     existing_invoice_id: Annotated[
         str | None, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')
     ] = None

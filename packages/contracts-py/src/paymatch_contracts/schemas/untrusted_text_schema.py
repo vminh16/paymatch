@@ -19,6 +19,7 @@ class Source(StrEnum):
 class UntrustedText(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     text: str
     provenance: Literal['untrusted']

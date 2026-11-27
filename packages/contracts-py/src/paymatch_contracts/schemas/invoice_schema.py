@@ -43,6 +43,7 @@ class Relation(StrEnum):
 class UntrustedSellerBankAccount(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     number: str
     bank_name: str
@@ -56,6 +57,7 @@ class Channel(StrEnum):
 class InvoiceEscrowSummary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     escrow_id: Annotated[str, Field(pattern='^esc_[0-9A-HJKMNP-TV-Z]{26}$')]
     status: escrow_status_schema.EscrowStatus
@@ -76,6 +78,7 @@ class AllowedAction(StrEnum):
 class ManualFieldsMeta(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     entered_by: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     entered_at: timestamp_schema.Timestamp
@@ -84,6 +87,7 @@ class ManualFieldsMeta(BaseModel):
 class InvoiceDocumentMeta(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     document_id: Annotated[str, Field(pattern='^doc_[0-9A-HJKMNP-TV-Z]{26}$')]
     format: Format
@@ -94,6 +98,7 @@ class InvoiceDocumentMeta(BaseModel):
 class VatBreakdownItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     vat_rate: str
     taxable_vnd: signed_money_vnd_schema.SignedMoneyVnd
@@ -103,6 +108,7 @@ class VatBreakdownItem(BaseModel):
 class RelatedInvoice(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     relation: Relation
     symbol: str
@@ -113,6 +119,7 @@ class RelatedInvoice(BaseModel):
 class UntrustedOtherInfoItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     field: str
     value: untrusted_text_schema.UntrustedText
@@ -121,6 +128,7 @@ class UntrustedOtherInfoItem(BaseModel):
 class UntrustedMessageItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     message_id: Annotated[str, Field(pattern='^msg_[0-9A-HJKMNP-TV-Z]{26}$')]
     channel: Channel
@@ -131,6 +139,7 @@ class UntrustedMessageItem(BaseModel):
 class InvoiceUntrustedFields(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     seller_name: untrusted_text_schema.UntrustedText
     seller_address: untrusted_text_schema.UntrustedText
@@ -143,6 +152,7 @@ class InvoiceUntrustedFields(BaseModel):
 class FindingSummaryItem(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     bot_id: str
     severity: severity_schema.Severity
@@ -152,6 +162,7 @@ class FindingSummaryItem(BaseModel):
 class InvoicePaymentSummary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     payment_intent_id: Annotated[str, Field(pattern='^pi_[0-9A-HJKMNP-TV-Z]{26}$')]
     status: payment_intent_status_schema.PaymentIntentStatus
@@ -162,6 +173,7 @@ class InvoicePaymentSummary(BaseModel):
 class Invoice(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     store_id: Annotated[str | None, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]

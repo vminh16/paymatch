@@ -16,6 +16,7 @@ members = [
     "contracts-py",
     "core",
     "paymatch",
+    "paymatch-hashing",
     "payment-gate",
     "sim-world",
 ]
@@ -864,6 +865,11 @@ dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "pyyaml", specifier = ">=6.0.4" },
 ]
+
+[[package]]
+name = "paymatch-hashing"
+version = "0.1.0"
+source = { editable = "packages/paymatch-hashing" }
 
 [[package]]
 name = "payment-gate"

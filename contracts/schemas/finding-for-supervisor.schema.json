@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/finding-for-supervisor.schema.json",
+  "title": "FindingForSupervisor",
+  "description": "Bản Finding đã áp mức sàn và lọc bỏ toàn bộ chữ untrusted (reason) để trả về cho điều phối chief-accountant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "bot_id",
+    "severity",
+    "reason_codes",
+    "evidence"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^fnd_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "bot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "$ref": "./severity.schema.json"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "./evidence-ref.schema.json"
+      }
+    }
+  }
+}

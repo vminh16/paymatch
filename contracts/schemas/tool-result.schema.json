@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/tool-result.schema.json",
+  "title": "ToolResult",
+  "description": "Phong bì kết quả trả về từ POST /internal/tools/{tool_id}:invoke kèm nhãn provenance và mã bằng chứng tool_call_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "provenance",
+    "evidence_ref",
+    "error"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "provenance": {
+      "$ref": "./provenance.schema.json"
+    },
+    "evidence_ref": {
+      "type": "string",
+      "pattern": "^tcl_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "title": "ToolResultError",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UPSTREAM_UNAVAILABLE",
+                "UPSTREAM_TIMEOUT",
+                "NOT_FOUND",
+                "INVALID_INPUT"
+              ]
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

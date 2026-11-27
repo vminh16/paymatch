@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/vendor.schema.json",
+  "title": "Vendor",
+  "description": "Nhà cung cấp trong danh bạ đã xác thực của tenant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "vendor_id",
+    "name",
+    "tax_id",
+    "phone_on_file_masked",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tax_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phone_on_file_masked": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    }
+  }
+}

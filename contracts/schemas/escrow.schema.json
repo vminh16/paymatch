@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/escrow.schema.json",
+  "title": "Escrow",
+  "description": "Khoản cọc tạm giữ gắn đơn đặt hàng (PO) và tài khoản NCC công ty (F7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "escrow_id",
+    "purchase_order_id",
+    "vendor_account_id",
+    "amount_vnd",
+    "status",
+    "source_invoice_id",
+    "release_invoice_id",
+    "goods_receipt_id",
+    "expires_on",
+    "created_at",
+    "released_at",
+    "refunded_at"
+  ],
+  "properties": {
+    "escrow_id": {
+      "type": "string",
+      "pattern": "^esc_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "purchase_order_id": {
+      "type": "string",
+      "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_account_id": {
+      "type": "string",
+      "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amount_vnd": {
+      "$ref": "./money-vnd.schema.json"
+    },
+    "status": {
+      "$ref": "./escrow-status.schema.json"
+    },
+    "source_invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "release_invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "goods_receipt_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^grn_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "expires_on": {
+      "$ref": "./local-date.schema.json"
+    },
+    "created_at": {
+      "$ref": "./timestamp.schema.json"
+    },
+    "released_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refunded_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

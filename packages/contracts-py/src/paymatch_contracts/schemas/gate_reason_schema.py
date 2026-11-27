@@ -24,6 +24,7 @@ class Code(StrEnum):
     VENDOR_SUSPENDED = 'VENDOR_SUSPENDED'
     APPROVAL_MISSING = 'APPROVAL_MISSING'
     APPROVAL_STALE = 'APPROVAL_STALE'
+    ESCROW_MISMATCH = 'ESCROW_MISMATCH'
 
 
 class Layer(StrEnum):
@@ -35,6 +36,7 @@ class Layer(StrEnum):
 class GateReason(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     code: Code
     layer: Layer

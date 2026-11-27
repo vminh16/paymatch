@@ -85,7 +85,20 @@
       }
     },
     "current_status": {
-      "$ref": "./invoice-status.schema.json"
+      "anyOf": [
+        {
+          "$ref": "./invoice-status.schema.json"
+        },
+        {
+          "$ref": "./payment-intent-status.schema.json"
+        },
+        {
+          "$ref": "./escrow-status.schema.json"
+        },
+        {
+          "$ref": "./job-status.schema.json"
+        }
+      ]
     },
     "existing_invoice_id": {
       "type": "string",

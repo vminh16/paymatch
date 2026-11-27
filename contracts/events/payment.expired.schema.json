@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/payment.expired.schema.json",
+  "title": "PaymentExpiredEvent",
+  "description": "PaymentIntent ở trạng thái authorized hết hạn 15 phút hoặc bị hủy trước khi gọi rail.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "payment.expired"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "PaymentExpiredData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payment_intent_id",
+        "invoice_id",
+        "reason"
+      ],
+      "properties": {
+        "payment_intent_id": {
+          "type": "string",
+          "pattern": "^pi_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "AUTHORIZATION_TIMEOUT",
+            "CROSS_ALERT",
+            "INVOICE_REINVESTIGATED",
+            "OWNER_CANCELLED"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810SS6BCDEFGHJKMNPQRST",
+      "type": "payment.expired",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:56:02+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "payment_intent_id": "pi_01M88557BXGABQA8KPG2382VH5",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "reason": "CROSS_ALERT"
+      }
+    }
+  ]
+}

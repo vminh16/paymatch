@@ -29,7 +29,8 @@
         "VENDOR_NOT_IN_AUTO_PAY",
         "VENDOR_SUSPENDED",
         "APPROVAL_MISSING",
-        "APPROVAL_STALE"
+        "APPROVAL_STALE",
+        "ESCROW_MISMATCH"
       ]
     },
     "layer": {

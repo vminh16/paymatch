@@ -9,8 +9,9 @@ from pydantic import Field
 type MoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND không âm (integer, đơn vị đồng).',
+        description='Số tiền VND không âm (integer trong khoảng safe integer [0, 9007199254740991], đơn vị đồng).',
         ge=0,
+        le=9007199254740991,
         title='MoneyVnd',
     ),
 ]

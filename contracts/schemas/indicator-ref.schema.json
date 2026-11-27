@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/indicator-ref.schema.json",
+  "title": "IndicatorRef",
+  "description": "Cặp chỉ báo rủi ro đã băm (SHA-256 hex chữ thường 64 ký tự) dùng chung cho indicator.flagged, cross_alert.published và hard_block.applied.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "value_hash"
+  ],
+  "properties": {
+    "kind": {
+      "$ref": "./indicator-kind.schema.json"
+    },
+    "value_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

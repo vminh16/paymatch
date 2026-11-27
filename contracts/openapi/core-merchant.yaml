@@ -25,6 +25,8 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: System
+    description: Probe kiểm tra tiến trình sống và sẵn sàng
   - name: Auth
     description: Phiên làm việc merchant và thông tin người dùng hiện tại
   - name: Invoices
@@ -39,6 +41,46 @@ tags:
     description: Điều khiển trạng thái demo (chỉ bật khi DEMO_MODE=true)
 
 paths:
+  /m/healthz:
+    get:
+      operationId: healthz
+      summary: Liveness probe
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Tiến trình merchant-api đang sống
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                alive:
+                  summary: Service alive
+                  value:
+                    status: ok
+
+  /m/readyz:
+    get:
+      operationId: readyz
+      summary: Readiness probe (đã nối DB và phụ thuộc)
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Tiến trình merchant-api sẵn sàng phục vụ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+              examples:
+                ready:
+                  summary: Service ready
+                  value:
+                    status: ready
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
   /m/auth/session:
     post:
       operationId: createAuthSession
@@ -2526,6 +2568,26 @@ components:
                 detail: Không kết nối được Payment Gate để xem trước điều kiện chi; nút Duyệt tạm khóa.
 
   schemas:
+    HealthResponse:
+      title: HealthResponse
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+
+    ReadyResponse:
+      title: ReadyResponse
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ready
+
     AuthSessionRequest:
       type: object
       additionalProperties: false

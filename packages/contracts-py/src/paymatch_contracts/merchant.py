@@ -9,9 +9,26 @@ from typing import Annotated, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    status: Literal['ok']
+
+
+class ReadyResponse(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    status: Literal['ready']
+
+
 class AuthSessionRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     momo_token: Annotated[str, Field(min_length=1)]
 
@@ -37,6 +54,7 @@ type StoreId = Annotated[str, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]
 class User(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     user_id: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     name: str
@@ -47,6 +65,7 @@ class User(BaseModel):
 class Tenant(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     tenant_id: Annotated[str, Field(pattern='^ten_[0-9A-HJKMNP-TV-Z]{26}$')]
     name: str
@@ -55,6 +74,7 @@ class Tenant(BaseModel):
 class MeResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     user_id: Annotated[str, Field(pattern='^usr_[0-9A-HJKMNP-TV-Z]{26}$')]
     name: str
@@ -81,7 +101,9 @@ class InvoiceType(StrEnum):
 type SignedMoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND có dấu (integer, đơn vị đồng; có thể âm trên hóa đơn điều chỉnh TCHDon 2/4).',
+        description='Số tiền VND có dấu (integer trong khoảng safe integer [-9007199254740991, 9007199254740991], đơn vị đồng; có thể âm trên hóa đơn điều chỉnh TCHDon 2/4).',
+        ge=-9007199254740991,
+        le=9007199254740991,
         title='SignedMoneyVnd',
     ),
 ]
@@ -153,6 +175,7 @@ class NotificationKind(StrEnum):
 class InvoiceUploadResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     job_id: Annotated[str | None, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -168,6 +191,7 @@ class Result(StrEnum):
 class Verification(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     called_phone_on_file: Literal[True]
     result: Result
@@ -193,8 +217,9 @@ class SupersededReason(Enum):
 type MoneyVnd = Annotated[
     int,
     Field(
-        description='Số tiền VND không âm (integer, đơn vị đồng).',
+        description='Số tiền VND không âm (integer trong khoảng safe integer [0, 9007199254740991], đơn vị đồng).',
         ge=0,
+        le=9007199254740991,
         title='MoneyVnd',
     ),
 ]
@@ -224,6 +249,7 @@ class ReasonCode1(StrEnum):
 class RejectInvoiceRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     reason_code: ReasonCode1
     note: Annotated[str | None, Field(max_length=1000)] = None
@@ -240,6 +266,7 @@ type CitedLine = Annotated[str, Field(pattern='^lin_[0-9A-HJKMNP-TV-Z]{26}$')]
 class AdjustmentRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     adjustment_request_id: Annotated[str, Field(pattern='^adj_[0-9A-HJKMNP-TV-Z]{26}$')]
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -253,12 +280,14 @@ class AdjustmentRequest(BaseModel):
 class DemoResetRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
 
 
 class DemoResetResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     reset_at: Timestamp
     counts: dict[str, int]
@@ -267,6 +296,7 @@ class DemoResetResponse(BaseModel):
 class SupervisorStepEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     step: Annotated[int, Field(ge=1)]
@@ -276,6 +306,7 @@ class SupervisorStepEventData(BaseModel):
 class BotStartedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     bot_id: str
@@ -285,6 +316,7 @@ class BotStartedEventData(BaseModel):
 class BotToolCalledEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     bot_id: str
@@ -295,6 +327,7 @@ class BotToolCalledEventData(BaseModel):
 class BotFinishedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     bot_id: str
@@ -305,6 +338,7 @@ class BotFinishedEventData(BaseModel):
 class BotFailedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     bot_id: str
@@ -315,6 +349,7 @@ class BotFailedEventData(BaseModel):
 class AnswerDeltaEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     text_delta: Annotated[
@@ -326,6 +361,7 @@ class AnswerDeltaEventData(BaseModel):
 class ResyncEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     reason: Literal['cursor_expired']
 
@@ -339,6 +375,7 @@ class TaskType(StrEnum):
 class InvoiceStatusChangedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     from_: Annotated[InvoiceStatus, Field(alias='from')]
@@ -349,6 +386,7 @@ class InvoiceStatusChangedEventData(BaseModel):
 class NotificationCreatedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     notification_id: Annotated[str, Field(pattern='^ntf_[0-9A-HJKMNP-TV-Z]{26}$')]
     kind: NotificationKind
@@ -357,6 +395,7 @@ class NotificationCreatedEventData(BaseModel):
 class TenantResyncEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     reason: Literal['cursor_expired']
 
@@ -374,6 +413,7 @@ class PaymentIntentStatus(StrEnum):
 class AuthSessionResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     session_jwt: str
     expires_at: Timestamp
@@ -383,6 +423,7 @@ class AuthSessionResponse(BaseModel):
 class InvoiceSummary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     store_id: Annotated[str | None, Field(pattern='^sto_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -416,6 +457,7 @@ class InvoiceSummary(BaseModel):
 class Notification(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     notification_id: Annotated[str, Field(pattern='^ntf_[0-9A-HJKMNP-TV-Z]{26}$')]
     kind: NotificationKind
@@ -429,6 +471,7 @@ class Notification(BaseModel):
 class ApproveInvoiceRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     intent_hash: Annotated[str, Field(pattern='^[0-9a-f]{64}$')]
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -442,6 +485,7 @@ class ApproveInvoiceRequest(BaseModel):
 class Approval(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     approval_id: Annotated[str, Field(pattern='^apv_[0-9A-HJKMNP-TV-Z]{26}$')]
     invoice_id: Annotated[str | None, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -473,6 +517,7 @@ class Approval(BaseModel):
 class RejectInvoiceResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice: InvoiceSummary
     adjustment_request: AdjustmentRequest | None
@@ -481,6 +526,7 @@ class RejectInvoiceResponse(BaseModel):
 class ApprovalQueueGroup(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     key: str
     label: Annotated[
@@ -498,6 +544,7 @@ class ApprovalQueueGroup(BaseModel):
 class ApprovalQueueResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     groups: list[ApprovalQueueGroup]
 
@@ -505,6 +552,7 @@ class ApprovalQueueResponse(BaseModel):
 class JobCompletedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     task_type: TaskType
@@ -534,6 +582,7 @@ type JobSseEventData = Annotated[
 class PaymentUpdatedEventData(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     payment_intent_id: Annotated[str, Field(pattern='^pi_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -554,6 +603,7 @@ type TenantSseEventData = Annotated[
 class InvoicePage(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     items: list[InvoiceSummary]
     next_cursor: str | None
@@ -562,6 +612,7 @@ class InvoicePage(BaseModel):
 class NotificationPage(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     items: list[Notification]
     next_cursor: str | None
@@ -570,6 +621,7 @@ class NotificationPage(BaseModel):
 class ApproveInvoiceResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     approval: Approval
     invoice: InvoiceSummary

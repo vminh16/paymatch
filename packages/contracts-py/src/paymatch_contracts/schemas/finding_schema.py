@@ -21,6 +21,7 @@ from . import (
 class Finding(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     finding_id: Annotated[str, Field(pattern='^fnd_[0-9A-HJKMNP-TV-Z]{26}$')]
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]

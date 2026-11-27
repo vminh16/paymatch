@@ -1,0 +1,3587 @@
+openapi: 3.1.0
+info:
+  title: PayMatch Core Internal API
+  version: 0.1.0
+  description: 'Hợp đồng API nội bộ (`/internal/*`, cổng 8003, chỉ mạng service) theo `docs/05-api/internal-api.md`.
+
+
+    **Hai cơ chế xác thực — KHÔNG BAO GIỜ TRỘN:**
+
+    1. **ServiceKeyAuth (`X-Service-Key`)**: dùng cho các endpoint vòng đời job (`jobs:claim`, `/session`,
+    `/heartbeat`, `/progress`, `:complete`, `:fail`, `model-configs` — khóa của `agent-worker`, kèm `worker_id`
+    + `attempt` trong body để kiểm tra lease) và `/webhooks/rails` (khóa của `sim-world`).
+
+    2. **CapabilityBearerAuth (`Authorization: Bearer <capability_token>`)**: dùng cho `GET /internal/tools`,
+    `POST /internal/tools/{tool_id}:invoke`, `POST /internal/jobs/{job_id}/findings` và `POST /internal/jobs/{job_id}/bot-answers`
+    — nhân danh `supervisor` hoặc đúng một bot trong một `attempt`.
+
+
+    Sai lease `(job_id, attempt, worker_id)` hoặc token của `attempt` cũ → `409 LEASE_LOST`. Tool/bot/tenant
+    đang bị ngắt khẩn cấp → `423 KILL_SWITCH_ACTIVE`. Gọi tool ngoài danh sách cấp trong capability token
+    → `403 TOOL_NOT_GRANTED`.'
+servers:
+- url: http://localhost:8003
+  description: Local core internal-api server (tiền tố đường dẫn /internal)
+tags:
+- name: System
+  description: Probe kiểm tra tiến trình sống và sẵn sàng
+- name: Jobs
+  description: Vòng đời job của agent-runtime và nộp Finding / BotAnswer
+- name: Config
+  description: Cấu hình model chính và dự phòng cho agent-runtime
+- name: Tools
+  description: Danh mục tool được cấp trong token và thực thi tool chỉ-đọc
+- name: Webhooks
+  description: Webhook sự kiện hạ tầng thanh toán từ sim-world
+paths:
+  /internal/healthz:
+    get:
+      operationId: healthz
+      summary: Liveness probe
+      tags:
+      - System
+      security: []
+      responses:
+        '200':
+          description: Tiến trình internal-api đang sống
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                alive:
+                  summary: Internal API alive
+                  value:
+                    status: ok
+  /internal/readyz:
+    get:
+      operationId: readyz
+      summary: Readiness probe (đã nối DB và phụ thuộc)
+      tags:
+      - System
+      security: []
+      responses:
+        '200':
+          description: Tiến trình internal-api sẵn sàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+              examples:
+                ready:
+                  summary: Internal API ready
+                  value:
+                    status: ready
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /internal/jobs:claim:
+    post:
+      operationId: claimJob
+      summary: Nhận một job đang chờ trong hàng đợi (SKIP LOCKED, lease 120 s)
+      description: Xác thực bằng `X-Service-Key` của `agent-worker`. Ưu tiên hàng đợi `question` trước
+        `investigate_invoice` và `report`; giới hạn đồng thời theo tenant. Trả `200` khi nhận được job
+        (`attempt += 1`, lease 120 s) hoặc `204` khi hàng đợi rỗng.
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimJobRequest'
+            examples:
+              worker_all_tasks:
+                summary: Worker nhận mọi loại việc
+                value:
+                  worker_id: agent-worker-01
+                  task_types:
+                  - question
+                  - investigate_invoice
+                  - report
+      responses:
+        '200':
+          description: Đã cấp lease cho một job
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimedJobResponse'
+              examples:
+                claimed_cups_investigation:
+                  summary: Nhận job điều tra hóa đơn BRD_03 Cốc nhựa
+                  value:
+                    job_id: job_01M882G20CAMSQWE8SVGP02RHD
+                    task_type: investigate_invoice
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    attempt: 1
+                    lease_expires_at: '2026-11-26T08:27:03+07:00'
+                    subject:
+                      invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                claimed_report_job:
+                  summary: Nhận job báo cáo tổng hợp chi tiêu
+                  value:
+                    job_id: job_01M8805YK9HV0SN8KFN95Y0RPC
+                    task_type: report
+                    tenant_id: ten_01M88D3C06B97Y4G0S9W8BVKNG
+                    attempt: 1
+                    lease_expires_at: '2026-11-26T09:02:00+07:00'
+                    subject:
+                      report_id: rpt_01M885AXP309SER6BAC46N5FJT
+        '204':
+          description: Không có job nào sẵn sàng trong hàng đợi
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /internal/jobs/{job_id}/session:
+    post:
+      operationId: openJobSession
+      summary: 'Mở phiên chạy job: cấp capability token cho điều phối và từng bot, ngân sách và ngữ cảnh'
+      description: Xác thực bằng `X-Service-Key` + `(worker_id, attempt)` khớp lease hiện tại (`409 LEASE_LOST`
+        nếu sai). Token điều phối không bao giờ chứa tool trả chữ `untrusted` (`inbox`, `chat_messages`,
+        `invoices`). Gọi lại trong cùng `attempt` trả cùng nội dung phiên kèm bộ capability token mới.
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenJobSessionRequest'
+            examples:
+              open_attempt_1:
+                summary: Mở phiên cho attempt 1
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+      responses:
+        '200':
+          description: Thông tin phiên chạy, capability token, danh sách bot và ngữ cảnh
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobSessionResponse'
+              examples:
+                investigate_goods_session:
+                  summary: Phiên điều tra hóa đơn hàng hóa BRD_03 Cốc nhựa
+                  value:
+                    budget:
+                      seconds: 30
+                      max_steps: 12
+                    supervisor:
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.supervisor.sig
+                      token_exp: '2026-11-26T08:27:03+07:00'
+                      tools:
+                      - tool_id: invoice_explain
+                        description: Tra cứu trạng thái, màu và Finding đã lọc chữ của một hóa đơn.
+                        input_schema:
+                          type: object
+                        output_schema:
+                          type: object
+                        default_provenance: trusted
+                        scope: tenant
+                    bots:
+                    - bot_id: procurement
+                      bot_version: 1
+                      description: Đối chiếu đơn giá, quy cách đóng gói và hợp đồng khung.
+                      manifest:
+                        id: procurement
+                        name: Thu mua
+                        description: Đối chiếu đơn giá, quy cách đóng gói và hợp đồng khung.
+                        skills:
+                        - procurement_checklist@1
+                        tools:
+                        - invoices
+                        - vendor_contracts
+                        - price_check
+                        - price_history
+                        task_types:
+                        - investigate_invoice
+                        triggers:
+                          invoice_types:
+                          - goods
+                          - software
+                        required_for:
+                        - goods
+                        - software
+                      skills:
+                      - skill_id: procurement_checklist
+                        version: 1
+                        content_md: '# Kiểm tra thu mua
+
+                          ## Khi nào dùng
+
+                          Đối chiếu dòng hàng với hợp đồng khung.'
+                      prefetch:
+                      - invoices
+                      - vendor_contracts
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.procurement.sig
+                      token_exp: '2026-11-26T08:27:03+07:00'
+                    required_bot_ids:
+                    - procurement
+                    - accounts-payable
+                    - fraud-control
+                    - tax
+                    - treasury
+                    skipped: []
+                    context:
+                      invoice_id: inv_01M882P8NTCDKGE2KVFMBTS5RK
+                      invoice_type: goods
+                question_session:
+                  summary: Phiên hỏi đáp với lịch sử có cấu trúc cho tin assistant (không có chữ tự do)
+                  value:
+                    budget:
+                      seconds: 25
+                      max_steps: 8
+                    supervisor:
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.supervisor_q.sig
+                      token_exp: '2026-11-26T09:02:00+07:00'
+                      tools:
+                      - tool_id: queue_status
+                        description: Tổng hợp hàng chờ duyệt hiện tại của tenant.
+                        input_schema:
+                          type: object
+                        output_schema:
+                          type: object
+                        default_provenance: trusted
+                        scope: tenant
+                    bots: []
+                    required_bot_ids: []
+                    skipped: []
+                    context:
+                      messages:
+                      - role: user
+                        text_trusted: Hiện có bao nhiêu hóa đơn đang chờ duyệt?
+                      - role: assistant
+                        message_id: cmg_01M885AXP309SER6BAC46N5FJV
+                        citations:
+                        - tool_call_id: tcl_01M881AX9X3J7CJVWYPQ6T4168
+                          values:
+                          - '4'
+                          - '66414333'
+                      - role: user
+                        text_trusted: Trong đó có hóa đơn nào đỏ không?
+                      user:
+                        role: owner
+                        store_ids: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/jobs/{job_id}/heartbeat:
+    post:
+      operationId: heartbeatJob
+      summary: Gia hạn lease (mỗi 30 s) và làm mới capability token cho điều phối cùng các bot
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobHeartbeatRequest'
+            examples:
+              heartbeat_attempt_1:
+                summary: Heartbeat từ agent-worker-01
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+      responses:
+        '200':
+          description: Đã gia hạn lease và cấp lại capability token mới
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobHeartbeatResponse'
+              examples:
+                renewed_tokens:
+                  summary: Lease mới kèm token của supervisor và procurement
+                  value:
+                    lease_expires_at: '2026-11-26T08:27:33+07:00'
+                    tokens:
+                    - holder: supervisor
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.sup2.sig
+                      token_exp: '2026-11-26T08:27:33+07:00'
+                    - holder: procurement
+                      capability_token: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.proc2.sig
+                      token_exp: '2026-11-26T08:27:33+07:00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/jobs/{job_id}/progress:
+    post:
+      operationId: reportJobProgress
+      summary: Gửi lô sự kiện tiến trình chạy của điều phối/bot để phát SSE `/m/jobs/{job_id}/events`
+      description: Xác thực bằng `X-Service-Key` + `(worker_id, attempt)`. `answer.delta` chỉ hợp lệ cho
+        job `question` (luồng chữ câu trả lời đang sinh, hiển thị như untrusted).
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProgressRequest'
+            examples:
+              bot_lifecycle_events:
+                summary: Tiến trình gọi bot procurement trên BRD_03
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+                  events:
+                  - type: supervisor.step
+                    step: 1
+                    at: '2026-11-26T08:25:03+07:00'
+                  - type: bot.started
+                    bot_id: procurement
+                    at: '2026-11-26T08:25:04+07:00'
+                  - type: bot.tool_called
+                    bot_id: procurement
+                    tool_id: price_check
+                    at: '2026-11-26T08:25:09+07:00'
+                  - type: bot.finished
+                    bot_id: procurement
+                    severity: yellow
+                    at: '2026-11-26T08:25:18+07:00'
+      responses:
+        '204':
+          description: Đã ghi nhận tiến trình
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/jobs/{job_id}/findings:
+    post:
+      operationId: submitFinding
+      summary: Bot chuyên môn nộp Finding cho job `investigate_invoice` (dùng capability token của bot)
+      description: 'Xác thực bằng `Authorization: Bearer <capability_token>` của đúng bot nộp (`bot_id
+        == sub`). Core kiểm tra: mọi `evidence[].tool_call_id` thuộc cùng `(job_id, attempt, bot_id)`,
+        `ref_id` đúng mẫu và xuất hiện trong output của `tool_call_id`, đã gọi đủ `prefetch` (miễn
+        cho Finding lỗi fail-closed: `reason_codes` chỉ gồm `BOT_TIMEOUT`/`BOT_INVALID_OUTPUT`, `evidence`
+        rỗng, core áp sàn vàng), `reason <= 1000` ký tự; sau đó áp mức sàn theo mã lý do + output tool (`internal-api.md §3`) và trả `201
+        FindingForSupervisor` (**đã lược bỏ `reason`** để điều phối không bao giờ đọc chữ untrusted).'
+      tags:
+      - Jobs
+      security:
+      - CapabilityBearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/finding-submission.schema.json
+            examples:
+              procurement_shrinkflation:
+                summary: Bot procurement nộp Finding shrinkflation cho BRD_03 Cốc nhựa
+                value:
+                  bot_id: procurement
+                  bot_version: 1
+                  skill_version: 1
+                  prompt_hash: sha256:11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff
+                  severity_reported: yellow
+                  reason_codes:
+                  - PACK_SIZE_CHANGED
+                  - PRICE_ABOVE_CONTRACT
+                  reason: Quy cách đóng gói trên hóa đơn là 800 cái/thùng thay vì 1.000 cái/thùng theo
+                    hợp đồng (+21,74%/cái).
+                  evidence:
+                  - kind: invoice_line
+                    ref_id: lin_01M880JA5YPYX80BJYVJNP4YM5
+                    tool_call_id: tcl_01M881V688YK0A46F0RNNJENR1
+                  - kind: contract_item
+                    ref_id: itm_01M88CSDFSBSMNDF8409DYVJBZ
+                    tool_call_id: tcl_01M881V688YK0A46F0RNNJENR1
+                  provenance: untrusted
+                  proposed_channel: null
+                  proposed_pay_on: null
+      responses:
+        '201':
+          description: Đã lưu `Finding` và trả `FindingForSupervisor` đã lọc chữ
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/finding-for-supervisor.schema.json
+              examples:
+                filtered_for_supervisor:
+                  summary: Kết quả sạch gửi lại cho điều phối chief-accountant
+                  value:
+                    finding_id: fnd_01M883PHC7HCEGG0H1PWFRP0RD
+                    bot_id: procurement
+                    severity: yellow
+                    reason_codes:
+                    - PACK_SIZE_CHANGED
+                    - PRICE_ABOVE_CONTRACT
+                    evidence:
+                    - kind: invoice_line
+                      ref_id: lin_01M880JA5YPYX80BJYVJNP4YM5
+                      tool_call_id: tcl_01M881V688YK0A46F0RNNJENR1
+                    - kind: contract_item
+                      ref_id: itm_01M88CSDFSBSMNDF8409DYVJBZ
+                      tool_call_id: tcl_01M881V688YK0A46F0RNNJENR1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/CapabilityUnauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+        '423':
+          $ref: '#/components/responses/Locked'
+  /internal/jobs/{job_id}/bot-answers:
+    post:
+      operationId: submitBotAnswer
+      summary: Bot chuyên môn nộp dữ kiện có cấu trúc cho job `question` hoặc `report` (dùng capability
+        token của bot)
+      description: 'Core kiểm tra `facts[].key` thuộc enum `FactKey` do registry sở hữu và đối chiếu từng
+        `facts[].value` với output của `tool_call_id` cùng `(job_id, attempt, bot_id)`. Với `value` kiểu
+        số (`number`) kiểm xuất hiện trong output như hiện hành; với `value` kiểu chuỗi (`string`) chỉ chấp
+        nhận khi trường nguồn trong output của `tool_call_id` có `provenance = trusted` (gỡ mọi chuỗi từ
+        trường/tool `untrusted`), rồi trả `201 BotAnswer`.'
+      tags:
+      - Jobs
+      security:
+      - CapabilityBearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotAnswerSubmission'
+            examples:
+              treasury_balance_facts:
+                summary: Bot treasury nộp số dư ví và tổng đã tự chi
+                value:
+                  bot_id: treasury
+                  facts:
+                  - key: wallet_balance_vnd
+                    value: 350000000
+                    tool_call_id: tcl_01M883GD8FVTFT81SQ04RGVE4Q
+                  reason_codes:
+                  - OK
+      responses:
+        '201':
+          description: Đã kiểm chứng dữ kiện và trả `BotAnswer`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/bot-answer.schema.json
+              examples:
+                verified_bot_answer:
+                  summary: Dữ kiện đã được core xác thực từ output tool_call
+                  value:
+                    bot_id: treasury
+                    facts:
+                    - key: wallet_balance_vnd
+                      value: 350000000
+                      tool_call_id: tcl_01M883GD8FVTFT81SQ04RGVE4Q
+                      verified: true
+                    reason_codes:
+                    - OK
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/CapabilityUnauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+        '423':
+          $ref: '#/components/responses/Locked'
+  /internal/jobs/{job_id}:complete:
+    post:
+      operationId: completeJob
+      summary: 'Hoàn tất job: kiểm điều kiện hoàn tất, chạy kiểm tra hệ thống, gộp màu hoặc kiểm trích
+        dẫn câu trả lời'
+      description: 'Xác thực bằng `X-Service-Key` + `(worker_id, attempt)`.
+
+        - Với `investigate_invoice`: thêm Finding vàng `BOT_NOT_RUN` cho bot bắt buộc chưa nộp Finding,
+        `BOT_DISABLED` cho bot bắt buộc trong `skipped`; chạy kiểm tra hệ thống (`internal-api.md §4`);
+        gộp màu đơn điệu bằng code; ghi trạng thái hóa đơn bằng CAS từ `investigating`.
+
+        - Với `question` / `report`: kiểm tra mọi con số trong `answer.text` đều xuất hiện trong `citations[].tool_call_id`
+        (không khớp → gỡ số và đưa vào `unverified_values`), kiểm `proposed_actions` hợp lệ theo quyền
+        người hỏi.'
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteJobRequest'
+            examples:
+              complete_cups_investigation:
+                summary: Hoàn tất điều tra BRD_03 kèm tờ trình 5 dòng
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+                  result:
+                    brief:
+                      lines:
+                      - Hóa đơn 1C26TNX/00000744 của Bao Bì Nhựa Xanh Việt tổng 22.400.000 đ cần Chủ chuỗi
+                        xem xét.
+                      - Quy cách bị giảm từ 1.000 cái/thùng xuống 800 cái/thùng (+21,74%/cái).
+                      cited_evidence:
+                      - kind: invoice_line
+                        ref_id: lin_01M880JA5YPYX80BJYVJNP4YM5
+                        tool_call_id: tcl_01M881V688YK0A46F0RNNJENR1
+                      model: demo-replay-v1
+                      prompt_hash: sha256:9c8f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7
+              complete_question_answer:
+                summary: Hoàn tất câu trả lời hội thoại có trích dẫn số liệu
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+                  result:
+                    answer:
+                      text: Hiện có 4 hóa đơn đang chờ xem xét với tổng số tiền 66.414.333 đ.
+                      citations:
+                      - tool_call_id: tcl_01M881AX9X3J7CJVWYPQ6T4168
+                        values:
+                        - '4'
+                        - '66414333'
+                      proposed_actions:
+                      - kind: open_approval_queue
+                        target_ids: []
+                        label: Mở hàng chờ duyệt
+      responses:
+        '200':
+          description: Kết quả hoàn tất job
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteJobResponse'
+              examples:
+                completed_investigation:
+                  summary: Hóa đơn BRD_03 ra mức vàng và chuyển pending_approval
+                  value:
+                    status: completed
+                    final_severity: yellow
+                    invoice_status: pending_approval
+                completed_answer:
+                  summary: Tin nhắn trả lời đã được lưu và kiểm chứng số liệu
+                  value:
+                    status: completed
+                    message_id: cmg_01M885AXP309SER6BAC46N5FJV
+                    unverified_values: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/jobs/{job_id}:fail:
+    post:
+      operationId: failJob
+      summary: Báo lỗi lượt chạy job (tối đa 2 attempt; hết lượt điều tra tự hoàn tất với vàng cho bot
+        thiếu)
+      tags:
+      - Jobs
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailJobRequest'
+            examples:
+              llm_timeout:
+                summary: Worker gặp lỗi timeout nhà cung cấp LLM ở attempt 1
+                value:
+                  worker_id: agent-worker-01
+                  attempt: 1
+                  error_code: LLM_TIMEOUT
+                  detail: Supervisor LLM request timed out after 30s.
+      responses:
+        '200':
+          description: Cho biết core có xếp hàng chạy lại attempt kế tiếp hay không
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailJobResponse'
+              examples:
+                will_retry_attempt_2:
+                  summary: Còn lượt thử lại thứ 2
+                  value:
+                    will_retry: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/model-configs:
+    get:
+      operationId: listModelConfigs
+      summary: Đọc danh sách cấu hình model chính/dự phòng (`bot`, `brief`)
+      tags:
+      - Config
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Danh sách `ModelConfig`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ../schemas/model-config.schema.json
+              examples:
+                default_configs:
+                  summary: Cấu hình model cho bot chuyên môn và tờ trình brief
+                  value:
+                  - purpose: bot
+                    primary_model: demo-replay-v1
+                    fallback_model: demo-replay-fallback-v1
+                    max_tokens: 2048
+                    timeout_s: 20
+                    etag: '"mcfg_bot:v1"'
+                  - purpose: brief
+                    primary_model: demo-replay-v1
+                    fallback_model: demo-replay-fallback-v1
+                    max_tokens: 1024
+                    timeout_s: 10
+                    etag: '"mcfg_brief:v1"'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /internal/tools:
+    get:
+      operationId: listGrantedTools
+      summary: Danh sách `ToolDefinition` có trong capability token hiện tại
+      tags:
+      - Tools
+      security:
+      - CapabilityBearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Danh sách `ToolDefinition` được cấp trong token
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ../schemas/tool-definition.schema.json
+              examples:
+                procurement_tools:
+                  summary: Các tool được cấp trong capability token của bot procurement
+                  value:
+                  - tool_id: price_check
+                    description: Đối chiếu đơn giá trên hóa đơn với đơn giá và quy cách trong hợp đồng
+                      khung.
+                    input_schema:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - mappings
+                      properties:
+                        mappings:
+                          type: array
+                          minItems: 1
+                    output_schema:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - items
+                      properties:
+                        items:
+                          type: array
+                    default_provenance: trusted
+                    scope: tenant
+        '401':
+          $ref: '#/components/responses/CapabilityUnauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+  /internal/tools/{tool_id}:invoke:
+    post:
+      operationId: invokeTool
+      summary: Thực thi một tool chỉ-đọc theo capability token và ghi bản ghi bằng chứng `tool_calls`
+      description: 'Xác thực bằng `Authorization: Bearer <capability_token>`.
+
+        - Kiểm tra `tool_id` nằm trong `claims.tools` → ngoài danh sách trả `403 TOOL_NOT_GRANTED`.
+
+        - Kiểm tra lại kill switch (`tenant`, `bot`, `tool`) ở **mỗi** lần gọi → đang bật trả `423 KILL_SWITCH_ACTIVE`.
+
+        - Kiểm tra `claims.attempt` khớp lease đang giữ → sai trả `409 LEASE_LOST`.
+
+        - `input` được kiểm tra theo `<ToolId>Input` trong `components.schemas`; sai schema trả `400 VALIDATION_FAILED`.
+
+        - Nếu nguồn dữ liệu bên ngoài (`sim-world` / `gate`) lỗi hoặc timeout sau 3 s → vẫn trả `200`
+        với `ToolResult.error != null` để bot ghi Finding vàng.'
+      tags:
+      - Tools
+      security:
+      - CapabilityBearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ToolId'
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolInvokeRequest'
+            examples:
+              invoke_price_check:
+                summary: Bot procurement gọi price_check cho dòng ly nhựa PP 500ml
+                value:
+                  input:
+                    mappings:
+                    - line_id: lin_01M880JA5YPYX80BJYVJNP4YM5
+                      sku: CUP-PP500-1000
+              invoke_tax_id_lookup:
+                summary: Bot tax tra cứu trạng thái MST người bán
+                value:
+                  input:
+                    tax_id: '0999010003'
+      responses:
+        '200':
+          description: Kết quả thực thi tool bọc trong `ToolResult`
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/tool-result.schema.json
+              examples:
+                price_check_shrinkflation_result:
+                  summary: Kết quả price_check phát hiện thùng 800 cái vs 1.000 cái (+21,739130%)
+                  value:
+                    data:
+                      items:
+                      - line_id: lin_01M880JA5YPYX80BJYVJNP4YM5
+                        sku: CUP-PP500-1000
+                        contract_item_id: itm_01M88CSDFSBSMNDF8409DYVJBZ
+                        unit_price_invoice: '648.148148'
+                        unit_price_contract: '532.407407'
+                        delta_pct: '21.739130'
+                        pack_qty_contract: '1000.000000'
+                        pack_qty_parsed: '800.000000'
+                    provenance: trusted
+                    evidence_ref: tcl_01M881V688YK0A46F0RNNJENR1
+                    error: null
+                upstream_timeout_error:
+                  summary: Nguồn tra cứu bên ngoài quá thời gian 3 s (trả 200 kèm ToolResult.error)
+                  value:
+                    data: {}
+                    provenance: trusted
+                    evidence_ref: tcl_01M887W2N49Z4KDDKAGYHGVVQS
+                    error:
+                      code: UPSTREAM_TIMEOUT
+                      detail: sim-world /einvoice/invoices timed out after 3.0s
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/CapabilityUnauthorized'
+        '403':
+          $ref: '#/components/responses/ToolNotGranted'
+        '409':
+          $ref: '#/components/responses/LeaseOrStateConflict'
+        '423':
+          $ref: '#/components/responses/Locked'
+  /internal/webhooks/rails:
+    post:
+      operationId: receiveRailsWebhook
+      summary: Nhận sự kiện webhook từ `sim-world` (`card.authorization_declined`, `transfer.settled`,
+        `transfer.failed`)
+      description: 'Xác thực bằng `X-Service-Key` của `sim-world`. Xử lý idempotent theo `event_id`.
+
+        - `card.authorization_declined`: phát sự kiện `indicator.flagged` với `source = rail` (luồng F8).
+
+        - `transfer.settled` / `transfer.failed`: chỉ ghi đối soát; trạng thái thanh toán chính thức do
+        Payment Gate quyết định.'
+      tags:
+      - Webhooks
+      security:
+      - ServiceKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RailsWebhookRequest'
+            examples:
+              card_declined_wrong_merchant:
+                summary: F8 — Thẻ ảo bị quẹt sai đơn vị chấp nhận thẻ
+                value:
+                  event_id: evt_01M8867BQMQG52GZYDE75JHF2V
+                  type: card.authorization_declined
+                  occurred_at: '2026-11-26T09:10:00+07:00'
+                  data:
+                    card_id: crd_01M8867BQMQG52GZYDE75JHF2V
+                    merchant_id: mrc_unknown_99
+                    reason: wrong_merchant
+              transfer_settled_coffee:
+                summary: Đối soát chuyển khoản thành công từ sim-world
+                value:
+                  event_id: evt_01M88H11Y0WR367CGNZZH603T5
+                  type: transfer.settled
+                  occurred_at: '2026-11-26T08:06:12+07:00'
+                  data:
+                    rail_txn_id: rtx_01M88H11Y0WR367CGNZZH603T5
+                    idempotency_key: pi_01M88557BXGABQA8KPG2382VH5
+                    status: settled
+                    failure_code: null
+      responses:
+        '204':
+          description: Đã tiếp nhận sự kiện webhook (idempotent theo `event_id`)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: 'Khóa dịch vụ riêng cho từng bên gọi: khóa của `agent-worker` cho các endpoint quản
+        lý job/config (kèm `worker_id` + `attempt` trong body), và khóa của `sim-world` cho `/internal/webhooks/rails`.'
+    CapabilityBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Capability JWT (EdDSA, claims theo `CapabilityTokenClaims`) do core cấp cho `supervisor`
+        hoặc một bot chuyên môn trong đúng một `attempt` của job.
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^job_[0-9A-HJKMNP-TV-Z]{26}$
+      example: job_01M882G20CAMSQWE8SVGP02RHD
+    ToolId:
+      name: tool_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[a-z][a-z0-9_]*$
+      example: price_check
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context header (`00-<trace_id>-<span_id>-<flags>`).
+      schema:
+        type: string
+      example: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+  headers:
+    X-Request-Id:
+      description: Mã định danh request để đối chiếu log và truy vết.
+      schema:
+        type: string
+      example: req_01M88INT000000000000000001
+  responses:
+    BadRequest:
+      description: Sai schema hoặc dữ liệu đầu vào không hợp lệ (`400 VALIDATION_FAILED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            validation_failed:
+              summary: Dữ liệu vào sai schema
+              value:
+                type: https://paymatch.dev/problems/validation-failed
+                title: Validation failed
+                status: 400
+                code: VALIDATION_FAILED
+                detail: Input không khớp schema của tool hoặc endpoint.
+    Unauthorized:
+      description: Thiếu hoặc sai `X-Service-Key` (`401 UNAUTHENTICATED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            invalid_service_key:
+              summary: Thiếu hoặc sai X-Service-Key
+              value:
+                type: https://paymatch.dev/problems/unauthenticated
+                title: Authentication required
+                status: 401
+                code: UNAUTHENTICATED
+                detail: Thiếu hoặc không hợp lệ X-Service-Key.
+    CapabilityUnauthorized:
+      description: Thiếu, sai chữ ký hoặc hết hạn capability token (`401 UNAUTHENTICATED` / `TOKEN_EXPIRED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            token_expired:
+              summary: Capability token đã hết hạn 120 s chưa gia hạn qua heartbeat
+              value:
+                type: https://paymatch.dev/problems/token-expired
+                title: Capability token expired
+                status: 401
+                code: TOKEN_EXPIRED
+                detail: Capability token đã hết hạn; cần heartbeat phiên để nhận token mới.
+    Forbidden:
+      description: Không có quyền gọi endpoint hoặc không khớp bot/job trong token (`403 FORBIDDEN`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            forbidden:
+              summary: Không đủ quyền truy cập
+              value:
+                type: https://paymatch.dev/problems/forbidden
+                title: Forbidden
+                status: 403
+                code: FORBIDDEN
+                detail: Khóa dịch vụ hoặc capability token không được phép gọi tài nguyên này.
+    ToolNotGranted:
+      description: Tool không nằm trong danh sách quyền của capability token (`403 TOOL_NOT_GRANTED`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            tool_not_granted:
+              summary: Điều phối hoặc bot cố gọi tool không được cấp trong token
+              value:
+                type: https://paymatch.dev/problems/tool-not-granted
+                title: Tool not granted in capability token
+                status: 403
+                code: TOOL_NOT_GRANTED
+                detail: Tool 'inbox' không nằm trong capability token hiện tại.
+    NotFound:
+      description: Không tìm thấy job (`404 NOT_FOUND`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            job_not_found:
+              summary: Không tìm thấy job
+              value:
+                type: https://paymatch.dev/problems/not-found
+                title: Job not found
+                status: 404
+                code: NOT_FOUND
+                detail: Không tìm thấy job được yêu cầu.
+    LeaseOrStateConflict:
+      description: Mất lease `(job_id, attempt, worker_id)` (`409 LEASE_LOST`) hoặc job đã kết thúc (`409
+        INVALID_STATE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            lease_lost:
+              summary: Lease đã hết hạn hoặc thuộc attempt/worker khác
+              value:
+                type: https://paymatch.dev/problems/lease-lost
+                title: Job lease lost
+                status: 409
+                code: LEASE_LOST
+                detail: Lease của (job_id, attempt=1, worker_id=agent-worker-01) không còn hiệu lực; dừng
+                  xử lý job.
+            job_already_completed:
+              summary: Job đã kết thúc trước đó
+              value:
+                type: https://paymatch.dev/problems/invalid-state
+                title: Job is not running
+                status: 409
+                code: INVALID_STATE
+                detail: Job đã hoàn tất nên không nhận thêm Finding hoặc hoàn tất lại.
+                current_status: completed
+    Locked:
+      description: Tenant, bot hoặc tool đang bị khóa bởi kill switch (`423 KILL_SWITCH_ACTIVE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            kill_switch_active:
+              summary: Kill switch chặn tool hoặc bot đang gọi
+              value:
+                type: https://paymatch.dev/problems/kill-switch-active
+                title: Kill switch active
+                status: 423
+                code: KILL_SWITCH_ACTIVE
+                detail: Tool hoặc bot hiện tại đang bị tạm dừng bởi kill switch.
+    ServiceUnavailable:
+      description: Tiến trình chưa sẵn sàng kết nối DB (`503 UPSTREAM_UNAVAILABLE`)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem.schema.json
+          examples:
+            db_unavailable:
+              summary: Chưa kết nối được Postgres
+              value:
+                type: https://paymatch.dev/problems/upstream-unavailable
+                title: Database unavailable
+                status: 503
+                code: UPSTREAM_UNAVAILABLE
+                detail: Chưa sẵn sàng kết nối cơ sở dữ liệu.
+  schemas:
+    HealthResponse:
+      title: HealthResponse
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          const: ok
+    ReadyResponse:
+      title: ReadyResponse
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          const: ready
+    V1ToolId:
+      title: V1ToolId
+      description: Danh mục 30 tool chỉ-đọc v1 theo `docs/05-api/internal-api.md §2`.
+      type: string
+      enum:
+      - invoices
+      - vendor_contracts
+      - price_check
+      - price_history
+      - purchase_orders
+      - goods_receipts
+      - payables_ledger
+      - three_way_match
+      - inbox
+      - chat_messages
+      - vendor_registry
+      - cross_alerts
+      - official_fraud_list
+      - einvoice_portal
+      - tax_id_lookup
+      - tax_risk_list
+      - utility_bills
+      - utility_baseline
+      - momo_revenue
+      - account_balance
+      - spending_limits
+      - payment_policy_preview
+      - invoice_search
+      - invoice_explain
+      - spending_summary
+      - vendor_stats
+      - price_trend
+      - queue_status
+      - utility_summary
+      - payment_history
+    ClaimJobRequest:
+      title: ClaimJobRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        task_types:
+          type:
+          - array
+          - 'null'
+          minItems: 1
+          items:
+            $ref: ../schemas/task-type.schema.json
+    ClaimedInvoiceSubject:
+      title: ClaimedInvoiceSubject
+      type: object
+      additionalProperties: false
+      required:
+      - invoice_id
+      properties:
+        invoice_id:
+          type: string
+          pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+    ClaimedQuestionSubject:
+      title: ClaimedQuestionSubject
+      type: object
+      additionalProperties: false
+      required:
+      - conversation_id
+      - message_id
+      properties:
+        conversation_id:
+          type: string
+          pattern: ^cnv_[0-9A-HJKMNP-TV-Z]{26}$
+        message_id:
+          type: string
+          pattern: ^cmg_[0-9A-HJKMNP-TV-Z]{26}$
+    ClaimedReportSubject:
+      title: ClaimedReportSubject
+      type: object
+      additionalProperties: false
+      required:
+      - report_id
+      properties:
+        report_id:
+          type: string
+          pattern: ^rpt_[0-9A-HJKMNP-TV-Z]{26}$
+    ClaimedJobResponse:
+      title: ClaimedJobResponse
+      type: object
+      additionalProperties: false
+      required:
+      - job_id
+      - task_type
+      - tenant_id
+      - attempt
+      - lease_expires_at
+      - subject
+      properties:
+        job_id:
+          type: string
+          pattern: ^job_[0-9A-HJKMNP-TV-Z]{26}$
+        task_type:
+          $ref: ../schemas/task-type.schema.json
+        tenant_id:
+          type: string
+          pattern: ^ten_[0-9A-HJKMNP-TV-Z]{26}$
+        attempt:
+          type: integer
+          minimum: 1
+        lease_expires_at:
+          $ref: ../schemas/timestamp.schema.json
+        subject:
+          oneOf:
+          - $ref: '#/components/schemas/ClaimedInvoiceSubject'
+          - $ref: '#/components/schemas/ClaimedQuestionSubject'
+          - $ref: '#/components/schemas/ClaimedReportSubject'
+    OpenJobSessionRequest:
+      title: OpenJobSessionRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      - attempt
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        attempt:
+          type: integer
+          minimum: 1
+    SessionBudget:
+      title: SessionBudget
+      type: object
+      additionalProperties: false
+      required:
+      - seconds
+      - max_steps
+      properties:
+        seconds:
+          type: integer
+          minimum: 1
+        max_steps:
+          type: integer
+          minimum: 1
+    SupervisorSessionGrant:
+      title: SupervisorSessionGrant
+      type: object
+      additionalProperties: false
+      required:
+      - capability_token
+      - token_exp
+      - tools
+      properties:
+        capability_token:
+          type: string
+          minLength: 1
+        token_exp:
+          $ref: ../schemas/timestamp.schema.json
+        tools:
+          type: array
+          items:
+            $ref: ../schemas/tool-definition.schema.json
+    BotSkillContent:
+      title: BotSkillContent
+      type: object
+      additionalProperties: false
+      required:
+      - skill_id
+      - version
+      - content_md
+      properties:
+        skill_id:
+          type: string
+          minLength: 1
+        version:
+          type: integer
+          minimum: 1
+        content_md:
+          type: string
+    BotSessionGrant:
+      title: BotSessionGrant
+      type: object
+      additionalProperties: false
+      required:
+      - bot_id
+      - bot_version
+      - description
+      - manifest
+      - skills
+      - prefetch
+      - capability_token
+      - token_exp
+      properties:
+        bot_id:
+          type: string
+          minLength: 1
+        bot_version:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+        manifest:
+          $ref: ../schemas/bot-manifest.schema.json
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/BotSkillContent'
+        prefetch:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z][a-z0-9_]*$
+        capability_token:
+          type: string
+          minLength: 1
+        token_exp:
+          $ref: ../schemas/timestamp.schema.json
+    SkippedBotItem:
+      title: SkippedBotItem
+      type: object
+      additionalProperties: false
+      required:
+      - bot_id
+      - reason
+      properties:
+        bot_id:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          enum:
+          - KILL_SWITCH
+          - DISABLED
+    SessionUserContext:
+      title: SessionUserContext
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - store_ids
+      properties:
+        role:
+          type: string
+          enum:
+          - owner
+          - accountant
+          - store_manager
+        store_ids:
+          type: array
+          items:
+            type: string
+            pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+    InvestigateSessionContext:
+      title: InvestigateSessionContext
+      type: object
+      additionalProperties: false
+      required:
+      - invoice_id
+      - invoice_type
+      properties:
+        invoice_id:
+          type: string
+          pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+        invoice_type:
+          $ref: ../schemas/invoice-type.schema.json
+    QuestionHistoryUserMessage:
+      title: QuestionHistoryUserMessage
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - text_trusted
+      properties:
+        role:
+          type: string
+          const: user
+        text_trusted:
+          type: string
+    QuestionHistoryAssistantMessage:
+      title: QuestionHistoryAssistantMessage
+      description: Tin nhắn assistant trong lịch sử hội thoại gửi cho điều phối chỉ mang `{message_id, citations}` có cấu trúc, không bao giờ mang chữ tự do.
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - message_id
+      - citations
+      properties:
+        role:
+          type: string
+          const: assistant
+        message_id:
+          type: string
+          pattern: ^cmg_[0-9A-HJKMNP-TV-Z]{26}$
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitationInput'
+    QuestionHistoryMessage:
+      title: QuestionHistoryMessage
+      oneOf:
+      - $ref: '#/components/schemas/QuestionHistoryUserMessage'
+      - $ref: '#/components/schemas/QuestionHistoryAssistantMessage'
+      discriminator:
+        propertyName: role
+        mapping:
+          user: '#/components/schemas/QuestionHistoryUserMessage'
+          assistant: '#/components/schemas/QuestionHistoryAssistantMessage'
+    QuestionSessionContext:
+      title: QuestionSessionContext
+      type: object
+      additionalProperties: false
+      required:
+      - messages
+      - user
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionHistoryMessage'
+        user:
+          $ref: '#/components/schemas/SessionUserContext'
+    ReportSessionContext:
+      title: ReportSessionContext
+      type: object
+      additionalProperties: false
+      required:
+      - report_id
+      - kind
+      - from
+      - to
+      - user
+      properties:
+        report_id:
+          type: string
+          pattern: ^rpt_[0-9A-HJKMNP-TV-Z]{26}$
+        kind:
+          type: string
+          enum:
+          - daily_summary
+          - spending_by_vendor
+          - spending_by_store
+          - price_changes
+        from:
+          $ref: ../schemas/local-date.schema.json
+        to:
+          $ref: ../schemas/local-date.schema.json
+        user:
+          $ref: '#/components/schemas/SessionUserContext'
+    JobSessionResponse:
+      title: JobSessionResponse
+      type: object
+      additionalProperties: false
+      required:
+      - budget
+      - supervisor
+      - bots
+      - required_bot_ids
+      - skipped
+      - context
+      properties:
+        budget:
+          $ref: '#/components/schemas/SessionBudget'
+        supervisor:
+          $ref: '#/components/schemas/SupervisorSessionGrant'
+        bots:
+          type: array
+          items:
+            $ref: '#/components/schemas/BotSessionGrant'
+        required_bot_ids:
+          type: array
+          items:
+            type: string
+        skipped:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkippedBotItem'
+        context:
+          oneOf:
+          - $ref: '#/components/schemas/InvestigateSessionContext'
+          - $ref: '#/components/schemas/QuestionSessionContext'
+          - $ref: '#/components/schemas/ReportSessionContext'
+    JobHeartbeatRequest:
+      title: JobHeartbeatRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      - attempt
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        attempt:
+          type: integer
+          minimum: 1
+    RenewedCapabilityToken:
+      title: RenewedCapabilityToken
+      type: object
+      additionalProperties: false
+      required:
+      - holder
+      - capability_token
+      - token_exp
+      properties:
+        holder:
+          type: string
+          minLength: 1
+          description: '''supervisor'' hoặc ''<bot_id>''.'
+        capability_token:
+          type: string
+          minLength: 1
+        token_exp:
+          $ref: ../schemas/timestamp.schema.json
+    JobHeartbeatResponse:
+      title: JobHeartbeatResponse
+      type: object
+      additionalProperties: false
+      required:
+      - lease_expires_at
+      - tokens
+      properties:
+        lease_expires_at:
+          $ref: ../schemas/timestamp.schema.json
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/RenewedCapabilityToken'
+    JobProgressEventItem:
+      title: JobProgressEventItem
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      - at
+      properties:
+        type:
+          type: string
+          enum:
+          - supervisor.step
+          - bot.started
+          - bot.tool_called
+          - bot.finished
+          - bot.failed
+          - answer.delta
+        step:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+        bot_id:
+          type:
+          - string
+          - 'null'
+        tool_id:
+          type:
+          - string
+          - 'null'
+        severity:
+          anyOf:
+          - $ref: ../schemas/severity.schema.json
+          - type: 'null'
+        reason_code:
+          anyOf:
+          - $ref: ../schemas/reason-code.schema.json
+          - type: 'null'
+        text_delta:
+          type:
+          - string
+          - 'null'
+          description: Chỉ được phép (và bắt buộc dạng chuỗi) khi `type = answer.delta`.
+        at:
+          $ref: ../schemas/timestamp.schema.json
+      if:
+        properties:
+          type:
+            const: answer.delta
+        required:
+        - type
+      then:
+        required:
+        - text_delta
+        properties:
+          text_delta:
+            type: string
+      else:
+        properties:
+          text_delta:
+            type: 'null'
+    JobProgressRequest:
+      title: JobProgressRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      - attempt
+      - events
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        attempt:
+          type: integer
+          minimum: 1
+        events:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/JobProgressEventItem'
+    BotAnswerFactInput:
+      title: BotAnswerFactInput
+      type: object
+      additionalProperties: false
+      required:
+      - key
+      - value
+      - tool_call_id
+      properties:
+        key:
+          $ref: ../schemas/fact-key.schema.json
+        value:
+          type:
+          - string
+          - number
+        tool_call_id:
+          type: string
+          pattern: ^tcl_[0-9A-HJKMNP-TV-Z]{26}$
+    BotAnswerSubmission:
+      title: BotAnswerSubmission
+      type: object
+      additionalProperties: false
+      required:
+      - bot_id
+      - facts
+      - reason_codes
+      properties:
+        bot_id:
+          type: string
+          minLength: 1
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/BotAnswerFactInput'
+        reason_codes:
+          type: array
+          items:
+            $ref: ../schemas/reason-code.schema.json
+    BriefSubmission:
+      title: BriefSubmission
+      type: object
+      additionalProperties: false
+      required:
+      - lines
+      - cited_evidence
+      - model
+      - prompt_hash
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 200
+        cited_evidence:
+          type: array
+          items:
+            $ref: ../schemas/evidence-ref.schema.json
+        model:
+          type: string
+          minLength: 1
+        prompt_hash:
+          type: string
+          minLength: 1
+    CompleteInvestigateResult:
+      title: CompleteInvestigateResult
+      type: object
+      additionalProperties: false
+      required:
+      - brief
+      properties:
+        brief:
+          $ref: '#/components/schemas/BriefSubmission'
+    AnswerCitationInput:
+      title: AnswerCitationInput
+      type: object
+      additionalProperties: false
+      required:
+      - tool_call_id
+      - values
+      properties:
+        tool_call_id:
+          type: string
+          pattern: ^tcl_[0-9A-HJKMNP-TV-Z]{26}$
+        values:
+          type: array
+          items:
+            type: string
+    AnswerTableInput:
+      title: AnswerTableInput
+      type: object
+      additionalProperties: false
+      required:
+      - columns
+      - rows
+      - tool_call_id
+      properties:
+        title:
+          type:
+          - string
+          - 'null'
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type:
+              - string
+              - number
+        tool_call_id:
+          type: string
+          pattern: ^tcl_[0-9A-HJKMNP-TV-Z]{26}$
+    AnswerSubmission:
+      title: AnswerSubmission
+      type: object
+      additionalProperties: false
+      required:
+      - text
+      - citations
+      - proposed_actions
+      properties:
+        text:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitationInput'
+        tables:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/AnswerTableInput'
+        proposed_actions:
+          type: array
+          items:
+            $ref: ../schemas/proposed-action.schema.json
+    CompleteAnswerResult:
+      title: CompleteAnswerResult
+      type: object
+      additionalProperties: false
+      required:
+      - answer
+      properties:
+        answer:
+          $ref: '#/components/schemas/AnswerSubmission'
+    CompleteJobRequest:
+      title: CompleteJobRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      - attempt
+      - result
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        attempt:
+          type: integer
+          minimum: 1
+        result:
+          oneOf:
+          - $ref: '#/components/schemas/CompleteInvestigateResult'
+          - $ref: '#/components/schemas/CompleteAnswerResult'
+    CompleteInvestigateResponse:
+      title: CompleteInvestigateResponse
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      - final_severity
+      - invoice_status
+      properties:
+        status:
+          type: string
+          const: completed
+        final_severity:
+          $ref: ../schemas/severity.schema.json
+        invoice_status:
+          $ref: ../schemas/invoice-status.schema.json
+    CompleteAnswerResponse:
+      title: CompleteAnswerResponse
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      - message_id
+      - unverified_values
+      properties:
+        status:
+          type: string
+          const: completed
+        message_id:
+          type: string
+          pattern: ^cmg_[0-9A-HJKMNP-TV-Z]{26}$
+        unverified_values:
+          type: array
+          items:
+            type: string
+    CompleteJobResponse:
+      title: CompleteJobResponse
+      oneOf:
+      - $ref: '#/components/schemas/CompleteInvestigateResponse'
+      - $ref: '#/components/schemas/CompleteAnswerResponse'
+    FailJobRequest:
+      title: FailJobRequest
+      type: object
+      additionalProperties: false
+      required:
+      - worker_id
+      - attempt
+      - error_code
+      - detail
+      properties:
+        worker_id:
+          type: string
+          minLength: 1
+        attempt:
+          type: integer
+          minimum: 1
+        error_code:
+          type: string
+          minLength: 1
+        detail:
+          type: string
+    FailJobResponse:
+      title: FailJobResponse
+      type: object
+      additionalProperties: false
+      required:
+      - will_retry
+      properties:
+        will_retry:
+          type: boolean
+    ToolInvokeRequest:
+      title: ToolInvokeRequest
+      type: object
+      additionalProperties: false
+      required:
+      - input
+      properties:
+        input:
+          type: object
+          additionalProperties: true
+    CardAuthorizationDeclinedWebhookData:
+      title: CardAuthorizationDeclinedWebhookData
+      type: object
+      additionalProperties: false
+      required:
+      - card_id
+      - merchant_id
+      - reason
+      properties:
+        card_id:
+          type: string
+          minLength: 1
+        merchant_id:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          enum:
+          - wrong_merchant
+          - already_used
+          - over_amount
+    TransferSettledWebhookData:
+      title: TransferSettledWebhookData
+      type: object
+      additionalProperties: false
+      required:
+      - rail_txn_id
+      - idempotency_key
+      - status
+      - failure_code
+      properties:
+        rail_txn_id:
+          type: string
+          minLength: 1
+        idempotency_key:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          const: settled
+        failure_code:
+          type: 'null'
+    TransferFailedWebhookData:
+      title: TransferFailedWebhookData
+      type: object
+      additionalProperties: false
+      required:
+      - rail_txn_id
+      - idempotency_key
+      - status
+      - failure_code
+      properties:
+        rail_txn_id:
+          type: string
+          minLength: 1
+        idempotency_key:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          const: failed
+        failure_code:
+          type:
+          - string
+          - 'null'
+    CardAuthorizationDeclinedWebhookRequest:
+      title: CardAuthorizationDeclinedWebhookRequest
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - type
+      - occurred_at
+      - data
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+        type:
+          type: string
+          const: card.authorization_declined
+        occurred_at:
+          $ref: ../schemas/timestamp.schema.json
+        data:
+          $ref: '#/components/schemas/CardAuthorizationDeclinedWebhookData'
+    TransferSettledWebhookRequest:
+      title: TransferSettledWebhookRequest
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - type
+      - occurred_at
+      - data
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+        type:
+          type: string
+          const: transfer.settled
+        occurred_at:
+          $ref: ../schemas/timestamp.schema.json
+        data:
+          $ref: '#/components/schemas/TransferSettledWebhookData'
+    TransferFailedWebhookRequest:
+      title: TransferFailedWebhookRequest
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - type
+      - occurred_at
+      - data
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+        type:
+          type: string
+          const: transfer.failed
+        occurred_at:
+          $ref: ../schemas/timestamp.schema.json
+        data:
+          $ref: '#/components/schemas/TransferFailedWebhookData'
+    RailsWebhookRequest:
+      title: RailsWebhookRequest
+      oneOf:
+      - $ref: '#/components/schemas/CardAuthorizationDeclinedWebhookRequest'
+      - $ref: '#/components/schemas/TransferSettledWebhookRequest'
+      - $ref: '#/components/schemas/TransferFailedWebhookRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          card.authorization_declined: '#/components/schemas/CardAuthorizationDeclinedWebhookRequest'
+          transfer.settled: '#/components/schemas/TransferSettledWebhookRequest'
+          transfer.failed: '#/components/schemas/TransferFailedWebhookRequest'
+    InvoicesInput:
+      title: InvoicesInput
+      description: 'Đầu vào tool `invoices`: rỗng để lấy hóa đơn của job hiện tại, hoặc truyền `invoice_ids`
+        thuộc cùng NCC.'
+      type: object
+      additionalProperties: false
+      properties:
+        invoice_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+    InvoicesOutput:
+      title: InvoicesOutput
+      description: Danh sách hóa đơn chuẩn hóa (phần số trusted, `untrusted.*` untrusted).
+      type: object
+      additionalProperties: false
+      required:
+      - invoices
+      properties:
+        invoices:
+          type: array
+          items:
+            $ref: ../schemas/invoice.schema.json
+    VendorContractsInput:
+      title: VendorContractsInput
+      description: 'Đầu vào tool `vendor_contracts`: chỉ trả hợp đồng đang `active`.'
+      type: object
+      additionalProperties: false
+      properties:
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+    VendorContractsOutput:
+      title: VendorContractsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - contracts
+      properties:
+        contracts:
+          type: array
+          items:
+            title: ActiveVendorContract
+            type: object
+            additionalProperties: false
+            required:
+            - contract_id
+            - vendor_id
+            - valid_from
+            - valid_to
+            - items
+            properties:
+              contract_id:
+                type: string
+                pattern: ^ctr_[0-9A-HJKMNP-TV-Z]{26}$
+              vendor_id:
+                type: string
+                pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+              valid_from:
+                $ref: ../schemas/local-date.schema.json
+              valid_to:
+                anyOf:
+                - $ref: ../schemas/local-date.schema.json
+                - type: 'null'
+              items:
+                type: array
+                items:
+                  $ref: ../schemas/contract-item.schema.json
+    PriceCheckInput:
+      title: PriceCheckInput
+      description: 'Đầu vào tool `price_check`: bot chỉ ánh xạ `line_id -> sku`; quy cách và đơn giá thực
+        tế do code tính.'
+      type: object
+      additionalProperties: false
+      required:
+      - mappings
+      properties:
+        mappings:
+          type: array
+          minItems: 1
+          items:
+            title: PriceCheckMapping
+            type: object
+            additionalProperties: false
+            required:
+            - line_id
+            - sku
+            properties:
+              line_id:
+                type: string
+                pattern: ^lin_[0-9A-HJKMNP-TV-Z]{26}$
+              sku:
+                type: string
+                minLength: 1
+    PriceCheckOutput:
+      title: PriceCheckOutput
+      description: Kết quả đối chiếu đơn giá/đơn vị cơ sở và quy cách đóng gói (nguồn cho mức sàn PRICE_ABOVE_CONTRACT,
+        PACK_SIZE_CHANGED).
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            title: PriceCheckLineResult
+            type: object
+            additionalProperties: false
+            required:
+            - line_id
+            - sku
+            - contract_item_id
+            - unit_price_invoice
+            - unit_price_contract
+            - delta_pct
+            - pack_qty_contract
+            - pack_qty_parsed
+            properties:
+              line_id:
+                type: string
+                pattern: ^lin_[0-9A-HJKMNP-TV-Z]{26}$
+              sku:
+                type: string
+                minLength: 1
+              contract_item_id:
+                type:
+                - string
+                - 'null'
+                pattern: ^itm_[0-9A-HJKMNP-TV-Z]{26}$
+              unit_price_invoice:
+                $ref: ../schemas/decimal.schema.json
+              unit_price_contract:
+                $ref: ../schemas/decimal.schema.json
+              delta_pct:
+                $ref: ../schemas/decimal.schema.json
+              pack_qty_contract:
+                $ref: ../schemas/decimal.schema.json
+              pack_qty_parsed:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+    PriceHistoryInput:
+      title: PriceHistoryInput
+      type: object
+      additionalProperties: false
+      required:
+      - sku
+      properties:
+        sku:
+          type: string
+          minLength: 1
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 6
+    PriceHistoryOutput:
+      title: PriceHistoryOutput
+      type: object
+      additionalProperties: false
+      required:
+      - sku
+      - points
+      properties:
+        sku:
+          type: string
+          minLength: 1
+        points:
+          type: array
+          items:
+            title: PriceHistoryPoint
+            type: object
+            additionalProperties: false
+            required:
+            - invoice_id
+            - issued_on
+            - quantity
+            - unit_price
+            properties:
+              invoice_id:
+                type: string
+                pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+              issued_on:
+                $ref: ../schemas/local-date.schema.json
+              quantity:
+                $ref: ../schemas/decimal.schema.json
+              unit_price:
+                $ref: ../schemas/decimal.schema.json
+    PurchaseOrdersInput:
+      title: PurchaseOrdersInput
+      type: object
+      additionalProperties: false
+      properties:
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        purchase_order_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^po_[0-9A-HJKMNP-TV-Z]{26}$
+    PurchaseOrdersOutput:
+      title: PurchaseOrdersOutput
+      type: object
+      additionalProperties: false
+      required:
+      - purchase_orders
+      properties:
+        purchase_orders:
+          type: array
+          items:
+            $ref: ../schemas/purchase-order.schema.json
+    GoodsReceiptsInput:
+      title: GoodsReceiptsInput
+      type: object
+      additionalProperties: false
+      properties:
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        purchase_order_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^po_[0-9A-HJKMNP-TV-Z]{26}$
+    GoodsReceiptsOutput:
+      title: GoodsReceiptsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - goods_receipts
+      properties:
+        goods_receipts:
+          type: array
+          items:
+            $ref: ../schemas/goods-receipt.schema.json
+    PayablesLedgerInput:
+      title: PayablesLedgerInput
+      type: object
+      additionalProperties: false
+      properties:
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        purchase_order_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^po_[0-9A-HJKMNP-TV-Z]{26}$
+    PayablesLedgerOutput:
+      title: PayablesLedgerOutput
+      type: object
+      additionalProperties: false
+      required:
+      - entries
+      properties:
+        entries:
+          type: array
+          items:
+            title: PayableLedgerEntry
+            type: object
+            additionalProperties: false
+            required:
+            - invoice_id
+            - vendor_id
+            - symbol
+            - number
+            - issued_on
+            - due_on
+            - amount_vnd
+            - status
+            - paid_at
+            properties:
+              invoice_id:
+                type: string
+                pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+              vendor_id:
+                type:
+                - string
+                - 'null'
+                pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+              symbol:
+                type: string
+              number:
+                type: string
+              issued_on:
+                anyOf:
+                - $ref: ../schemas/local-date.schema.json
+                - type: 'null'
+              due_on:
+                anyOf:
+                - $ref: ../schemas/local-date.schema.json
+                - type: 'null'
+              amount_vnd:
+                $ref: ../schemas/signed-money-vnd.schema.json
+              status:
+                $ref: ../schemas/invoice-status.schema.json
+              paid_at:
+                anyOf:
+                - $ref: ../schemas/timestamp.schema.json
+                - type: 'null'
+    ThreeWayMatchInput:
+      title: ThreeWayMatchInput
+      description: Đầu vào tool `three_way_match` cho hóa đơn của job hiện tại.
+      type: object
+      additionalProperties: false
+      properties: {}
+    ThreeWayMatchOutput:
+      title: ThreeWayMatchOutput
+      description: Kết quả đối chiếu 3 chứng từ PO ↔ GRN ↔ Invoice (nguồn cho mức sàn QUANTITY_ABOVE_NORM,
+        NO_GOODS_RECEIPT).
+      type: object
+      additionalProperties: false
+      required:
+      - matched
+      - missing_goods_receipt
+      - quantity_above_norm
+      - purchase_order_id
+      - goods_receipt_ids
+      - lines
+      properties:
+        matched:
+          type: boolean
+        missing_goods_receipt:
+          type: boolean
+        quantity_above_norm:
+          type: boolean
+        purchase_order_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^po_[0-9A-HJKMNP-TV-Z]{26}$
+        goods_receipt_ids:
+          type: array
+          items:
+            type: string
+            pattern: ^grn_[0-9A-HJKMNP-TV-Z]{26}$
+        lines:
+          type: array
+          items:
+            title: ThreeWayMatchLine
+            type: object
+            additionalProperties: false
+            required:
+            - line_id
+            - sku
+            - po_quantity
+            - grn_quantity
+            - invoice_quantity
+            - delta_quantity
+            - within_norm
+            properties:
+              line_id:
+                type: string
+                pattern: ^lin_[0-9A-HJKMNP-TV-Z]{26}$
+              sku:
+                type:
+                - string
+                - 'null'
+              po_quantity:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+              grn_quantity:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+              invoice_quantity:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+              delta_quantity:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+              within_norm:
+                type: boolean
+    InboxInput:
+      title: InboxInput
+      type: object
+      additionalProperties: false
+      properties:
+        since:
+          anyOf:
+          - $ref: ../schemas/timestamp.schema.json
+          - type: 'null'
+    InboxOutput:
+      title: InboxOutput
+      description: Thư điện tử từ địa chỉ nhà cung cấp (provenance = untrusted).
+      type: object
+      additionalProperties: false
+      required:
+      - messages
+      properties:
+        messages:
+          type: array
+          items:
+            title: InboxToolMessage
+            type: object
+            additionalProperties: false
+            required:
+            - message_id
+            - from_address
+            - received_at
+            - subject
+            - body
+            properties:
+              message_id:
+                type: string
+                pattern: ^msg_[0-9A-HJKMNP-TV-Z]{26}$
+              from_address:
+                type: string
+              received_at:
+                $ref: ../schemas/timestamp.schema.json
+              subject:
+                $ref: ../schemas/untrusted-text.schema.json
+              body:
+                $ref: ../schemas/untrusted-text.schema.json
+    ChatMessagesInput:
+      title: ChatMessagesInput
+      type: object
+      additionalProperties: false
+      properties:
+        since:
+          anyOf:
+          - $ref: ../schemas/timestamp.schema.json
+          - type: 'null'
+    ChatMessagesOutput:
+      title: ChatMessagesOutput
+      description: Tin nhắn hội thoại với phía nhà cung cấp (provenance = untrusted).
+      type: object
+      additionalProperties: false
+      required:
+      - threads
+      properties:
+        threads:
+          type: array
+          items:
+            title: ChatToolThread
+            type: object
+            additionalProperties: false
+            required:
+            - thread_id
+            - counterparty_phone
+            - counterparty_name
+            - messages
+            properties:
+              thread_id:
+                type: string
+              counterparty_phone:
+                type: string
+              counterparty_name:
+                $ref: ../schemas/untrusted-text.schema.json
+              messages:
+                type: array
+                items:
+                  title: ChatToolMessage
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - message_id
+                  - sender
+                  - sent_at
+                  - text
+                  properties:
+                    message_id:
+                      type: string
+                      pattern: ^msg_[0-9A-HJKMNP-TV-Z]{26}$
+                    sender:
+                      type: string
+                      enum:
+                      - tenant
+                      - counterparty
+                    sent_at:
+                      $ref: ../schemas/timestamp.schema.json
+                    text:
+                      $ref: ../schemas/untrusted-text.schema.json
+    VendorRegistryInput:
+      title: VendorRegistryInput
+      description: Đầu vào tool `vendor_registry` cho người bán trên hóa đơn.
+      type: object
+      additionalProperties: false
+      properties: {}
+    VendorRegistryOutput:
+      title: VendorRegistryOutput
+      description: Danh bạ NCC, tài khoản đã xác minh (`verified`/`escrow_only`), SĐT lưu sẵn (che) và
+        lịch sử xác minh đã duyệt (F12).
+      type: object
+      additionalProperties: false
+      required:
+      - vendor
+      - accounts
+      - approved_verifications
+      properties:
+        vendor:
+          anyOf:
+          - $ref: ../schemas/vendor.schema.json
+          - type: 'null'
+        accounts:
+          type: array
+          items:
+            $ref: ../schemas/vendor-account.schema.json
+        approved_verifications:
+          type: array
+          items:
+            title: ApprovedVendorVerificationSummary
+            type: object
+            additionalProperties: false
+            required:
+            - verification_id
+            - vendor_account_id
+            - target_status
+            - decided_at
+            properties:
+              verification_id:
+                type: string
+                pattern: ^vvf_[0-9A-HJKMNP-TV-Z]{26}$
+              vendor_account_id:
+                type: string
+                pattern: ^vac_[0-9A-HJKMNP-TV-Z]{26}$
+              target_status:
+                type: string
+                enum:
+                - verified
+                - escrow_only
+              decided_at:
+                $ref: ../schemas/timestamp.schema.json
+    CrossAlertsInput:
+      title: CrossAlertsInput
+      description: Đầu vào tool `cross_alerts` kiểm tra indicator của hóa đơn.
+      type: object
+      additionalProperties: false
+      properties: {}
+    CrossAlertsOutput:
+      title: CrossAlertsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - matched
+      - hits
+      properties:
+        matched:
+          type: boolean
+        hits:
+          type: array
+          items:
+            title: CrossAlertHitItem
+            type: object
+            additionalProperties: false
+            required:
+            - cross_alert_id
+            - indicator_kind
+            - reason_codes
+            - published_at
+            properties:
+              cross_alert_id:
+                type: string
+                pattern: ^cxa_[0-9A-HJKMNP-TV-Z]{26}$
+              indicator_kind:
+                $ref: ../schemas/indicator-kind.schema.json
+              reason_codes:
+                type: array
+                items:
+                  $ref: ../schemas/reason-code.schema.json
+              published_at:
+                $ref: ../schemas/timestamp.schema.json
+    OfficialFraudListInput:
+      title: OfficialFraudListInput
+      description: Đầu vào tool `official_fraud_list` tra SIMO cho TK, SĐT, MST của hóa đơn.
+      type: object
+      additionalProperties: false
+      properties: {}
+    OfficialFraudListOutput:
+      title: OfficialFraudListOutput
+      type: object
+      additionalProperties: false
+      required:
+      - listed
+      - matches
+      properties:
+        listed:
+          type: boolean
+        matches:
+          type: array
+          items:
+            title: OfficialFraudListMatch
+            type: object
+            additionalProperties: false
+            required:
+            - kind
+            - listed
+            - list_ref
+            properties:
+              kind:
+                type: string
+                enum:
+                - account_hash
+                - phone
+                - tax_id
+              listed:
+                type: boolean
+              list_ref:
+                type:
+                - string
+                - 'null'
+    EinvoicePortalInput:
+      title: EinvoicePortalInput
+      description: Đầu vào tool `einvoice_portal` tra cứu cổng HĐĐT của hóa đơn.
+      type: object
+      additionalProperties: false
+      properties: {}
+    EinvoicePortalOutput:
+      title: EinvoicePortalOutput
+      description: Kết quả tra cổng HĐĐT (`tthai` 1..6, `ttxly` 0..8, `bhphap`).
+      type: object
+      additionalProperties: false
+      required:
+      - found
+      - invoice_status_code
+      - invoice_status_label
+      - processing_status_code
+      - processing_status_label
+      - illegal_flag
+      - tax_authority_code
+      - total_vnd
+      - related_invoice
+      properties:
+        found:
+          type: boolean
+        invoice_status_code:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          maximum: 6
+        invoice_status_label:
+          type:
+          - string
+          - 'null'
+        processing_status_code:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+          maximum: 8
+        processing_status_label:
+          type:
+          - string
+          - 'null'
+        illegal_flag:
+          type:
+          - boolean
+          - 'null'
+        tax_authority_code:
+          type:
+          - string
+          - 'null'
+        total_vnd:
+          anyOf:
+          - $ref: ../schemas/signed-money-vnd.schema.json
+          - type: 'null'
+        related_invoice:
+          anyOf:
+          - title: PortalRelatedInvoice
+            type: object
+            additionalProperties: false
+            required:
+            - symbol
+            - number
+            - issued_on
+            properties:
+              symbol:
+                type: string
+              number:
+                type: string
+              issued_on:
+                $ref: ../schemas/local-date.schema.json
+          - type: 'null'
+    TaxIdLookupInput:
+      title: TaxIdLookupInput
+      type: object
+      additionalProperties: false
+      required:
+      - tax_id
+      properties:
+        tax_id:
+          type: string
+          minLength: 1
+    TaxIdLookupOutput:
+      title: TaxIdLookupOutput
+      description: Kết quả tra cứu 10 mã trạng thái MST theo Phụ lục I TT 90/2026/TT-BTC (không có mã
+        '08').
+      type: object
+      additionalProperties: false
+      required:
+      - tax_id
+      - name
+      - status_code
+      - status_label
+      - status_reason_code
+      - address
+      properties:
+        tax_id:
+          type: string
+        name:
+          type: string
+        status_code:
+          type: string
+          enum:
+          - '00'
+          - '01'
+          - '02'
+          - '03'
+          - '04'
+          - '05'
+          - '06'
+          - '07'
+          - '09'
+          - '10'
+        status_label:
+          type: string
+        status_reason_code:
+          type:
+          - string
+          - 'null'
+        address:
+          type: string
+    TaxRiskListInput:
+      title: TaxRiskListInput
+      type: object
+      additionalProperties: false
+      required:
+      - tax_id
+      properties:
+        tax_id:
+          type: string
+          minLength: 1
+    TaxRiskListOutput:
+      title: TaxRiskListOutput
+      type: object
+      additionalProperties: false
+      required:
+      - tax_id
+      - listed
+      - list_name
+      - listed_on
+      properties:
+        tax_id:
+          type: string
+        listed:
+          type: boolean
+        list_name:
+          type:
+          - string
+          - 'null'
+        listed_on:
+          anyOf:
+          - $ref: ../schemas/local-date.schema.json
+          - type: 'null'
+    UtilityBillsInput:
+      title: UtilityBillsInput
+      type: object
+      additionalProperties: false
+      properties:
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 12
+    UtilityBillsOutput:
+      title: UtilityBillsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - readings
+      properties:
+        readings:
+          type: array
+          items:
+            title: UtilityBillReadingItem
+            type: object
+            additionalProperties: false
+            required:
+            - reading_id
+            - store_id
+            - utility_type
+            - billing_period
+            - period_start
+            - period_end
+            - total_usage
+            - usage_unit
+            - total_vnd
+            properties:
+              reading_id:
+                type: string
+                pattern: ^urd_[0-9A-HJKMNP-TV-Z]{26}$
+              store_id:
+                type: string
+                pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+              utility_type:
+                type: string
+                enum:
+                - electricity
+                - water
+              billing_period:
+                type: string
+                pattern: ^\d{4}-\d{2}$
+              period_start:
+                $ref: ../schemas/local-date.schema.json
+              period_end:
+                $ref: ../schemas/local-date.schema.json
+              total_usage:
+                $ref: ../schemas/decimal.schema.json
+              usage_unit:
+                type: string
+              total_vnd:
+                $ref: ../schemas/money-vnd.schema.json
+    UtilityBaselineInput:
+      title: UtilityBaselineInput
+      type: object
+      additionalProperties: false
+      properties:
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 12
+    UtilityBaselineOutput:
+      title: UtilityBaselineOutput
+      description: Trung vị và khoảng bình thường 12 tháng của điện/nước (nguồn cho mức sàn UTILITY_OUT_OF_RANGE).
+      type: object
+      additionalProperties: false
+      required:
+      - store_id
+      - utility_type
+      - months
+      - median_usage
+      - normal_min_usage
+      - normal_max_usage
+      - median_amount_vnd
+      - normal_min_vnd
+      - normal_max_vnd
+      - current_usage
+      - current_amount_vnd
+      - ratio_to_median
+      - out_of_range
+      - reading_ids
+      properties:
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        utility_type:
+          type:
+          - string
+          - 'null'
+          enum:
+          - electricity
+          - water
+          - null
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+        median_usage:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        normal_min_usage:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        normal_max_usage:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        median_amount_vnd:
+          anyOf:
+          - $ref: ../schemas/money-vnd.schema.json
+          - type: 'null'
+        normal_min_vnd:
+          anyOf:
+          - $ref: ../schemas/money-vnd.schema.json
+          - type: 'null'
+        normal_max_vnd:
+          anyOf:
+          - $ref: ../schemas/money-vnd.schema.json
+          - type: 'null'
+        current_usage:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        current_amount_vnd:
+          anyOf:
+          - $ref: ../schemas/money-vnd.schema.json
+          - type: 'null'
+        ratio_to_median:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        out_of_range:
+          type: boolean
+        reading_ids:
+          type: array
+          items:
+            type: string
+            pattern: ^urd_[0-9A-HJKMNP-TV-Z]{26}$
+    MomoRevenueInput:
+      title: MomoRevenueInput
+      type: object
+      additionalProperties: false
+      required:
+      - store_id
+      - month
+      properties:
+        store_id:
+          type: string
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        month:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+    MomoRevenueOutput:
+      title: MomoRevenueOutput
+      type: object
+      additionalProperties: false
+      required:
+      - store_id
+      - month
+      - revenue_vnd
+      - transaction_count
+      properties:
+        store_id:
+          type: string
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        month:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+        revenue_vnd:
+          $ref: ../schemas/money-vnd.schema.json
+        transaction_count:
+          type: integer
+          minimum: 0
+    AccountBalanceInput:
+      title: AccountBalanceInput
+      description: Đầu vào tool `account_balance` đọc số dư ví MoMo Doanh Nghiệp.
+      type: object
+      additionalProperties: false
+      properties: {}
+    AccountBalanceOutput:
+      title: AccountBalanceOutput
+      type: object
+      additionalProperties: false
+      required:
+      - wallet_id
+      - balance_vnd
+      - as_of
+      properties:
+        wallet_id:
+          type: string
+          pattern: ^wal_[0-9A-HJKMNP-TV-Z]{26}$
+        balance_vnd:
+          $ref: ../schemas/money-vnd.schema.json
+        as_of:
+          $ref: ../schemas/timestamp.schema.json
+    SpendingLimitsInput:
+      title: SpendingLimitsInput
+      description: Đầu vào tool `spending_limits` đọc mandate + PlatformLimits + ngân sách ngày từ Gate.
+      type: object
+      additionalProperties: false
+      properties: {}
+    SpendingLimitsOutput:
+      title: SpendingLimitsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - mandate
+      - platform_limits
+      - daily_budget
+      properties:
+        mandate:
+          anyOf:
+          - $ref: ../schemas/mandate.schema.json
+          - type: 'null'
+        platform_limits:
+          $ref: ../schemas/platform-limits.schema.json
+        daily_budget:
+          title: SpendingLimitsDailyBudget
+          type: object
+          additionalProperties: false
+          required:
+          - date
+          - auto_pay_used_vnd
+          - auto_pay_reserved_vnd
+          - auto_pay_limit_vnd
+          - total_paid_vnd
+          properties:
+            date:
+              $ref: ../schemas/local-date.schema.json
+            auto_pay_used_vnd:
+              $ref: ../schemas/money-vnd.schema.json
+            auto_pay_reserved_vnd:
+              $ref: ../schemas/money-vnd.schema.json
+            auto_pay_limit_vnd:
+              $ref: ../schemas/money-vnd.schema.json
+            total_paid_vnd:
+              $ref: ../schemas/money-vnd.schema.json
+    PaymentPolicyPreviewInput:
+      title: PaymentPolicyPreviewInput
+      description: Đầu vào tool `payment_policy_preview` chạy thử `POST /gate/evaluate` không tác dụng
+        phụ.
+      type: object
+      additionalProperties: false
+      properties: {}
+    PaymentPolicyPreviewOutput:
+      title: PaymentPolicyPreviewOutput
+      type: object
+      additionalProperties: false
+      required:
+      - decision
+      - allowed_methods
+      - verification_required
+      - intent_hash
+      - payee_account_id
+      - amount_vnd
+      - channel
+      - reasons
+      - evaluated_at
+      properties:
+        decision:
+          type: string
+          enum:
+          - ALLOW
+          - REQUIRE_APPROVAL
+          - DENY
+        allowed_methods:
+          type: array
+          items:
+            type: string
+            enum:
+            - single
+            - bulk
+        verification_required:
+          type: boolean
+        intent_hash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        payee_account_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^vac_[0-9A-HJKMNP-TV-Z]{26}$
+          description: Null chỉ khi `decision = DENY` và người bán chưa có tài khoản trong vendor registry.
+        amount_vnd:
+          $ref: ../schemas/money-vnd.schema.json
+        channel:
+          $ref: ../schemas/channel.schema.json
+        reasons:
+          type: array
+          items:
+            $ref: ../schemas/gate-reason.schema.json
+        evaluated_at:
+          $ref: ../schemas/timestamp.schema.json
+      if:
+        properties:
+          decision:
+            enum:
+            - ALLOW
+            - REQUIRE_APPROVAL
+        required:
+        - decision
+      then:
+        properties:
+          payee_account_id:
+            type: string
+            pattern: ^vac_[0-9A-HJKMNP-TV-Z]{26}$
+    InvoiceSearchInput:
+      title: InvoiceSearchInput
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          anyOf:
+          - $ref: ../schemas/invoice-status.schema.json
+          - type: 'null'
+        severity:
+          anyOf:
+          - $ref: ../schemas/severity.schema.json
+          - type: 'null'
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        reason_code:
+          anyOf:
+          - $ref: ../schemas/reason-code.schema.json
+          - type: 'null'
+        issued_from:
+          anyOf:
+          - $ref: ../schemas/local-date.schema.json
+          - type: 'null'
+        issued_to:
+          anyOf:
+          - $ref: ../schemas/local-date.schema.json
+          - type: 'null'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+    InvoiceSearchOutput:
+      title: InvoiceSearchOutput
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: ../schemas/invoice-summary.schema.json
+    InvoiceExplainInput:
+      title: InvoiceExplainInput
+      type: object
+      additionalProperties: false
+      required:
+      - invoice_id
+      properties:
+        invoice_id:
+          type: string
+          pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+    InvoiceExplainOutput:
+      title: InvoiceExplainOutput
+      description: Giải thích màu, mã lý do, Finding (không có `reason`), trạng thái và lịch chi của hóa
+        đơn.
+      type: object
+      additionalProperties: false
+      required:
+      - invoice
+      - findings
+      properties:
+        invoice:
+          $ref: ../schemas/invoice-summary.schema.json
+        findings:
+          type: array
+          items:
+            $ref: ../schemas/finding-for-supervisor.schema.json
+    SpendingSummaryInput:
+      title: SpendingSummaryInput
+      type: object
+      additionalProperties: false
+      required:
+      - from
+      - to
+      - group_by
+      properties:
+        from:
+          $ref: ../schemas/local-date.schema.json
+        to:
+          $ref: ../schemas/local-date.schema.json
+        group_by:
+          type: string
+          enum:
+          - vendor
+          - store
+          - invoice_type
+          - month
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+    SpendingSummaryOutput:
+      title: SpendingSummaryOutput
+      type: object
+      additionalProperties: false
+      required:
+      - from
+      - to
+      - group_by
+      - total_vnd
+      - invoice_count
+      - groups
+      properties:
+        from:
+          $ref: ../schemas/local-date.schema.json
+        to:
+          $ref: ../schemas/local-date.schema.json
+        group_by:
+          type: string
+          enum:
+          - vendor
+          - store
+          - invoice_type
+          - month
+        total_vnd:
+          $ref: ../schemas/signed-money-vnd.schema.json
+        invoice_count:
+          type: integer
+          minimum: 0
+        groups:
+          type: array
+          items:
+            title: SpendingSummaryGroup
+            type: object
+            additionalProperties: false
+            required:
+            - key
+            - label
+            - invoice_count
+            - total_vnd
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              invoice_count:
+                type: integer
+                minimum: 0
+              total_vnd:
+                $ref: ../schemas/signed-money-vnd.schema.json
+    VendorStatsInput:
+      title: VendorStatsInput
+      type: object
+      additionalProperties: false
+      required:
+      - vendor_id
+      properties:
+        vendor_id:
+          type: string
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 6
+    VendorStatsOutput:
+      title: VendorStatsOutput
+      type: object
+      additionalProperties: false
+      required:
+      - vendor_id
+      - vendor_name
+      - months
+      - invoice_count
+      - total_vnd
+      - above_contract_count
+      - yellow_count
+      - red_count
+      properties:
+        vendor_id:
+          type: string
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+        vendor_name:
+          type: string
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+        invoice_count:
+          type: integer
+          minimum: 0
+        total_vnd:
+          $ref: ../schemas/signed-money-vnd.schema.json
+        above_contract_count:
+          type: integer
+          minimum: 0
+        yellow_count:
+          type: integer
+          minimum: 0
+        red_count:
+          type: integer
+          minimum: 0
+    PriceTrendInput:
+      title: PriceTrendInput
+      type: object
+      additionalProperties: false
+      required:
+      - sku
+      properties:
+        sku:
+          type: string
+          minLength: 1
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 6
+    PriceTrendOutput:
+      title: PriceTrendOutput
+      type: object
+      additionalProperties: false
+      required:
+      - sku
+      - contract_unit_price
+      - points
+      properties:
+        sku:
+          type: string
+        contract_unit_price:
+          anyOf:
+          - $ref: ../schemas/decimal.schema.json
+          - type: 'null'
+        points:
+          type: array
+          items:
+            title: PriceTrendPoint
+            type: object
+            additionalProperties: false
+            required:
+            - month
+            - avg_unit_price
+            - min_unit_price
+            - max_unit_price
+            - delta_vs_contract_pct
+            properties:
+              month:
+                type: string
+                pattern: ^\d{4}-\d{2}$
+              avg_unit_price:
+                $ref: ../schemas/decimal.schema.json
+              min_unit_price:
+                $ref: ../schemas/decimal.schema.json
+              max_unit_price:
+                $ref: ../schemas/decimal.schema.json
+              delta_vs_contract_pct:
+                anyOf:
+                - $ref: ../schemas/decimal.schema.json
+                - type: 'null'
+    QueueStatusInput:
+      title: QueueStatusInput
+      description: Đầu vào tool `queue_status` tổng hợp hàng chờ duyệt hiện tại.
+      type: object
+      additionalProperties: false
+      properties: {}
+    QueueStatusOutput:
+      title: QueueStatusOutput
+      type: object
+      additionalProperties: false
+      required:
+      - counts_by_status
+      - pending_approval_total_vnd
+      - nearest_due_on
+      properties:
+        counts_by_status:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        pending_approval_total_vnd:
+          $ref: ../schemas/signed-money-vnd.schema.json
+        nearest_due_on:
+          anyOf:
+          - $ref: ../schemas/local-date.schema.json
+          - type: 'null'
+    UtilitySummaryInput:
+      title: UtilitySummaryInput
+      type: object
+      additionalProperties: false
+      properties:
+        store_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 12
+    UtilitySummaryOutput:
+      title: UtilitySummaryOutput
+      type: object
+      additionalProperties: false
+      required:
+      - months
+      - stores
+      properties:
+        months:
+          type: integer
+          minimum: 1
+          maximum: 12
+        stores:
+          type: array
+          items:
+            title: UtilitySummaryStoreItem
+            type: object
+            additionalProperties: false
+            required:
+            - store_id
+            - store_name
+            - utility_type
+            - latest_amount_vnd
+            - median_amount_vnd
+            - out_of_range_months
+            properties:
+              store_id:
+                type: string
+                pattern: ^sto_[0-9A-HJKMNP-TV-Z]{26}$
+              store_name:
+                type: string
+              utility_type:
+                type: string
+                enum:
+                - electricity
+                - water
+              latest_amount_vnd:
+                $ref: ../schemas/money-vnd.schema.json
+              median_amount_vnd:
+                $ref: ../schemas/money-vnd.schema.json
+              out_of_range_months:
+                type: integer
+                minimum: 0
+    PaymentHistoryInput:
+      title: PaymentHistoryInput
+      type: object
+      additionalProperties: false
+      required:
+      - from
+      - to
+      properties:
+        from:
+          $ref: ../schemas/local-date.schema.json
+        to:
+          $ref: ../schemas/local-date.schema.json
+        vendor_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+    PaymentHistoryOutput:
+      title: PaymentHistoryOutput
+      type: object
+      additionalProperties: false
+      required:
+      - payments
+      properties:
+        payments:
+          type: array
+          items:
+            title: PaymentHistoryItem
+            type: object
+            additionalProperties: false
+            required:
+            - payment_intent_id
+            - invoice_id
+            - vendor_id
+            - vendor_name
+            - paid_on
+            - settled_at
+            - amount_vnd
+            - channel
+            properties:
+              payment_intent_id:
+                type: string
+                pattern: ^pi_[0-9A-HJKMNP-TV-Z]{26}$
+              invoice_id:
+                type: string
+                pattern: ^inv_[0-9A-HJKMNP-TV-Z]{26}$
+              vendor_id:
+                type:
+                - string
+                - 'null'
+                pattern: ^ven_[0-9A-HJKMNP-TV-Z]{26}$
+              vendor_name:
+                type:
+                - string
+                - 'null'
+              paid_on:
+                $ref: ../schemas/local-date.schema.json
+              settled_at:
+                $ref: ../schemas/timestamp.schema.json
+              amount_vnd:
+                $ref: ../schemas/money-vnd.schema.json
+              channel:
+                $ref: ../schemas/channel.schema.json

@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/capability-token-claims.schema.json",
+  "title": "CapabilityTokenClaims",
+  "description": "Claims của capability JWT (EdDSA) do core ký cho điều phối (supervisor) hoặc một bot trong một attempt của job. Thời hạn tối đa 120 s (exp - iat <= 120).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "iss",
+    "aud",
+    "sub",
+    "tenant_id",
+    "job_id",
+    "invoice_id",
+    "attempt",
+    "worker_id",
+    "bot_version",
+    "tools",
+    "exp",
+    "jti"
+  ],
+  "properties": {
+    "iss": {
+      "type": "string",
+      "const": "core"
+    },
+    "aud": {
+      "type": "string",
+      "const": "internal-api"
+    },
+    "sub": {
+      "type": "string",
+      "minLength": 1,
+      "description": "'supervisor' cho điều phối chief-accountant hoặc '<bot_id>' cho bot chuyên môn."
+    },
+    "tenant_id": {
+      "type": "string",
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "invoice_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Null đối với job question hoặc report không gắn hóa đơn."
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bot_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Bắt buộc null khi sub = 'supervisor'; bắt buộc integer >= 1 khi sub là '<bot_id>'."
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "description": "Danh sách tool được cấp. Token supervisor không bao giờ chứa tool untrusted (inbox, chat_messages, invoices)."
+    },
+    "store_ids": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^sto_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Giới hạn danh sách quán cho hội thoại/báo cáo của store_manager."
+    },
+    "iat": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Thời điểm phát hành (Unix epoch giây); bắt buộc exp - iat <= 120."
+    },
+    "exp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Thời điểm hết hạn (Unix epoch giây); tối đa 120 s kể từ iat (exp - iat <= 120 và exp <= now + 120 s)."
+    },
+    "jti": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "oneOf": [
+    {
+      "title": "SupervisorCapabilityTokenConstraints",
+      "properties": {
+        "sub": {
+          "const": "supervisor"
+        },
+        "bot_version": {
+          "type": "null"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "not": {
+              "enum": [
+                "inbox",
+                "chat_messages",
+                "invoices"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "BotCapabilityTokenConstraints",
+      "properties": {
+        "sub": {
+          "not": {
+            "const": "supervisor"
+          }
+        },
+        "bot_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  ]
+}

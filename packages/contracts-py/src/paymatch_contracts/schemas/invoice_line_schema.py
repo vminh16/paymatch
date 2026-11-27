@@ -21,6 +21,7 @@ class Kind(StrEnum):
 class InvoiceLine(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     line_id: Annotated[str, Field(pattern='^lin_[0-9A-HJKMNP-TV-Z]{26}$')]
     position: Annotated[int, Field(ge=1)]

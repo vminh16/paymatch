@@ -1,0 +1,329 @@
+{
+  "version": 1,
+  "spec": "docs/05-api/schemas.md#4-duyệt-và-chi",
+  "jcs_vectors": [
+    {
+      "name": "primitives_and_nested_object",
+      "input": {
+        "z": [
+          true,
+          false,
+          null,
+          0,
+          -1620000,
+          22400000
+        ],
+        "a": {
+          "k2": "v2",
+          "k1": "v1"
+        }
+      },
+      "canonical_json": "{\"a\":{\"k1\":\"v1\",\"k2\":\"v2\"},\"z\":[true,false,null,0,-1620000,22400000]}",
+      "sha256": "b523e872acba9b28b3edba5dd61e30d1f353b3227d9dd4861e2ca95e3e3d8a5b"
+    },
+    {
+      "name": "control_chars_and_vietnamese",
+      "input": {
+        "note": "Đã gọi 0280***003\txác nhận\n\"OK\" \\ / \u0000\u001f\b\f\r"
+      },
+      "canonical_json": "{\"note\":\"Đã gọi 0280***003\\txác nhận\\n\\\"OK\\\" \\\\ / \\u0000\\u001f\\b\\f\\r\"}",
+      "sha256": "d075e2471a4b8ec93342c839901e853431413012319c84d3916eabef4bf16318"
+    },
+    {
+      "name": "utf16_code_unit_key_order",
+      "input": {
+        "": "bmp_pua",
+        "😀": "supplementary_emoji",
+        "\r": "cr",
+        "1": "digit",
+        "ö": "o_umlaut"
+      },
+      "canonical_json": "{\"\\r\":\"cr\",\"1\":\"digit\",\"ö\":\"o_umlaut\",\"😀\":\"supplementary_emoji\",\"\":\"bmp_pua\"}",
+      "sha256": "444e7fff86eaeaf74be1f03afb572c30cb106738121c91cd8d06ed594cde3353"
+    },
+    {
+      "name": "safe_integer_boundaries",
+      "input": {
+        "min_safe": -9007199254740991,
+        "max_safe": 9007199254740991
+      },
+      "canonical_json": "{\"max_safe\":9007199254740991,\"min_safe\":-9007199254740991}",
+      "sha256": "a89049ae419a1d5be4e19bf82d230cbd8b668759c1602a32899faddba91e2d9a"
+    }
+  ],
+  "jcs_reject_vectors": [
+    {
+      "name": "above_max_safe_integer",
+      "input": {
+        "amount_vnd": 9007199254740992
+      },
+      "reason": "Integer exceeds IEEE-754 MAX_SAFE_INTEGER (9007199254740991)"
+    },
+    {
+      "name": "below_min_safe_integer",
+      "input": {
+        "amount_vnd": -9007199254740992
+      },
+      "reason": "Integer is below IEEE-754 MIN_SAFE_INTEGER (-9007199254740991)"
+    }
+  ],
+  "domain_vectors": [
+    {
+      "name": "cups_invoice_intent_hash",
+      "function": "intent_hash_invoice",
+      "args": {
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "document_sha256": "7bd877246110eed1e0a0e70cc74ab73739ea96a2cfd558102668d2f425de9995",
+        "payee_account_id": "vac_01M883RZCB3B6Y8WG7WQVC1BBY",
+        "amount_vnd": 22400000,
+        "channel": "bank_transfer"
+      },
+      "canonical_object": {
+        "v": 1,
+        "kind": "invoice",
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "document_sha256": "7bd877246110eed1e0a0e70cc74ab73739ea96a2cfd558102668d2f425de9995",
+        "payee_account_id": "vac_01M883RZCB3B6Y8WG7WQVC1BBY",
+        "amount_vnd": 22400000,
+        "channel": "bank_transfer"
+      },
+      "canonical_json": "{\"amount_vnd\":22400000,\"channel\":\"bank_transfer\",\"document_sha256\":\"7bd877246110eed1e0a0e70cc74ab73739ea96a2cfd558102668d2f425de9995\",\"invoice_id\":\"inv_01M882P8NTCDKGE2KVFMBTS5RK\",\"kind\":\"invoice\",\"payee_account_id\":\"vac_01M883RZCB3B6Y8WG7WQVC1BBY\",\"v\":1}",
+      "expected_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb"
+    },
+    {
+      "name": "unknown_vendor_null_payee_intent_hash",
+      "function": "intent_hash_invoice",
+      "args": {
+        "invoice_id": "inv_01M883YAYXMNBVDV7CSN4MH4C4",
+        "document_sha256": "4631d65520ef4af697f97229a23e8b8d3d0f68910c71a3e6f19b6d18be4b2cfb",
+        "payee_account_id": null,
+        "amount_vnd": 8800000,
+        "channel": "bank_transfer"
+      },
+      "canonical_object": {
+        "v": 1,
+        "kind": "invoice",
+        "invoice_id": "inv_01M883YAYXMNBVDV7CSN4MH4C4",
+        "document_sha256": "4631d65520ef4af697f97229a23e8b8d3d0f68910c71a3e6f19b6d18be4b2cfb",
+        "payee_account_id": null,
+        "amount_vnd": 8800000,
+        "channel": "bank_transfer"
+      },
+      "canonical_json": "{\"amount_vnd\":8800000,\"channel\":\"bank_transfer\",\"document_sha256\":\"4631d65520ef4af697f97229a23e8b8d3d0f68910c71a3e6f19b6d18be4b2cfb\",\"invoice_id\":\"inv_01M883YAYXMNBVDV7CSN4MH4C4\",\"kind\":\"invoice\",\"payee_account_id\":null,\"v\":1}",
+      "expected_hash": "814d5db7aed90fb642a1e0c67e3df005fd5e3b6d34662a8238479d2cf9e85f7d"
+    },
+    {
+      "name": "escrow_intent_hash",
+      "function": "intent_hash_escrow",
+      "args": {
+        "purchase_order_id": "po_01M886F6SP0ZHE2X89GQ1TRJSP",
+        "payee_account_id": "vac_01M886BQPPTZR4D9H21Q5CM9PT",
+        "amount_vnd": 8800000,
+        "channel": "escrow"
+      },
+      "canonical_object": {
+        "v": 1,
+        "kind": "escrow",
+        "purchase_order_id": "po_01M886F6SP0ZHE2X89GQ1TRJSP",
+        "payee_account_id": "vac_01M886BQPPTZR4D9H21Q5CM9PT",
+        "amount_vnd": 8800000,
+        "channel": "escrow"
+      },
+      "canonical_json": "{\"amount_vnd\":8800000,\"channel\":\"escrow\",\"kind\":\"escrow\",\"payee_account_id\":\"vac_01M886BQPPTZR4D9H21Q5CM9PT\",\"purchase_order_id\":\"po_01M886F6SP0ZHE2X89GQ1TRJSP\",\"v\":1}",
+      "expected_hash": "f8ea87ee628f1bdc5abc3393b43aafa16da1a64d96a1965f0c3b03610b0561e5"
+    },
+    {
+      "name": "approval_payload_without_verification",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": null
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": null
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":null}",
+      "expected_hash": "26eb2d994668478a22382c0557fda9265a61cc6ba45206bba785659f4c598404"
+    },
+    {
+      "name": "approval_payload_with_verification",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T08:30:00+07:00"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_plus_00_00",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00+00:00"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_z",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "approval_payload_with_verification_utc_fractional_000z",
+      "function": "payload_hash_approval",
+      "args": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00.000Z"
+        }
+      },
+      "canonical_object": {
+        "intent_hash": "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb",
+        "verification": {
+          "called_phone_on_file": true,
+          "result": "confirmed",
+          "note": "Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.",
+          "at": "2026-11-26T01:30:00Z"
+        }
+      },
+      "canonical_json": "{\"intent_hash\":\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\",\"verification\":{\"at\":\"2026-11-26T01:30:00Z\",\"called_phone_on_file\":true,\"note\":\"Đã gọi 0280***003 xác nhận với kế toán trưởng NCC.\",\"result\":\"confirmed\"}}",
+      "expected_hash": "626a2eba5236b3eb31218fac08c5bef2c365767a3d6b796d724260838801d22a"
+    },
+    {
+      "name": "batch_payload_sorted_by_invoice_id",
+      "function": "payload_hash_batch",
+      "args": {
+        "preview_id": "pvw_01M885AXP309SER6BAC46N5FJT",
+        "items": [
+          [
+            "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+            "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb"
+          ],
+          [
+            "inv_01M8808XXD8017SJ9NTGTNC48Y",
+            "900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f"
+          ]
+        ]
+      },
+      "canonical_object": {
+        "preview_id": "pvw_01M885AXP309SER6BAC46N5FJT",
+        "items": [
+          [
+            "inv_01M8808XXD8017SJ9NTGTNC48Y",
+            "900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f"
+          ],
+          [
+            "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+            "7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb"
+          ]
+        ]
+      },
+      "canonical_json": "{\"items\":[[\"inv_01M8808XXD8017SJ9NTGTNC48Y\",\"900cc2e7b79b8ac1fe213fbc5a603e5e93ca803cbd2a3cd9547653e7e2d0e48f\"],[\"inv_01M882P8NTCDKGE2KVFMBTS5RK\",\"7fe62bf514d7be8158c45f4f9a8c0c070629d068c55b20d4a3ae4a20fc2327fb\"]],\"preview_id\":\"pvw_01M885AXP309SER6BAC46N5FJT\"}",
+      "expected_hash": "34e4955c162b784db5a3841d4063dfa1821d993c85cb186c28a552a727c4e199"
+    },
+    {
+      "name": "approve_invoice_action_hash",
+      "function": "action_hash",
+      "args": {
+        "action": "approve_invoice",
+        "resource_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "payload_hash": "26eb2d994668478a22382c0557fda9265a61cc6ba45206bba785659f4c598404"
+      },
+      "canonical_object": {
+        "v": 1,
+        "action": "approve_invoice",
+        "resource_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "payload_hash": "26eb2d994668478a22382c0557fda9265a61cc6ba45206bba785659f4c598404"
+      },
+      "canonical_json": "{\"action\":\"approve_invoice\",\"payload_hash\":\"26eb2d994668478a22382c0557fda9265a61cc6ba45206bba785659f4c598404\",\"resource_id\":\"inv_01M882P8NTCDKGE2KVFMBTS5RK\",\"v\":1}",
+      "expected_hash": "5ba2fae2ce147193a0b4d7d2f39e2a1c5eb08a5fefa7972d1a04e068067e4c34"
+    },
+    {
+      "name": "approve_batch_action_hash",
+      "function": "action_hash",
+      "args": {
+        "action": "approve_batch",
+        "resource_id": "pvw_01M885AXP309SER6BAC46N5FJT",
+        "payload_hash": "34e4955c162b784db5a3841d4063dfa1821d993c85cb186c28a552a727c4e199"
+      },
+      "canonical_object": {
+        "v": 1,
+        "action": "approve_batch",
+        "resource_id": "pvw_01M885AXP309SER6BAC46N5FJT",
+        "payload_hash": "34e4955c162b784db5a3841d4063dfa1821d993c85cb186c28a552a727c4e199"
+      },
+      "canonical_json": "{\"action\":\"approve_batch\",\"payload_hash\":\"34e4955c162b784db5a3841d4063dfa1821d993c85cb186c28a552a727c4e199\",\"resource_id\":\"pvw_01M885AXP309SER6BAC46N5FJT\",\"v\":1}",
+      "expected_hash": "451ae09b30ac8c44870e4b93dc01fd9594f0cbee896c940602d8b14d87d1d0d4"
+    },
+    {
+      "name": "create_escrow_action_hash",
+      "function": "action_hash",
+      "args": {
+        "action": "create_escrow",
+        "resource_id": "po_01M886F6SP0ZHE2X89GQ1TRJSP",
+        "payload_hash": "ffdaea0af449b6df48f339b9eed9d1d47429dc360bd114becf6161c54cc9fdff"
+      },
+      "canonical_object": {
+        "v": 1,
+        "action": "create_escrow",
+        "resource_id": "po_01M886F6SP0ZHE2X89GQ1TRJSP",
+        "payload_hash": "ffdaea0af449b6df48f339b9eed9d1d47429dc360bd114becf6161c54cc9fdff"
+      },
+      "canonical_json": "{\"action\":\"create_escrow\",\"payload_hash\":\"ffdaea0af449b6df48f339b9eed9d1d47429dc360bd114becf6161c54cc9fdff\",\"resource_id\":\"po_01M886F6SP0ZHE2X89GQ1TRJSP\",\"v\":1}",
+      "expected_hash": "e9b627124d5c6ca3ad58267e34556639ebba347245baced4bfc1aff5976f2ddb"
+    }
+  ]
+}

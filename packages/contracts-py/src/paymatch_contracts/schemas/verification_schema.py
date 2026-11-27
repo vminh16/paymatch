@@ -19,6 +19,7 @@ class Result(StrEnum):
 class Verification(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     called_phone_on_file: Literal[True]
     result: Result

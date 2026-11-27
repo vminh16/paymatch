@@ -12,10 +12,10 @@ Gate là **code, không phải agent**. Gate là nơi duy nhất ra lệnh chi; 
 ① Luật cứng (code, không cấu hình được)
    - payee chỉ từ vendor registry, khớp MST:
        chuyển khoản / thẻ ảo → TK `verified`; escrow → TK `verified` hoặc `escrow_only`
-   - mỗi hóa đơn chi tối đa một lần (unique invoice_id); mỗi PO tối đa một escrow đang mở
+   - mỗi hóa đơn chi tối đa một lần (unique invoice_id); mỗi PO tối đa một escrow đang mở (`pending`/`held`); mỗi approval tạo cọc chỉ cấp vốn cho tối đa một escrow vĩnh viễn (`UNIQUE approval_id → escrow_id`, sau hoàn/thất bại phải có approval mới)
    - approval phải khớp intent_hash hiện tại
    - hóa đơn `blocked` (🔴) không bao giờ ALLOW
-   - hóa đơn gắn PO đang có escrow `held` chỉ chi bằng giải ngân escrow
+   - hóa đơn gắn PO đang có escrow `held` chỉ chi bằng giải ngân escrow; giải ngân yêu cầu `approved amount_vnd == escrow.amount_vnd` VÀ `approved payee_account_id == escrow.vendor_account_id`, đồng thời Gate kiểm lại `intent_hash` của approval `active` mới nhất và toàn bộ policy (kill switch, hard block, cảnh báo chéo); sai lệch → DENY (`ESCROW_MISMATCH`)
    - indicator trong `risk.hard_blocks` → DENY
    - indicator khớp cảnh báo chéo mà approval không ghi xác minh → DENY (D8)
    - indicator khớp danh sách chính thức (SIMO) → DENY
@@ -66,7 +66,7 @@ approval = {invoice_id, job_id, status: active|superseded|consumed, intent_hash,
 - Hóa đơn, payee hay số tiền đổi sau khi duyệt → hash đổi → approval vô hiệu (chống "ký giao dịch nhưng không ký quyết định").
 - Duyệt hàng loạt: một lần xác thực, sinh **một approval cho mỗi hóa đơn**, cùng `bulk_batch_id`.
 - Tự chi: approval do core tạo với `method = mandate`; Gate kiểm lại toàn bộ, không tin core.
-- Escrow (D7) không có hóa đơn lúc tạo: intent gắn `purchase_order_id`, `intent_hash = hash(purchase_order_id, vendor_account_id, amount, 'escrow')`; giải ngân yêu cầu `goods_receipt` + hóa đơn khớp PO.
+- Escrow (D7) không có hóa đơn lúc tạo: intent gắn `purchase_order_id`, `intent_hash = hash(purchase_order_id, vendor_account_id, amount, 'escrow')`. Một `approval_id` chỉ cấp vốn cho tối đa **một** escrow vĩnh viễn (`UNIQUE approval_id → escrow_id`); gọi lại `POST /gate/escrows` với cùng `approval_id` trả lại escrow gốc (mọi trạng thái); sau khi cọc hết hạn/hoàn (`refunded`) hoặc thất bại (`failed`), tạo cọc mới bắt buộc phải có approval mới. Giải ngân (`POST /gate/escrows/{id}:release`) yêu cầu `goods_receipt` thuộc PO + hóa đơn giải ngân có approval `active` của job hoàn tất mới nhất (`channel = escrow`, `intent_hash` khớp), `approved amount_vnd == escrow.amount_vnd` và `approved payee_account_id == escrow.vendor_account_id`, đồng thời Gate đánh giá lại toàn bộ policy (kill switch, hard block, cảnh báo chéo); sai lệch → `422 GATE_DENIED` (`ESCROW_MISMATCH`).
 
 ## 4. Payment intent: hai pha
 

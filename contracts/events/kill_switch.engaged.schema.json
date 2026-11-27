@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/kill_switch.engaged.schema.json",
+  "title": "KillSwitchEngagedEvent",
+  "description": "Kill switch được bật khẩn cấp (F4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "kill_switch.engaged"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "KillSwitchEngagedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kill_switch_id",
+        "scope",
+        "target_id"
+      ],
+      "properties": {
+        "kill_switch_id": {
+          "type": "string",
+          "pattern": "^ksw_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "scope": {
+          "$ref": "../schemas/kill-switch-scope.schema.json"
+        },
+        "target_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810MM1BCDEFGHJKMNPQRST",
+      "type": "kill_switch.engaged",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T09:30:00+07:00",
+      "tenant_id": null,
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "kill_switch_id": "ksw_01M885AXP309SER6BAC46N5FJT",
+        "scope": "auto_pay_global",
+        "target_id": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/contract-item.schema.json",
+  "title": "ContractItem",
+  "description": "Một mặt hàng, quy cách đóng gói và đơn giá trong hợp đồng khung của nhà cung cấp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "item_id",
+    "sku",
+    "name",
+    "base_unit",
+    "pack_spec",
+    "pack_qty",
+    "unit_price",
+    "vat_rate"
+  ],
+  "properties": {
+    "item_id": {
+      "type": "string",
+      "pattern": "^itm_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "sku": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pack_spec": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pack_qty": {
+      "$ref": "./decimal.schema.json"
+    },
+    "unit_price": {
+      "$ref": "./decimal.schema.json"
+    },
+    "vat_rate": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

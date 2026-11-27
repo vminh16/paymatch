@@ -13,6 +13,7 @@ from . import channel_schema, gate_reason_schema, money_vnd_schema, timestamp_sc
 class ApprovalPreviewPayee(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     vendor_account_id: Annotated[str, Field(pattern='^vac_[0-9A-HJKMNP-TV-Z]{26}$')]
     bank_name: str | None
@@ -35,6 +36,7 @@ class AllowedMethod(StrEnum):
 class ApprovalPreview(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]

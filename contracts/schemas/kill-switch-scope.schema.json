@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/kill-switch-scope.schema.json",
+  "title": "KillSwitchScope",
+  "description": "Phạm vi ngắt khẩn cấp (kill switch) trên Control Plane.",
+  "type": "string",
+  "enum": [
+    "indicator",
+    "tenant",
+    "bot",
+    "tool",
+    "auto_pay_global"
+  ]
+}

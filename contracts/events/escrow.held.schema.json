@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/escrow.held.schema.json",
+  "title": "EscrowHeldEvent",
+  "description": "Khoản cọc tạm giữ đã được khóa thành công trên rail (F7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "escrow.held"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "EscrowHeldData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "escrow_id",
+        "purchase_order_id",
+        "source_invoice_id"
+      ],
+      "properties": {
+        "escrow_id": {
+          "type": "string",
+          "pattern": "^esc_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "purchase_order_id": {
+          "type": "string",
+          "pattern": "^po_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "source_invoice_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810VV8BCDEFGHJKMNPQRST",
+      "type": "escrow.held",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T09:15:00+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "escrow_id": "esc_01M88A6SAP3R27VDQ55VAKCF0P",
+        "purchase_order_id": "po_01M886F6SP0ZHE2X89GQ1TRJSP",
+        "source_invoice_id": "inv_01M883YAYXMNBVDV7CSN4MH4C4"
+      }
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/vendor-account.schema.json",
+  "title": "VendorAccount",
+  "description": "Tài khoản thụ hưởng hoặc mã đơn vị chấp nhận thẻ ảo của nhà cung cấp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "vendor_account_id",
+    "vendor_id",
+    "kind",
+    "bank_code",
+    "bank_name",
+    "account_number_masked",
+    "merchant_id",
+    "account_name",
+    "status",
+    "verified_at"
+  ],
+  "properties": {
+    "vendor_account_id": {
+      "type": "string",
+      "pattern": "^vac_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "vendor_id": {
+      "type": "string",
+      "pattern": "^ven_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "bank_account",
+        "card_merchant"
+      ]
+    },
+    "bank_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bank_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "account_number_masked": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "merchant_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "account_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "$ref": "./vendor-account-status.schema.json"
+    },
+    "verified_at": {
+      "anyOf": [
+        {
+          "$ref": "./timestamp.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

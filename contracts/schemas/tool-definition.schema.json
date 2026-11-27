@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/tool-definition.schema.json",
+  "title": "ToolDefinition",
+  "description": "Định nghĩa siêu dữ liệu và JSON Schema input/output của một tool chỉ-đọc.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tool_id",
+    "description",
+    "input_schema",
+    "output_schema",
+    "default_provenance",
+    "scope"
+  ],
+  "properties": {
+    "tool_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "default_provenance": {
+      "$ref": "./provenance.schema.json"
+    },
+    "scope": {
+      "type": "string",
+      "const": "tenant"
+    }
+  }
+}

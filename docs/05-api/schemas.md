@@ -5,8 +5,8 @@ Trạng thái: **v0.2 (26/11/2026)**, đã sửa theo review. Mỗi mục ở đ
 ## 1. Kiểu nền
 
 ```yaml
-MoneyVnd: integer            # đồng, >= 0
-SignedMoneyVnd: integer      # đồng, có thể âm (chỉ dùng cho hóa đơn điều chỉnh TCHDon 2/4)
+MoneyVnd: integer            # đồng, 0 <= x <= 9007199254740991 (2^53 - 1, safe integer cho JSON/JS/JCS)
+SignedMoneyVnd: integer      # đồng, -9007199254740991 <= x <= 9007199254740991 (chỉ dùng cho hóa đơn điều chỉnh TCHDon 2/4)
 Decimal: string              # pattern ^-?\d{1,15}(\.\d{1,6})?$; parser cắt chữ số 0 thừa cuối phần thập phân (vd 0.000000000 → "0") trước khi kiểm mẫu; chữ số khác 0 sau vị trí thứ 6 được giữ nguyên ở parser domain (không tự làm tròn/cắt) và sẽ không khớp mẫu này ở tầng schema/API
 Timestamp: string            # RFC 3339, có offset
 LocalDate: string            # YYYY-MM-DD, giờ Việt Nam
@@ -129,7 +129,8 @@ FindingSubmission:                    # agent-runtime gửi; core tự điền f
   reason_codes, reason: string, evidence, provenance, proposed_channel?, proposed_pay_on?
 
 FindingForSupervisor: {finding_id, bot_id, severity, reason_codes, evidence}   # bản gửi lại cho điều phối: không có reason, không có chữ
-BotAnswer: {bot_id, facts: [{key, value: string | number, tool_call_id, verified: boolean}], reason_codes}
+FactKey: string              # enum do registry sở hữu (contracts/schemas/fact-key.schema.json), ánh xạ các chỉ số/mã từ tools.md và agent-roster.md
+BotAnswer: {bot_id, facts: [{key: FactKey, value: string | number, tool_call_id, verified: boolean}], reason_codes}   # value chuỗi chỉ chấp nhận từ trường output có provenance = trusted
 
 Brief:                                # tờ trình 5 dòng của chief-accountant
   brief_id, job_id
@@ -143,13 +144,26 @@ Brief:                                # tờ trình 5 dòng của chief-accounta
 ```yaml
 ApprovalMethod: single | bulk | mandate
 
-# Cách tính hash (core, Gate, client dùng chung một hàm trong paymatch_contracts)
-#   canonical = JSON Canonicalization Scheme (RFC 8785); hash = sha256, hex chữ thường
+# Cách tính hash (core, Gate, client dùng chung gói chuẩn `paymatch_hashing` ở packages/paymatch-hashing;
+#   vector kiểm thử chuẩn tại contracts/test-vectors/hashing.json)
+#   canonical = JSON Canonicalization Scheme (RFC 8785, không dùng số thực float, từ chối mọi số nguyên ngoài
+#               khoảng safe integer [-9007199254740991, 9007199254740991]); hash = sha256 UTF-8, hex chữ thường
+#   chuẩn hóa Timestamp trong payload băm: mọi trường Timestamp đem băm phải đổi về UTC dạng
+#               `YYYY-MM-DDTHH:MM:SSZ` (bỏ phần thập phân giây) trước khi JCS/SHA-256 (vd `+07:00`, `+00:00`, `Z`, `.000Z`
+#               biểu diễn cùng giây UTC cho cùng một hash)
 #   intent_hash (hóa đơn) = H({"v":1,"kind":"invoice","invoice_id","document_sha256","payee_account_id","amount_vnd","channel"})
+#                           (payee_account_id = null chỉ khi Gate DENY và NCC chưa có TK trong registry)
 #   intent_hash (cọc)     = H({"v":1,"kind":"escrow","purchase_order_id","payee_account_id","amount_vnd","channel":"escrow"})
 #   payload_hash (duyệt)  = H({"intent_hash", "verification": Verification | null})
-#   payload_hash (batch)  = H({"preview_id", "items": [[invoice_id, intent_hash], …] sắp theo invoice_id})
+#                           (khi verification != null, đối tượng luôn đủ 4 khóa {"called_phone_on_file","result","note","at"};
+#                            nếu vắng note thì chuẩn hóa thành "note": null; trường `at` được chuẩn hóa về UTC
+#                            `YYYY-MM-DDTHH:MM:SSZ` (bỏ phần thập phân giây) trước khi băm; approval-preview tính sẵn
+#                            với verification = null, còn khi có verification thì client/core tính lại với Verification đã nhập)
+#   payload_hash (batch)  = H({"preview_id", "items": [[invoice_id, intent_hash], …] sắp tăng dần theo invoice_id (UTF-16 code unit)})
 #   action_hash           = H({"v":1,"action","resource_id","payload_hash"})
+#                           (action snake_case: approve_invoice | approve_batch | create_escrow | sign_mandate
+#                            | create_vendor | change_vendor_phone | approve_vendor_verification
+#                            | activate_vendor_contract | lift_auto_pay_suspension | approve_bot)
 
 ApprovalPreview:                      # GET /m/invoices/{id}/approval-preview
   invoice_id
@@ -203,6 +217,7 @@ GateReason:
                                       # | CROSS_ALERT_UNVERIFIED | OFFICIAL_FRAUD_LIST | KILL_SWITCH | POLICY_UNAVAILABLE
                                       # | CHANNEL_NOT_ALLOWED | ALREADY_PAID | OUTSIDE_TIME_WINDOW | MANDATE_NOT_AUTO_PAY
                                       # | VENDOR_NOT_IN_AUTO_PAY | VENDOR_SUSPENDED | APPROVAL_MISSING | APPROVAL_STALE
+                                      # | ESCROW_MISMATCH
   layer: hard_rule | platform_policy | mandate
   detail: string                      # trusted (do Gate viết)
 
@@ -306,14 +321,17 @@ ToolResult:
   evidence_ref: string                # = tool_call_id
   error: {code: UPSTREAM_UNAVAILABLE | UPSTREAM_TIMEOUT | NOT_FOUND | INVALID_INPUT, detail} | null
 
-CapabilityTokenClaims:                # JWT ký bởi core (EdDSA), chỉ internal-api kiểm
+CapabilityTokenClaims:                # JWT ký bởi core (EdDSA), chỉ internal-api kiểm; phân biệt oneOf theo loại sub
   iss: core, aud: internal-api
-  sub: "<bot_id>"                     # đúng một bot
-  tenant_id, job_id, invoice_id
+  sub: "supervisor" | "<bot_id>"      # khớp holder ở /heartbeat
+  tenant_id, job_id
+  invoice_id: string | null           # null với job question / report
   attempt: integer, worker_id: string  # token của attempt cũ bị từ chối
-  bot_version: integer
-  tools: [tool_id]
-  exp: <= now + 120 s (gia hạn qua heartbeat)
+  bot_version: integer | null         # sub = "supervisor" → bắt buộc null; sub = "<bot_id>" → bắt buộc integer >= 1
+  tools: [tool_id]                    # sub = "supervisor" → cấm chứa tool untrusted (inbox, chat_messages, invoices)
+  store_ids?: [string] | null         # giới hạn quán cho hội thoại/báo cáo của store_manager
+  iat?: integer                       # Unix epoch giây; thời hạn tối đa exp - iat <= 120 s
+  exp: integer                        # <= iat + 120 s và <= now + 120 s (gia hạn qua heartbeat)
   jti
 ```
 
@@ -321,6 +339,7 @@ CapabilityTokenClaims:                # JWT ký bởi core (EdDSA), chỉ intern
 
 ```yaml
 IndicatorKind: account_hash | tax_id | phone | card_id | merchant_id
+IndicatorRef: {kind: IndicatorKind, value_hash: string}   # value_hash khớp ^[0-9a-f]{64}$ (SHA-256 hex chữ thường); dùng chung trong indicator.flagged, cross_alert.published, hard_block.applied
 Indicator: {indicator_id, kind: IndicatorKind, value_hash: string, first_seen_at, flags_count: integer}   # value thật không lưu với account/phone
 Alert: {alert_id, indicator_ids: [string], reason_codes, source: finding | rail | simo, source_tenant_count: integer, status: open | assigned | dismissed | escalated, assignee: string | null, created_at}
 Case: {case_id, alert_ids, status: open | closed, summary: string, created_by, created_at}

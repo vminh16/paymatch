@@ -13,6 +13,7 @@ from . import job_status_schema, severity_schema, task_type_schema, timestamp_sc
 class InvoiceJobSubject(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     invoice_id: Annotated[str, Field(pattern='^inv_[0-9A-HJKMNP-TV-Z]{26}$')]
 
@@ -20,6 +21,7 @@ class InvoiceJobSubject(BaseModel):
 class QuestionJobSubject(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     conversation_id: Annotated[str, Field(pattern='^cnv_[0-9A-HJKMNP-TV-Z]{26}$')]
     message_id: Annotated[str, Field(pattern='^cmg_[0-9A-HJKMNP-TV-Z]{26}$')]
@@ -28,6 +30,7 @@ class QuestionJobSubject(BaseModel):
 class ReportJobSubject(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     report_id: Annotated[str, Field(pattern='^rpt_[0-9A-HJKMNP-TV-Z]{26}$')]
 
@@ -35,6 +38,7 @@ class ReportJobSubject(BaseModel):
 class BotCallSummary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     bot_id: str
     bot_version: Annotated[int, Field(ge=1)]
@@ -52,6 +56,7 @@ class State(StrEnum):
 class BotState(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     bot_id: str
     state: State
@@ -61,6 +66,7 @@ class BotState(BaseModel):
 class Job(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
+        populate_by_name=True,
     )
     job_id: Annotated[str, Field(pattern='^job_[0-9A-HJKMNP-TV-Z]{26}$')]
     task_type: task_type_schema.TaskType

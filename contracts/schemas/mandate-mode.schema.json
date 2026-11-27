@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/mandate-mode.schema.json",
+  "title": "MandateMode",
+  "description": "Chế độ vận hành ủy nhiệm chi của tenant.",
+  "type": "string",
+  "enum": [
+    "review_only",
+    "ask_first",
+    "auto_pay"
+  ]
+}

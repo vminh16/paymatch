@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/events/invoice.ingested.schema.json",
+  "title": "InvoiceIngestedEvent",
+  "description": "Hóa đơn mới được ingest vào trạng thái investigating cùng job queued.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "type",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "const": "invoice.ingested"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^ten_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "title": "InvoiceIngestedData",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invoice_id",
+        "source",
+        "invoice_type",
+        "duplicate_of"
+      ],
+      "properties": {
+        "invoice_id": {
+          "type": "string",
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "source": {
+          "$ref": "../schemas/invoice-source.schema.json"
+        },
+        "invoice_type": {
+          "$ref": "../schemas/invoice-type.schema.json"
+        },
+        "duplicate_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "event_id": "evt_01M8810AA1BCDEFGHJKMNPQRST",
+      "type": "invoice.ingested",
+      "schema_version": 1,
+      "occurred_at": "2026-11-26T08:25:01+07:00",
+      "tenant_id": "ten_01M88D3C06B97Y4G0S9W8BVKNG",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "data": {
+        "invoice_id": "inv_01M882P8NTCDKGE2KVFMBTS5RK",
+        "source": "email",
+        "invoice_type": "goods",
+        "duplicate_of": null
+      }
+    }
+  ]
+}

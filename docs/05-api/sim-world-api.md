@@ -20,14 +20,16 @@ Dữ liệu nạp từ `services/sim-world/data/` vào bộ nhớ; `POST /sim/sc
 
 | Method | Path | Ai gọi | Body → Kết quả |
 |---|---|---|---|
-| POST | `/sim/rails/transfers` | gate | `{idempotency_key, from_wallet_id, to: {bank_code, account_number, account_name}, amount_vnd, memo}` → `{rail_txn_id, status: settled \| failed, failure_code: INSUFFICIENT_FUNDS \| ACCOUNT_NOT_FOUND \| NAME_MISMATCH \| RAIL_DOWN \| null, settled_at}`. Cùng key → cùng kết quả |
-| GET | `/sim/rails/transfers/{idempotency_key}` | gate | trạng thái (dùng khi timeout) |
-| POST | `/sim/rails/cards` | gate | `{idempotency_key, from_wallet_id, merchant_id, amount_vnd, single_use: true}` → `{card_id, last4, status: issued \| captured}` (v1 trừ ví và thu tiền ngay cho `merchant_id` với `amount_vnd`, ghi 1 bản ghi trong `captures`, trả `status: captured`) |
+| POST | `/sim/rails/transfers` | gate | `{idempotency_key, from_wallet_id, to: {bank_code, account_number, account_name}, amount_vnd, memo}` → `{rail_txn_id, status: settled \| failed, failure_code: INSUFFICIENT_FUNDS \| ACCOUNT_NOT_FOUND \| NAME_MISMATCH \| RAIL_DOWN \| null, settled_at}`. Cùng key + cùng body → cùng kết quả; cùng key + body khác → `409 IDEMPOTENCY_KEY_REUSED` |
+| GET | `/sim/rails/transfers/{idempotency_key}` | gate | trạng thái chuyển khoản (dùng khi timeout) |
+| POST | `/sim/rails/cards` | gate | `{idempotency_key, from_wallet_id, merchant_id, amount_vnd, single_use: true}` → `{card_id, last4, status: issued \| captured}` (v1 trừ ví và thu tiền ngay cho `merchant_id` với `amount_vnd`, ghi 1 bản ghi trong `captures`, trả `status: captured`). Gửi lại `POST` cùng `idempotency_key` (`payment_intent_id`) và cùng body trả kết quả gốc — đây cũng là cách tra trạng thái khi timeout |
 | GET | `/sim/rails/cards/{card_id}` | gate | `{card_id, status: issued \| captured, captures: [{merchant_id, amount_vnd, captured_at}], declined_attempts: [{merchant_id, amount_vnd, reason, at}]}` |
-| POST | `/sim/rails/escrows` | gate | `{idempotency_key, from_wallet_id, to: {...}, amount_vnd, expires_on}` → `{rail_escrow_id, status: held}` |
-| POST | `/sim/rails/escrows/{rail_escrow_id}:release` | gate | `{idempotency_key}` → `{status: released}` |
-| POST | `/sim/rails/escrows/{rail_escrow_id}:refund` | gate | `{idempotency_key}` → `{status: refunded}` |
+| POST | `/sim/rails/escrows` | gate | `{idempotency_key, from_wallet_id, to: {...}, amount_vnd, expires_on}` → `{rail_escrow_id, status: held}`. Gửi lại `POST` cùng `idempotency_key` (`<escrow_id>`) và cùng body trả kết quả gốc — đây cũng là cách tra trạng thái khi timeout |
+| POST | `/sim/rails/escrows/{rail_escrow_id}:release` | gate | `{idempotency_key}` (`rel_<escrow_id>`) → `{status: released}`. Giải ngân toàn bộ số tiền đang giữ sang đúng tài khoản đã khóa lúc tạo cọc (không giải ngân một phần hay đổi tài khoản); gửi lại cùng `idempotency_key` và cùng body trả kết quả gốc |
+| POST | `/sim/rails/escrows/{rail_escrow_id}:refund` | gate | `{idempotency_key}` (`ref_<escrow_id>`) → `{status: refunded}`. Gửi lại cùng `idempotency_key` và cùng body trả kết quả gốc |
 | GET | `/sim/rails/wallets/{wallet_id}` | core (tool `account_balance`, `/m/wallet`) | `{wallet_id, balance_vnd, as_of}` |
+
+Quy ước idempotency của `/sim/rails/*`: mọi lệnh `POST` đều idempotent theo `idempotency_key`; gửi lại `POST` với **cùng `idempotency_key` và cùng body** trả lại trạng thái/kết quả ban đầu (là cơ chế tra trạng thái cho thẻ ảo và cọc tạm giữ khi timeout), còn cùng key nhưng body khác trả `409 IDEMPOTENCY_KEY_REUSED`. Khóa cho thao tác cọc có phạm vi theo thao tác (**operation-scoped**): giữ cọc dùng `<escrow_id>`, giải ngân dùng `rel_<escrow_id>`, hoàn cọc dùng `ref_<escrow_id>`.
 
 Sự kiện phía rail (thẻ bị quẹt sai, chuyển khoản xong) được sim-world đẩy về `POST /internal/webhooks/rails` **ở luồng nền**: phản hồi `/sim/rails/*` không chờ webhook (webhook thử lại tối đa ~10 s, Gate chỉ chờ rail 5 s). Kết quả gửi xem ở `GET /sim/scenario/state` (`webhooks[].delivered`).
 

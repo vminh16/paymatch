@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paymatch.dev/schemas/finding-submission.schema.json",
+  "title": "FindingSubmission",
+  "description": "Payload nộp Finding từ agent-runtime về internal-api; core tự điền finding_id, severity (sau mức sàn) và created_at.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bot_id",
+    "bot_version",
+    "skill_version",
+    "prompt_hash",
+    "severity_reported",
+    "reason_codes",
+    "reason",
+    "evidence",
+    "provenance"
+  ],
+  "properties": {
+    "bot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bot_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "skill_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prompt_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity_reported": {
+      "$ref": "./severity.schema.json"
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "./reason-code.schema.json"
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Giải thích tự do của bot (≤ 1000 ký tự); core bọc thành UntrustedText và không gửi cho điều phối."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "./evidence-ref.schema.json"
+      }
+    },
+    "provenance": {
+      "$ref": "./provenance.schema.json"
+    },
+    "proposed_channel": {
+      "anyOf": [
+        {
+          "$ref": "./channel.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_pay_on": {
+      "anyOf": [
+        {
+          "$ref": "./local-date.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
