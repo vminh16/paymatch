@@ -729,10 +729,12 @@ def determine_post_investigation_status(
     platform_per_invoice_vnd: int,
     is_vendor_suspended: bool,
     now_vn: datetime,
-) -> Literal["auto_pay_eligible", "pending_approval", "blocked"]:
+) -> Literal["auto_pay_eligible", "pending_approval", "blocked", "no_payment_due"]:
     """Compute invoice status after investigation per docs/05-api/merchant-api.md §2 table."""
     if final_severity == "red":
         return "blocked"
+    if total_vnd is not None and total_vnd <= 0:
+        return "no_payment_due"   # downward adjustment / discount / 0 đ: nothing to pay, keep out of the queue
     if final_severity == "yellow":
         return "pending_approval"
 

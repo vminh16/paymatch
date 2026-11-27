@@ -79,6 +79,10 @@ def _collect_invoice_indicator_pairs(
         pairs.append(("tax_id", hash_tax_id_indicator(seller_tax)))
 
     untrusted = inv.get("untrusted") or {}
+    # Seller phone printed on the XML links a not-yet-registered fraudster to other tenants' vendors (F3, TRAP_02).
+    seller_phone = (untrusted.get("seller_phone") or {}).get("text")
+    if seller_phone and any(ch.isdigit() for ch in seller_phone):
+        pairs.append(("phone", hash_phone_indicator(seller_phone)))
     bank_accounts = list(untrusted.get("bank_accounts") or [])
     if not bank_accounts and untrusted.get("seller_bank_account"):
         bank_accounts = [untrusted["seller_bank_account"]]
@@ -375,6 +379,7 @@ def _dispatch_tool(
                     base_unit=ci["base_unit"],
                     pack_qty_contract_str=ci["pack_qty"],
                     unit_price_contract_str=ci["unit_price"],
+                    pack_spec=ci.get("pack_spec") or "",
                 )
             )
         return {"items": results}

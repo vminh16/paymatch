@@ -69,6 +69,8 @@ ToolResult:
 
 `price_check` nhận ánh xạ do bot đề xuất (dòng hàng → sku); quy cách và mọi con số do code lấy/tính. Ánh xạ là việc AI, con số là việc code.
 
+**Đọc quy cách từ chữ trên hóa đơn: tạm thời (v1).** Hiện code dò từ khóa bao bì (`thùng`, `hộp`…) bằng regex và ưu tiên cụm cùng loại bao bì với `pack_spec` của hợp đồng; dòng chỉ ghi "Thùng" không nêu số → không đọc được → `PACK_SIZE_CHANGED`. Cách này chỉ đủ cho bộ dữ liệu demo. **Chưa chốt** phương án tổng quát (bộ đọc quy cách có cấu trúc thay cho regex rải rác, và cách xử lý dòng không nêu số); thảo luận sau khi merge xong PR #8.
+
 ## 4a. Quy ước tra cứu thuế (`tax_id_lookup`, `einvoice_portal`, `tax_risk_list`)
 
 Các tool thuế trả đúng tập mã chính thức của Cục Thuế (khớp [sim-world-api.md §5](../05-api/sim-world-api.md#5-tra-cứu-chính-thức) và [internal-api.md §2–§3](../05-api/internal-api.md)). Ánh xạ sang `ReasonCode` **chỉ dùng các mã hiện có tại [agent-runtime.md §5a](agent-runtime.md#5a-danh-mục-mã-lý-do-nguồn-sự-thật)**; không tự thêm mã mới vào v1.

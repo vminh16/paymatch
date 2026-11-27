@@ -143,6 +143,12 @@ class InvoiceUntrustedFields(BaseModel):
     )
     seller_name: untrusted_text_schema.UntrustedText
     seller_address: untrusted_text_schema.UntrustedText
+    seller_phone: Annotated[
+        untrusted_text_schema.UntrustedText | None,
+        Field(
+            description='NBan/SDThoai. Chỉ dùng để băm thành indicator `phone` cho cảnh báo chéo; KHÔNG BAO GIỜ là số gọi lại xác minh (luôn dùng `phone_on_file` của registry).'
+        ),
+    ] = None
     seller_bank_account: UntrustedSellerBankAccount | None
     payment_terms: untrusted_text_schema.UntrustedText | None
     other_info: list[UntrustedOtherInfoItem]

@@ -849,8 +849,16 @@ def test_i3_core_only_phone_masked_verification_bound_earlier_proof_and_post_loc
     )
     assert r_unver_hash.status_code == 403 and r_unver_hash.json()["code"] == "STEP_UP_INVALID"
 
-    # 5. Successful verification-bound approval: fresh preview + fresh proof -> 200 AND preview consumed once!
-    good_proof = idp.issue_auth_proof(OWNER_A, bound_ah, now_ts=int(sec_clock.now().timestamp()), exp_offset=300)
+    # 5. Successful verification-bound approval: the client gets the hash from POST approval-preview (never hashes
+    #    itself) -> 200 AND preview consumed once!
+    prev5 = client.post(
+        f"/m/invoices/{inv_id}/approval-preview", json={"verification": ver_payload}, headers=owner_hdr
+    )
+    assert prev5.status_code == 200
+    assert prev5.json()["action_hash"] == bound_ah != prev4["action_hash"]
+    good_proof = idp.issue_auth_proof(
+        OWNER_A, prev5.json()["action_hash"], now_ts=int(sec_clock.now().timestamp()), exp_offset=300
+    )
     r_ok = client.post(
         f"/m/invoices/{inv_id}:approve",
         json={"intent_hash": prev4["intent_hash"], "job_id": job_id, "auth_proof": good_proof, "verification": ver_payload},

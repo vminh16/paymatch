@@ -1,4 +1,6 @@
 # Thêm service vào đây khi từng service có Dockerfile.
+# `up` chạy lại migration + seed demo của core (dữ liệu core về trạng thái demo);
+# `down -v` để xóa sạch cả ledger của Gate.
 services:
   postgres:
     image: postgres:16
@@ -14,6 +16,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  core-migrate:   # chạy một lần: migration + seed demo của core, bằng role chủ DB (chỉ local/demo)
+    build:
+      context: ..
+      dockerfile: services/core/Dockerfile
+    command: ["sh", "-c", "python -m core.persistence.migrator && python -m core.persistence.seeder"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${CORE_MIGRATE_DATABASE_URL:-postgresql://paymatch:paymatch@postgres:5432/paymatch}
+    restart: "no"
 
   sim-world:
     build:
@@ -35,8 +49,10 @@ services:
       context: ..
       dockerfile: services/payment-gate/Dockerfile
     depends_on:
-      - postgres
-      - sim-world
+      core-migrate:
+        condition: service_completed_successfully
+      sim-world:
+        condition: service_started
     environment:
       GATE_PORT: "8100"
       DATABASE_URL: ${GATE_DATABASE_URL:-postgresql://gate:gate@postgres:5432/paymatch}
@@ -56,8 +72,8 @@ services:
       dockerfile: services/core/Dockerfile
     command: ["python", "-m", "core.entrypoints.merchant_api"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      core-migrate:
+        condition: service_completed_successfully
       sim-world:
         condition: service_started
     environment:
@@ -67,7 +83,7 @@ services:
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}
       SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
-      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_MERCHANT_API_KEY:-dev-gate-merchant-key}   # Gate nhận diện bên gọi theo khóa: mỗi tiến trình core một khóa
       MERCHANT_PORT: "8001"
     ports: ["8001:8001"]
 
@@ -77,8 +93,8 @@ services:
       dockerfile: services/core/Dockerfile
     command: ["python", "-m", "core.entrypoints.internal_api"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      core-migrate:
+        condition: service_completed_successfully
       sim-world:
         condition: service_started
     environment:
@@ -87,7 +103,7 @@ services:
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}
       SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
-      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_INTERNAL_API_KEY:-dev-gate-internal-key}   # Gate nhận diện bên gọi theo khóa: mỗi tiến trình core một khóa
       INTERNAL_AGENT_SERVICE_KEY: ${INTERNAL_AGENT_SERVICE_KEY:-dev-agent-key}
       SIM_WEBHOOK_SERVICE_KEY: ${SIM_WEBHOOK_SERVICE_KEY:-dev-sim-webhook-key}
       INTERNAL_PORT: "8003"
@@ -99,8 +115,8 @@ services:
       dockerfile: services/core/Dockerfile
     command: ["python", "-m", "core.entrypoints.worker"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      core-migrate:
+        condition: service_completed_successfully
       sim-world:
         condition: service_started
     environment:
@@ -109,5 +125,26 @@ services:
       GATE_URL: ${GATE_URL:-http://gate:8100/gate}
       DEMO_MODE: ${DEMO_MODE:-true}
       SIM_CORE_SERVICE_KEY: ${SIM_CORE_SERVICE_KEY:-dev-core-key}
-      GATE_CORE_SERVICE_KEY: ${GATE_CORE_SERVICE_KEY:-dev-gate-core-key}
+      GATE_CORE_SERVICE_KEY: ${GATE_CORE_WORKER_KEY:-dev-gate-worker-key}   # Gate nhận diện bên gọi theo khóa: mỗi tiến trình core một khóa
       WORKER_POLL_INTERVAL_S: ${WORKER_POLL_INTERVAL_S:-2.0}
+
+  agent-worker:   # không có DATABASE_URL, không gọi Gate: chỉ nói chuyện với internal-api
+    build:
+      context: ..
+      dockerfile: services/agent-runtime/Dockerfile
+    depends_on:
+      - internal-api
+    environment:
+      CORE_INTERNAL_URL: ${CORE_INTERNAL_URL:-http://internal-api:8003/internal}
+      AGENT_SERVICE_KEY: ${INTERNAL_AGENT_SERVICE_KEY:-dev-agent-key}
+      LLM_MODE: ${LLM_MODE:-replay}
+      LLM_CASSETTE_PATH: ${LLM_CASSETTE_PATH:-/app/services/agent-runtime/tests/cassettes/brd14/BRD_01_COFFEE_26M5.json}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_API_KEY_CHIEF_ACCOUNTANT: ${LLM_API_KEY_CHIEF_ACCOUNTANT:-}
+      LLM_API_KEY_PROCUREMENT: ${LLM_API_KEY_PROCUREMENT:-}
+      LLM_API_KEY_ACCOUNTS_PAYABLE: ${LLM_API_KEY_ACCOUNTS_PAYABLE:-}
+      LLM_API_KEY_FRAUD_CONTROL: ${LLM_API_KEY_FRAUD_CONTROL:-}
+      LLM_API_KEY_TAX: ${LLM_API_KEY_TAX:-}
+      LLM_API_KEY_BRANCH_OPERATIONS: ${LLM_API_KEY_BRANCH_OPERATIONS:-}
+      LLM_API_KEY_TREASURY: ${LLM_API_KEY_TREASURY:-}

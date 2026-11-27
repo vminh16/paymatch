@@ -54,6 +54,7 @@ Như F1, ở bước 🟢 core kiểm mandate (chế độ tự chi, NCC trong d
 ```
 Cửa hàng A: Finding 🔴 PERSONAL_ACCOUNT + HIDDEN_INSTRUCTION
   → outbox indicator.flagged {account_hash, tax_id, phone, reason_codes}
+     (phone: phone_on_file của registry VÀ NBan/SDThoai trên XML; số trên XML chỉ được băm làm indicator, không bao giờ là số gọi lại)
 core-worker (risk): tạo alert vào hàng chờ console
 chuyên viên MoMo xác nhận → cross_alert.published (1 người)
 core-worker:

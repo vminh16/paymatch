@@ -341,6 +341,17 @@
         "seller_address": {
           "$ref": "./untrusted-text.schema.json"
         },
+        "seller_phone": {
+          "description": "NBan/SDThoai. Chỉ dùng để băm thành indicator `phone` cho cảnh báo chéo; KHÔNG BAO GIỜ là số gọi lại xác minh (luôn dùng `phone_on_file` của registry).",
+          "anyOf": [
+            {
+              "$ref": "./untrusted-text.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "seller_bank_account": {
           "anyOf": [
             {

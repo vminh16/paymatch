@@ -1435,3 +1435,84 @@ def test_n1_n2_n9_b3_per_intent_ordering_batch_skip_reused_approval_and_strict_g
         ).fetchone()
     assert bad_link is None
     assert bad_gate.executed == []
+
+
+@pytest.mark.db
+def test_trap_02_cross_alert_links_tenant_b_vendor_through_seller_phone_on_xml(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """TRAP_02 (sim-world-dataset.md §5.1): the BRD_04 fraudster is not in tenant A's registry, so its phone exists
+    only in NBan/SDThoai. A cross alert built from BRD_04's indicators must still reach tenant B's syrup vendor."""
+    from core.tools.application.executor import _collect_invoice_indicator_pairs
+
+    def _ingest(tenant_id: str, filename: str) -> str:
+        with seeded_db.connect() as conn:
+            res = ingest_invoice(
+                conn,
+                IngestCommand(
+                    tenant_id=tenant_id,
+                    raw_bytes=(DEMO_DATA_DIR / "inbox/attachments" / filename).read_bytes(),
+                    filename=filename,
+                    content_type="application/xml",
+                    source="email",
+                ),
+                clock=fixed_clock,
+            )
+            return res.invoice_id
+
+    brd04 = _ingest(TENANT_A, "1C26TAC_00000088.xml")
+    trap02 = _ingest(TENANT_B, "1C26TDA_00000231.xml")
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'pending_approval', severity = 'green', reason_codes = ARRAY['OK'] "
+                "WHERE invoice_id = %s",
+                (trap02,),
+            )
+        brd04_row = conn.execute("SELECT * FROM core.invoices WHERE invoice_id = %s", (brd04,)).fetchone()
+        flagged = _collect_invoice_indicator_pairs(conn, brd04_row)
+        assert any(kind == "phone" for kind, _ in flagged)
+        publish_cross_alert(
+            conn,
+            indicators=[{"kind": kind, "value_hash": value_hash} for kind, value_hash in flagged],
+            reason_codes=["PERSONAL_ACCOUNT", "HIDDEN_INSTRUCTION"],
+            published_by="stf_01",
+            clock=fixed_clock,
+        )
+        process_core_outbox_once(conn, RecordingGate(), clock=fixed_clock)
+        after = conn.execute(
+            "SELECT severity, reason_codes, verification_required FROM core.invoices WHERE invoice_id = %s",
+            (trap02,),
+        ).fetchone()
+
+    assert after["severity"] == "yellow"
+    assert "CROSS_ALERT_HIT" in after["reason_codes"]
+    assert after["verification_required"] is True
+
+
+@pytest.mark.db
+def test_no_payment_due_status_is_accepted_by_db_and_kept_out_of_queue(
+    seeded_db: Database, fixed_clock: FixedClock
+) -> None:
+    """Migration 007: EDGE_XML_ADJUST_NEG (-1.620.000 đ) can be stored as `no_payment_due`."""
+    with seeded_db.connect() as conn:
+        res = ingest_invoice(
+            conn,
+            IngestCommand(
+                tenant_id=TENANT_A,
+                raw_bytes=(DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001430.xml").read_bytes(),
+                filename="1C26TTN_00001430.xml",
+                content_type="application/xml",
+                source="email",
+            ),
+            clock=fixed_clock,
+        )
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'no_payment_due' WHERE invoice_id = %s", (res.invoice_id,)
+            )
+        row = conn.execute(
+            "SELECT status, total_vnd FROM core.invoices WHERE invoice_id = %s", (res.invoice_id,)
+        ).fetchone()
+    assert row["status"] == "no_payment_due"
+    assert row["total_vnd"] == -1_620_000

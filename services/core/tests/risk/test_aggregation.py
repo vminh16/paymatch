@@ -155,6 +155,10 @@ def test_required_bots_missing_and_disabled() -> None:
         ("green", 26_500_000, "auto_pay", False, 23, "pending_approval"),  # outside 07:00-22:00
         ("green", 26_500_000, "ask_first", False, 10, "pending_approval"),
         ("green", 26_500_000, "review_only", False, 10, "pending_approval"),
+        ("green", -1_620_000, "auto_pay", False, 10, "no_payment_due"),   # EDGE_XML_ADJUST_NEG
+        ("yellow", -1_620_000, "auto_pay", False, 10, "no_payment_due"),
+        ("green", 0, "ask_first", False, 10, "no_payment_due"),
+        ("red", -1_620_000, "auto_pay", False, 10, "blocked"),
     ],
 )
 def test_post_investigation_status_table(

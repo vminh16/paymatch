@@ -18,7 +18,7 @@ _HUNDRED = Decimal("100")
 # "thùng 800 cái", "800 cái/thùng", "gói 1kg", "chai 750ml", "bao 20kg", "lốc 12 hộp", "hộp 24 gói"
 _PACK_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"(?:thùng|hộp|lốc|túi|bịch|bao|két|cây|vỉ|cuộn|set|bộ|xô|can)\s*[:x×]?\s*(\d+(?:[.,]\d+)?)\s*(?:cái|ly|chiếc|ống|hộp|gói|chai|lon|kg|g|gr|gam|ml|l|lít|tờ|cuộn|viên|bịch|túi)\b",
+        r"(thùng|hộp|lốc|túi|bịch|bao|két|cây|vỉ|cuộn|set|bộ|xô|can)\s*[:x×]?\s*(\d+(?:[.,]\d+)?)\s*(?:cái|ly|chiếc|ống|hộp|gói|chai|lon|kg|g|gr|gam|ml|l|lít|tờ|cuộn|viên|bịch|túi)\b",
         re.IGNORECASE,
     ),
     re.compile(
@@ -30,6 +30,23 @@ _PACK_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
 )
+
+
+def _pick_pack_match(pattern: re.Pattern[str], text: str, pack_spec: str) -> re.Match[str] | None:
+    """Prefer the match on the same container as the contract ("thùng" in "thùng 12 hộp x 1L"), else the first.
+
+    shortcut: keyword regexes over seller free text; replace with the general line-spec parser (see
+    docs/03-agents/tools.md price_check) before onboarding vendors outside the demo dataset.
+    """
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return None
+    container = (pack_spec.split() or [""])[0].lower()
+    if pattern.groups >= 2 and container:
+        for m in matches:
+            if m.group(1).lower() == container:
+                return m
+    return matches[0]
 
 
 def fmt_dec6(value: Decimal) -> str:
@@ -52,6 +69,7 @@ def parse_pack_qty(
     line_unit: str | None,
     base_unit: str,
     pack_qty_contract: Decimal,
+    pack_spec: str = "",
 ) -> Decimal | None:
     """Parse pack quantity from invoice line name/unit using deterministic regexes.
 
@@ -60,9 +78,9 @@ def parse_pack_qty(
     """
     combined = f"{line_name or ''} {line_unit or ''}"
     for pattern in _PACK_PATTERNS:
-        m = pattern.search(combined)
+        m = _pick_pack_match(pattern, combined, pack_spec)
         if m:
-            raw = m.group(1)
+            raw = m.group(m.lastindex or 1)
             # Handle Vietnamese thousands separator like "1.000" when 3 digits follow dot
             if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw):
                 raw = raw.replace(".", "")
@@ -78,12 +96,8 @@ def parse_pack_qty(
     if pack_qty_contract == _ONE:
         if not unit_norm or unit_norm == base_norm or base_norm in unit_norm:
             return _ONE
-    # If contract has a multi-unit pack (e.g. pack_qty=1000) and line uses a container unit without stating count,
-    # return None so caller/floor treats unstated pack count safely as PACK_SIZE_CHANGED? Wait:
-    # Check BRD scenarios: if line says "thùng" for a contract with pack_qty=1000 and does NOT mention another count,
-    # wait - in BRD_01 coffee is "kg" (pack_qty=1), in BRD_03 cups line name says "(thùng 800 cái)".
-    # What if a normal invoice says "Thùng" for pack_qty=12 without repeating "12" in line_name?
-    # Check if line_name contains exact pack_qty number next to base_unit: e.g., "1.000 cái" or "12 hộp"
+    # A count stated next to the base unit (e.g. "1.000 cái", "12 hộp"); an unstated count stays None, which the
+    # floor treats as PACK_SIZE_CHANGED (internal-api.md §3).
     m_base = re.search(rf"(\d+(?:[.,]\d+)?)\s*{re.escape(base_norm)}\b", combined, re.IGNORECASE)
     if m_base and base_norm:
         raw = m_base.group(1)
@@ -113,6 +127,7 @@ def compute_price_check_item(
     base_unit: str,
     pack_qty_contract_str: str,
     unit_price_contract_str: str,
+    pack_spec: str = "",
 ) -> dict[str, Any]:
     """Compute exact Decimal unit_price_invoice (per base unit), unit_price_contract, delta_pct, and pack_qty_parsed."""
     pack_contract = _to_dec(pack_qty_contract_str) or _ONE
@@ -125,6 +140,7 @@ def compute_price_check_item(
         line_unit=line_unit,
         base_unit=base_unit,
         pack_qty_contract=pack_contract,
+        pack_spec=pack_spec,
     )
 
     # Effective invoice price per pack/line unit

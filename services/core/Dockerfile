@@ -11,7 +11,8 @@ COPY services/core/migrations /app/services/core/migrations
 COPY services/core/src /app/services/core/src
 COPY services/sim-world/data/demo/core_seed /app/services/sim-world/data/demo/core_seed
 
-RUN uv pip install --system --no-cache /app/packages/contracts-py /app/packages/paymatch-hashing /app/services/core
+# Editable install: migrations/ are found relative to the source tree.
+RUN uv pip install --system --no-cache --no-sources /app/packages/contracts-py /app/packages/paymatch-hashing -e /app/services/core
 
 ENV CORE_SEED_DIR=/app/services/sim-world/data/demo/core_seed
 

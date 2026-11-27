@@ -1,6 +1,6 @@
 """Postgres 16 DB tests for Payment Gate safety invariants (testcontainers, @pytest.mark.db).
 
-Mirrors `core`'s REAL migrations `001..004` (`core_schema_fixture.py`) verbatim, runs
+Applies `core`'s real migrations from `services/core/migrations/` (so grant/DDL drift fails here), runs
 Gate's real `ledger` migrations AS the least-privilege `gate` role (NOT superuser),
 and tests all money-safety blockers (B1–B6 + Important) against real Postgres 16.
 """
@@ -11,6 +11,7 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -20,7 +21,6 @@ from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
 from testcontainers.postgres import PostgresContainer
 
-from core_schema_fixture import CORE_MIGRATIONS
 from gate.adapters.fakes import FakeClock, FakePaymentRail
 from gate.adapters.http import create_app
 from gate.adapters.postgres import PostgresCoreReadStore, PostgresLedgerStore, apply_migrations
@@ -83,19 +83,19 @@ def _as_role_url(admin_url: str, username: str, password: str) -> str:
     )
 
 
+CORE_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "services" / "core" / "migrations"
+
+
 @pytest.fixture(scope="module")
 def pg_urls():
     with PostgresContainer("postgres:16-alpine") as pg:
         admin_url = pg.get_connection_url().replace("postgresql+psycopg2://", "postgresql://")
         with psycopg.connect(admin_url, autocommit=True) as conn:
-            for _, sql in CORE_MIGRATIONS:
-                conn.execute(sql)
-            # Enable least-privilege login for `gate`, own `ledger`, and grant SELECT on core.users (B5).
+            for migration in sorted(CORE_MIGRATIONS_DIR.glob("*.sql")):
+                conn.execute(migration.read_text(encoding="utf-8"))
+            # Same as infra/init-gate-role.sql: least-privilege login for `gate`, owning `ledger`.
             conn.execute("ALTER ROLE gate WITH LOGIN PASSWORD 'gate';")
             conn.execute("CREATE SCHEMA IF NOT EXISTS ledger AUTHORIZATION gate;")
-            conn.execute("GRANT SELECT ON core.users TO gate;")
-            conn.execute("DROP POLICY IF EXISTS gate_readonly ON core.users;")
-            conn.execute("CREATE POLICY gate_readonly ON core.users FOR SELECT TO gate USING (true);")
 
             role_info = conn.execute(
                 "SELECT rolsuper, rolbypassrls, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = 'gate';"

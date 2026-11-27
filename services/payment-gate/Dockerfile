@@ -10,7 +10,7 @@ COPY services/payment-gate/pyproject.toml /app/services/payment-gate/pyproject.t
 COPY services/payment-gate/src /app/services/payment-gate/src
 COPY services/payment-gate/migrations /app/services/payment-gate/migrations
 
-RUN uv pip install --system --no-cache \
+RUN uv pip install --system --no-cache --no-sources \
     /app/packages/paymatch-hashing \
     /app/packages/contracts-py \
     /app/services/payment-gate

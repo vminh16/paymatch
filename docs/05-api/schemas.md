@@ -65,6 +65,7 @@ Invoice: InvoiceSummary +
   untrusted:                          # tách khỏi phần số
     seller_name: UntrustedText        # NBan/Ten (đối chiếu registry riêng)
     seller_address: UntrustedText
+    seller_phone: UntrustedText | null # NBan/SDThoai; chỉ băm thành indicator `phone` (F3), KHÔNG BAO GIỜ là số gọi lại (luôn `phone_on_file`)
     seller_bank_account: {number: string, bank_name: string} | null   # trích từ NBan/STKNHang+TNHang, TTKhac chứa STK người bán, hoặc DLQRCode — KHÔNG BAO GIỜ là payee
     payment_terms: UntrustedText | null        # HTTToan
     other_info: [{field: string, value: UntrustedText}]   # mọi TTKhac

@@ -683,6 +683,21 @@ def create_merchant_app(
         invoice_id: str,
         principal: SessionPrincipal = Depends(require_roles("owner")),
     ) -> dict[str, Any]:
+        return _approval_preview(invoice_id, principal, verification=None)
+
+    @app.post("/m/invoices/{invoice_id}/approval-preview")
+    def post_approval_preview(
+        invoice_id: str,
+        body: merchant_models.ApprovalPreviewRequest,
+        principal: SessionPrincipal = Depends(require_roles("owner")),
+    ) -> dict[str, Any]:
+        """Same preview, but action_hash covers the entered verification so the client never hashes (D-27/11)."""
+        ver = body.verification.model_dump(mode="json") if body.verification is not None else None
+        return _approval_preview(invoice_id, principal, verification=ver)
+
+    def _approval_preview(
+        invoice_id: str, principal: SessionPrincipal, *, verification: dict[str, Any] | None
+    ) -> dict[str, Any]:
         now = clk.now()
         with database.connect(role="merchant", tenant_id=principal.tenant_id) as conn:
             inv = conn.execute(
@@ -752,8 +767,14 @@ def create_merchant_app(
                 if v:
                     phone_masked = v["phone_on_file_masked"]
 
+        # The stored preview always binds the verification-less hash; :approve recomputes it with the verification.
         ph = payload_hash_approval(ev.intent_hash, None)
         ah = action_hash("approve_invoice", invoice_id, ph)
+        response_ah = (
+            ah
+            if verification is None
+            else action_hash("approve_invoice", invoice_id, payload_hash_approval(ev.intent_hash, verification))
+        )
         sec_now = sec_clk.now()
         expires_at = sec_now + timedelta(seconds=cfg.approval_preview_ttl_seconds)
 
@@ -805,7 +826,7 @@ def create_merchant_app(
             "verification_required": effective_ver_req,
             "phone_on_file_masked": phone_masked if effective_ver_req else None,
             "gate_reasons": ev.reasons,
-            "action_hash": ah,
+            "action_hash": response_ah,
             "expires_at": fmt_ts(expires_at),
         }
 

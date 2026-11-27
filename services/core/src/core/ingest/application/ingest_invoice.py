@@ -191,6 +191,11 @@ def _serialize_untrusted(parsed: ParsedInvoice) -> dict[str, Any]:
             }
             for ba in parsed.untrusted.bank_accounts
         ],
+        "seller_phone": (
+            {"text": parsed.untrusted.seller_phone.text, "provenance": "untrusted", "source": parsed.untrusted.seller_phone.source}
+            if parsed.untrusted.seller_phone is not None
+            else None
+        ),
         "payment_terms": (
             {
                 "text": parsed.untrusted.payment_terms.text,

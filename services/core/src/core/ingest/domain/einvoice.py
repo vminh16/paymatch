@@ -191,6 +191,7 @@ class UntrustedInvoiceData:
     store_hint: list[UntrustedText] = field(default_factory=list)
     item_names: list[UntrustedText] = field(default_factory=list)
     units: list[UntrustedText | None] = field(default_factory=list)
+    seller_phone: UntrustedText | None = None   # NBan/SDThoai: only ever hashed into a risk indicator, never a callback number
 
 
 @dataclass(frozen=True)
@@ -386,6 +387,8 @@ def parse_einvoice(
 
     seller_name = _untrusted(_child_text(nban, "Ten") or "")
     seller_address = _untrusted(_child_text(nban, "DChi") or "")
+    seller_phone_text = _child_text(nban, "SDThoai")
+    seller_phone = _untrusted(seller_phone_text) if seller_phone_text else None
 
     nmua = _child(ndhdon, "NMua")
     buyer_tax_id = _child_text(nmua, "MST") if nmua is not None else ""
@@ -443,6 +446,7 @@ def parse_einvoice(
         store_hint=store_hint,
         item_names=[line.name for line in lines],
         units=[line.unit for line in lines],
+        seller_phone=seller_phone,
     )
 
     parsed = ParsedInvoice(
