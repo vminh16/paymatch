@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +101,14 @@ def demo_ids() -> dict[str, Any]:
         "first_revenue": rev["revenues"][0],
         "scenarios": scenarios,
     }
+
+
+def _wait_until(predicate, timeout_s: float = 2.0) -> None:
+    """Webhooks are delivered on a background thread; wait for the side effect instead of sleeping blindly."""
+    deadline = time.monotonic() + timeout_s
+    while not predicate():
+        assert time.monotonic() < deadline, "condition not met in time"
+        time.sleep(0.01)
 
 
 def _make_client(*, demo_mode: bool = True, dispatcher: WebhookDispatcher | None = None) -> TestClient:
@@ -296,6 +307,9 @@ def test_identity_jwks_tokens_and_step_up_flow(
     schema_validator("/sim/identity/step-up-challenges", "post", 200, ch)
     assert ch["challenge_id"].startswith("chl_")
     assert ch["demo_otp"] == demo_ids["demo_otp"]
+    # expires_at follows the wall clock core checks exp against, not the demo clock (base_clock lags demo day)
+    expires_in = datetime.fromisoformat(ch["expires_at"]).timestamp() - time.time()
+    assert 290 < expires_in <= 300
 
     # Wrong OTP -> 403
     r_wrong = client.post(
@@ -532,7 +546,7 @@ def test_virtual_card_single_use_wrong_merchant_decline_and_webhook(
         f"/sim/scenario/cards/{c2['card_id']}:swipe",
         json={"merchant_id": "mrc_unknown_99", "amount_vnd": 12_000_000},
     )
-    assert len(received) == 1
+    _wait_until(lambda: len(received) == 1)
     url, hdrs, body = received[0]
     assert url == "http://internal-api:8003/internal/webhooks/rails"
     assert hdrs["x-service-key"] == WEBHOOK_KEY
@@ -542,8 +556,7 @@ def test_virtual_card_single_use_wrong_merchant_decline_and_webhook(
         "merchant_id": "mrc_unknown_99",
         "reason": "wrong_merchant",
     }
-    hook_state = c_hook.get("/sim/scenario/state").json()
-    assert hook_state["webhooks"][0]["delivered"] is True
+    _wait_until(lambda: c_hook.get("/sim/scenario/state").json()["webhooks"][0]["delivered"] is True)
 
 
 def test_escrows_hold_release_and_refund(
@@ -930,3 +943,51 @@ def test_scenario_catalog_clock_advance_and_reset_reloads_state(
     assert state_after["cards"] == []
     assert state_after["webhooks"] == []
     assert state_after["inbox_count"] == 5
+
+
+def test_inbox_cursor_from_before_reset_restarts_instead_of_stalling(client: TestClient, demo_ids: dict[str, Any]) -> None:
+    """A poller keeps its cursor across /sim/scenario:reset; an unknown cursor must not hide new mail forever."""
+    mailbox = json.loads((DEMO_DIR / "inbox" / "messages.json").read_text(encoding="utf-8"))["messages"][0]["mailbox"]
+    sent = client.post("/sim/scenario/invoices:send", json={"template_id": "BRD_02_MILK_31M_ZALO_PAYEE"}).json()
+    stale_cursor = sent["message_id"]
+    client.post("/sim/scenario:reset", json={"dataset": "demo", "seed": 42})
+    new = client.post("/sim/scenario/invoices:send", json={"template_id": "BRD_03_CUPS_SHRINKFLATION"}).json()
+
+    for cursor in (stale_cursor, "999999"):
+        page = client.get("/sim/inbox/messages", params={"mailbox": mailbox, "after": cursor}, headers=CORE_HEADERS)
+        assert new["message_id"] in [m["message_id"] for m in page.json()["items"]]
+
+    caught_up = client.get("/sim/inbox/messages", params={"mailbox": mailbox, "after": new["message_id"]}, headers=CORE_HEADERS)
+    assert caught_up.json()["items"] == []
+
+
+def test_transfer_returns_before_webhook_delivery(demo_ids: dict[str, Any]) -> None:
+    """Gate waits 5 s on /rails; webhook retries to a slow core (up to ~10 s) must not hold the transfer response."""
+    release = threading.Event()
+
+    def slow_core(request: httpx.Request) -> httpx.Response:
+        release.wait(timeout=5)
+        return httpx.Response(204)
+
+    dispatcher = WebhookDispatcher(
+        "http://internal-api:8003/internal",
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(slow_core)),
+        sleep_fn=lambda _: None,
+    )
+    c = _make_client(demo_mode=True, dispatcher=dispatcher)
+    acct = demo_ids["first_ext_acct"]
+    r = c.post(
+        "/sim/rails/transfers",
+        headers=GATE_HEADERS,
+        json={
+            "idempotency_key": "pi_async_webhook",
+            "from_wallet_id": demo_ids["primary_wallet"]["wallet_id"],
+            "to": {k: acct[k] for k in ("bank_code", "account_number", "account_name")},
+            "amount_vnd": 1000,
+            "memo": "async webhook",
+        },
+    )
+    assert r.status_code == 200 and r.json()["status"] == "settled"
+    assert c.get("/sim/scenario/state").json()["webhooks"][0]["delivered"] is False
+    release.set()
+    _wait_until(lambda: c.get("/sim/scenario/state").json()["webhooks"][0]["delivered"] is True)

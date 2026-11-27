@@ -8,7 +8,7 @@ import json
 import re
 import threading
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -403,7 +403,8 @@ class SimWorldStore:
         now_ts = int(time.time())
         exp_ts = now_ts + STEP_UP_TTL_SECONDS
         with self._lock:
-            expires_at = (self._clock_dt + timedelta(seconds=STEP_UP_TTL_SECONDS)).isoformat()
+            # Same wall clock as the JWT exp that core checks (SystemClock), not the advanceable demo clock.
+            expires_at = datetime.fromtimestamp(exp_ts, self._clock_dt.tzinfo).isoformat()
             otp = self._demo_otp
             self._challenges[challenge_id] = {
                 "challenge_id": challenge_id,
@@ -472,16 +473,22 @@ class SimWorldStore:
 
     # --- Rails ---
 
-    def _emit_webhook(self, event_type: str, data: dict[str, Any], occurred_at: str) -> WebhookRecord:
-        record = self._webhooks_dispatcher.dispatch(
-            event_id=new_id("evt"),
-            event_type=event_type,
-            occurred_at=occurred_at,
-            data=data,
+    def _emit_webhook(self, event_type: str, data: dict[str, Any], occurred_at: str) -> None:
+        record = WebhookRecord(
+            event_id=new_id("evt"), type=event_type, occurred_at=occurred_at, data=data, delivered=False
         )
         with self._lock:
             self._webhooks.append(record)
-        return record
+
+        def deliver() -> None:
+            result = self._webhooks_dispatcher.dispatch(
+                event_id=record.event_id, event_type=event_type, occurred_at=occurred_at, data=data
+            )
+            with self._lock:
+                record.delivered, record.error = result.delivered, result.error
+
+        # Retries take up to ~10 s when core is down; the rail caller (gate, 5 s timeout) must not wait on them.
+        threading.Thread(target=deliver, daemon=True).start()
 
     def create_transfer(
         self,
@@ -861,14 +868,14 @@ class SimWorldStore:
         id_field: str,
         after: str | None,
     ) -> int:
+        # A cursor from before /sim/scenario:reset (unknown id, or past the end) restarts from the top:
+        # pollers would otherwise stall forever, and core ingest is idempotent on sha256 so replays are no-ops.
+        last_seq = items[-1][0] if items else 0
         if not after:
             return 0
         if after.isdigit():
-            return int(after)
-        for seq, item in items:
-            if item[id_field] == after:
-                return seq
-        return 10**18
+            return int(after) if int(after) <= last_seq else 0
+        return next((seq for seq, item in items if item[id_field] == after), 0)
 
     def list_inbox_messages(
         self,

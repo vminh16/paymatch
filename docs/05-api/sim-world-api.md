@@ -13,7 +13,7 @@ Dữ liệu nạp từ `services/sim-world/data/` vào bộ nhớ; `POST /sim/sc
 | GET | `/sim/identity/.well-known/jwks.json` | core | khóa công khai để kiểm `momo_token`, `sso_token`, `auth_proof` |
 | POST | `/sim/identity/merchant-tokens` | trình duyệt (demo) | `{user_id}` (người dùng seed) → `{momo_token}` |
 | POST | `/sim/identity/staff-tokens` | trình duyệt (demo) | `{staff_id}` → `{sso_token}` |
-| POST | `/sim/identity/step-up-challenges` | trình duyệt | `{momo_token, action_hash}` → `{challenge_id, expires_at, demo_otp}` (`demo_otp` chỉ có ở demo; ngoài đời gửi qua app) |
+| POST | `/sim/identity/step-up-challenges` | trình duyệt | `{momo_token, action_hash}` → `{challenge_id, expires_at, demo_otp}` (`demo_otp` chỉ có ở demo; ngoài đời gửi qua app). `expires_at` và `exp` của `auth_proof` tính theo **giờ thật**, không theo đồng hồ demo `/sim/scenario/clock`, vì core kiểm hạn token bằng giờ hệ thống |
 | POST | `/sim/identity/step-up-challenges/{challenge_id}:verify` | trình duyệt | `{otp}` → `{auth_proof}` (JWT: `sub`, `action_hash`, `jti`, `exp` = 5 phút, `amr: ["otp"]`) |
 
 ## 2. Hạ tầng thanh toán: `/sim/rails` (chỉ Gate gọi, trừ `wallets`)
@@ -29,7 +29,7 @@ Dữ liệu nạp từ `services/sim-world/data/` vào bộ nhớ; `POST /sim/sc
 | POST | `/sim/rails/escrows/{rail_escrow_id}:refund` | gate | `{idempotency_key}` → `{status: refunded}` |
 | GET | `/sim/rails/wallets/{wallet_id}` | core (tool `account_balance`, `/m/wallet`) | `{wallet_id, balance_vnd, as_of}` |
 
-Sự kiện phía rail (thẻ bị quẹt sai, chuyển khoản xong) được sim-world đẩy về `POST /internal/webhooks/rails`.
+Sự kiện phía rail (thẻ bị quẹt sai, chuyển khoản xong) được sim-world đẩy về `POST /internal/webhooks/rails` **ở luồng nền**: phản hồi `/sim/rails/*` không chờ webhook (webhook thử lại tối đa ~10 s, Gate chỉ chờ rail 5 s). Kết quả gửi xem ở `GET /sim/scenario/state` (`webhooks[].delivered`).
 
 ## 3. Nguồn hóa đơn
 
@@ -39,6 +39,8 @@ Sự kiện phía rail (thẻ bị quẹt sai, chuyển khoản xong) được s
 | GET | `/sim/inbox/messages/{message_id}/attachments/{attachment_id}` | core-worker | byte gốc của file (XML/PDF) |
 | GET | `/sim/bills` | core-worker | `?wallet_id=&after=<cursor>` → hóa đơn điện nước mới: `{items: [{bill_id, provider: electricity \| water, customer_code, store_ref, period, amount_vnd, readings: {...}, xml_attachment_id \| null}], next_cursor}` |
 | GET | `/sim/bills/{bill_id}/document` | core-worker | XML hóa đơn điện nước (nếu có) |
+
+`after` nhận `next_cursor` hoặc `message_id`/`bill_id` cuối đã xử lý. Cursor không còn hợp lệ (sau `POST /sim/scenario:reset`: id không có trong trạng thái mới, hoặc số vượt cuối danh sách) được coi như đọc lại từ đầu, để poller không bị kẹt; core ingest idempotent theo `(tenant_id, sha256)` nên đọc lại không tạo trùng.
 
 ## 4. Tin nhắn: `/sim/chat` (thay Zalo)
 
