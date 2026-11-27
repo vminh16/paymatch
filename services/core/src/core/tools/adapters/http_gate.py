@@ -97,6 +97,18 @@ class HttpGateAdapter:
             return resp.json()
         raise UpstreamToolError("UPSTREAM_UNAVAILABLE", f"gate /intents HTTP {resp.status_code}")
 
+    def get_intent(self, *, payment_intent_id: str) -> dict[str, Any] | None:
+        resp = self._request(
+            "GET",
+            f"/intents/{payment_intent_id}",
+            timeout_s=self._eval_timeout_s,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        if resp.status_code == 404:
+            return None
+        raise UpstreamToolError("UPSTREAM_UNAVAILABLE", f"gate GET /intents/{payment_intent_id} HTTP {resp.status_code}")
+
     def execute_intent(self, *, payment_intent_id: str) -> dict[str, Any]:
         resp = self._request(
             "POST",

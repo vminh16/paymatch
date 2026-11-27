@@ -73,13 +73,60 @@ def _resolve_intent_approval_id(
     invoice_id: str,
     payment_intent_id: str | None,
     event_data: dict[str, Any],
+    gate_client: GateClientPort | None = None,
 ) -> str | None:
-    """Resolve the approval_id bound to a payment_intent generation (I4)."""
+    """Resolve the Gate-owned approval_id bound to a payment_intent generation (B3).
+
+    Order of authoritative sources:
+    1. Explicit approval_id on the ledger event payload.
+    2. Gate's own ledger.payment_intents table (inside a savepoint so missing table/grant never aborts outer tx).
+    3. Gate HTTP API GET /gate/intents/{id}.
+    4. Core's local payment_intent_links table (populated from Gate's response).
+    Returns None when unresolved; callers MUST defer (not match) when None.
+    """
     explicit = event_data.get("approval_id")
     if explicit:
         return str(explicit)
     if not payment_intent_id:
         return None
+
+    # 2. Gate's ledger.payment_intents (isolated in a savepoint so SQL errors never abort outer tx)
+    try:
+        with conn.transaction():
+            reg = conn.execute("SELECT to_regclass('ledger.payment_intents') AS reg").fetchone()
+            if reg is not None and reg["reg"] is not None:
+                row = conn.execute(
+                    """
+                    SELECT approval_id, invoice_id FROM ledger.payment_intents
+                    WHERE payment_intent_id = %s AND tenant_id = %s
+                    """,
+                    (payment_intent_id, tenant_id),
+                ).fetchone()
+                if row and row.get("approval_id") and (
+                    not row.get("invoice_id") or row["invoice_id"] == invoice_id
+                ):
+                    return str(row["approval_id"])
+    except (psycopg.errors.UndefinedTable, psycopg.errors.InsufficientPrivilege):
+        pass
+
+    # 3. Gate HTTP API GET /gate/intents/{payment_intent_id}
+    if gate_client is not None:
+        get_intent_fn = getattr(gate_client, "get_intent", None)
+        if callable(get_intent_fn):
+            try:
+                pi_obj = get_intent_fn(payment_intent_id=payment_intent_id)
+                if isinstance(pi_obj, dict):
+                    apv = pi_obj.get("approval_id")
+                    pi_inv = pi_obj.get("invoice_id")
+                    if apv and (not pi_inv or pi_inv == invoice_id):
+                        return str(apv)
+            except UpstreamToolError:
+                logger.warning(
+                    "Gate GET /intents/%s unavailable while correlating ledger event",
+                    payment_intent_id,
+                )
+
+    # 4. Local link cache written from Gate's response
     link = conn.execute(
         """
         SELECT approval_id FROM core.payment_intent_links
@@ -89,20 +136,6 @@ def _resolve_intent_approval_id(
     ).fetchone()
     if link is not None:
         return str(link["approval_id"])
-    reg = conn.execute("SELECT to_regclass('ledger.payment_intents') AS reg").fetchone()
-    if reg is not None and reg["reg"] is not None:
-        try:
-            row = conn.execute(
-                """
-                SELECT approval_id FROM ledger.payment_intents
-                WHERE payment_intent_id = %s AND tenant_id = %s
-                """,
-                (payment_intent_id, tenant_id),
-            ).fetchone()
-            if row and row.get("approval_id"):
-                return str(row["approval_id"])
-        except psycopg.Error:
-            pass
     return None
 
 
@@ -196,7 +229,9 @@ def _handle_job_completed(
             """,
             (tid, invoice_id),
         ).fetchone()
-        job_is_current = latest_job is None or (job_id is not None and latest_job["job_id"] == job_id)
+        job_is_current = (
+            latest_job is not None and job_id is not None and latest_job["job_id"] == job_id
+        )
         if not job_is_current:
             return
 
@@ -516,32 +551,49 @@ def _handle_cross_alert_published(
     gate_client: GateClientPort,
     now: datetime,
 ) -> None:
-    """F3/D8: Re-evaluate all unpaid invoices matching published cross-alert indicators."""
+    """F3/D8/B2: Re-evaluate unpaid invoices matching cross-alert indicators under invoice-first FOR UPDATE locks."""
     data = event["data"]
     cross_alert_id = data["cross_alert_id"]
     target_pairs = {(i["kind"], i["value_hash"]) for i in data.get("indicators", [])}
     if not target_pairs:
         return
 
-    candidates = conn.execute(
+    # Deterministic order (tenant_id, invoice_id) prevents lock-order inversion deadlocks
+    candidate_ids = conn.execute(
         """
-        SELECT * FROM core.invoices
+        SELECT tenant_id, invoice_id FROM core.invoices
         WHERE status IN ('pending_approval', 'auto_pay_eligible', 'approved', 'scheduled')
+        ORDER BY tenant_id ASC, invoice_id ASC
         """
     ).fetchall()
 
+    eligible_statuses = {"pending_approval", "auto_pay_eligible", "approved", "scheduled"}
     affected_count = 0
-    for inv in candidates:
+    for cand in candidate_ids:
+        tid = cand["tenant_id"]
+        invoice_id = cand["invoice_id"]
+
+        # B2: Shared invoice-first lock order (matches merchant_api.approve_invoice)
+        inv = conn.execute(
+            """
+            SELECT * FROM core.invoices
+            WHERE tenant_id = %s AND invoice_id = %s
+            FOR UPDATE
+            """,
+            (tid, invoice_id),
+        ).fetchone()
+        if inv is None or inv["status"] not in eligible_statuses:
+            continue
+
         inv_pairs = set(_collect_invoice_indicator_pairs(conn, inv))
         if not (inv_pairs & target_pairs):
             continue
 
         affected_count += 1
-        tid = inv["tenant_id"]
-        invoice_id = inv["invoice_id"]
         old_status = inv["status"]
+        old_version = int(inv["version"])
 
-        # Cancel any authorized payment intent in Gate if invoice was approved/scheduled
+        # Cancel any authorized payment intent in Gate if invoice is currently approved/scheduled (read under lock)
         if old_status in {"approved", "scheduled"}:
             try:
                 intents = gate_client.list_intents(
@@ -591,7 +643,7 @@ def _handle_cross_alert_published(
             ),
         )
 
-        # Supersede any active approval -> NEW_SYSTEM_FINDING
+        # Supersede any active approval -> NEW_SYSTEM_FINDING (serialized under invoice FOR UPDATE lock)
         sup_rows = conn.execute(
             """
             UPDATE core.approvals
@@ -637,13 +689,17 @@ def _handle_cross_alert_published(
                 scheduled_for = NULL,
                 version = version + 1,
                 updated_at = %s
-            WHERE tenant_id = %s AND invoice_id = %s AND status = %s
+            WHERE tenant_id = %s AND invoice_id = %s AND status = %s AND version = %s
             RETURNING status
             """,
-            (new_sev, new_codes, now, tid, invoice_id, old_status),
+            (new_sev, new_codes, now, tid, invoice_id, old_status, old_version),
         ).fetchone()
+        if updated is None:
+            raise RuntimeError(
+                f"Lost invoice CAS under FOR UPDATE lock for {invoice_id} (expected status={old_status}, version={old_version})"
+            )
 
-        if updated is not None and old_status != "pending_approval":
+        if old_status != "pending_approval":
             sc_evt_id = new_id("evt")
             sc_data = {
                 "invoice_id": invoice_id,
@@ -862,35 +918,50 @@ def _notify_payment_issue(
 def process_ledger_outbox_once(
     conn: psycopg.Connection,
     *,
+    gate_client: GateClientPort | None = None,
     clock: Clock | None = None,
     batch_size: int = 100,
 ) -> int:
-    """Read ledger.outbox (read-only!) using core.outbox_receipts (B2) and apply generation-bound transitions (I4)."""
-    if not _ledger_outbox_exists(conn):
+    """Read ledger.outbox (read-only!) using core.outbox_receipts (B2, B3, B4).
+
+    B4: Isolated via savepoint when ledger.outbox does not exist or is unreadable by worker.
+    B3: Unresolved payment_intent -> approval linkage defers WITHOUT transitioning or recording a receipt.
+    """
+    try:
+        with conn.transaction():
+            if not _ledger_outbox_exists(conn):
+                return 0
+            rows = fetch_unacknowledged_events(
+                conn,
+                source="ledger.outbox",
+                table="ledger.outbox",
+                batch_size=batch_size,
+            )
+    except (psycopg.errors.UndefinedTable, psycopg.errors.InsufficientPrivilege) as exc:
+        logger.warning("Skipping ledger.outbox (table absent or unreadable by worker): %s", exc)
         return 0
 
     clk = clock or SystemClock()
     now = clk.now()
 
-    rows = fetch_unacknowledged_events(
-        conn,
-        source="ledger.outbox",
-        table="ledger.outbox",
-        batch_size=batch_size,
-    )
+    invoice_payment_events = {
+        "payment.authorized",
+        "payment.executed",
+        "payment.failed",
+        "payment.denied",
+        "payment.expired",
+    }
 
     processed = 0
     for ev in rows:
-        with conn.transaction():
-            if not record_receipt(conn, source="ledger.outbox", event_id=ev["event_id"]):
-                continue
-            ev_type = ev["type"]
-            data = ev["data"] or {}
-            tid = ev["tenant_id"]
-            inv_id = data.get("invoice_id")
-            pi_id = data.get("payment_intent_id")
+        ev_type = ev["type"]
+        data = ev["data"] or {}
+        tid = ev["tenant_id"]
+        inv_id = data.get("invoice_id")
+        pi_id = data.get("payment_intent_id")
 
-            if tid and inv_id:
+        with conn.transaction():
+            if tid and inv_id and ev_type in invoice_payment_events:
                 inv = conn.execute(
                     """
                     SELECT invoice_id, store_id, status, severity
@@ -907,7 +978,22 @@ def process_ledger_outbox_once(
                         invoice_id=inv_id,
                         payment_intent_id=pi_id,
                         event_data=data,
+                        gate_client=gate_client,
                     )
+                    # B3: Unknown approval linkage is NOT a match — defer (do not transition, do not write receipt!)
+                    if bound_apv_id is None:
+                        logger.warning(
+                            "Deferring %s event %s for invoice %s: unresolved approval_id for payment_intent %s",
+                            ev_type,
+                            ev["event_id"],
+                            inv_id,
+                            pi_id,
+                        )
+                        continue
+
+                    if not record_receipt(conn, source="ledger.outbox", event_id=ev["event_id"]):
+                        continue
+
                     active_apv = conn.execute(
                         """
                         SELECT approval_id, job_id, purchase_order_id, method
@@ -918,9 +1004,21 @@ def process_ledger_outbox_once(
                         (tid, inv_id),
                     ).fetchone()
                     generation_matches = (
-                        bound_apv_id is None
-                        or (active_apv is not None and active_apv["approval_id"] == bound_apv_id)
+                        active_apv is not None and active_apv["approval_id"] == bound_apv_id
                     )
+                    # Also fence stale earlier intent for the SAME approval when a newer intent already exists
+                    if generation_matches and pi_id:
+                        newer_link = conn.execute(
+                            """
+                            SELECT payment_intent_id FROM core.payment_intent_links
+                            WHERE tenant_id = %s AND invoice_id = %s AND approval_id = %s
+                            ORDER BY created_at DESC, payment_intent_id DESC
+                            LIMIT 1
+                            """,
+                            (tid, inv_id, bound_apv_id),
+                        ).fetchone()
+                        if newer_link is not None and newer_link["payment_intent_id"] != pi_id:
+                            generation_matches = False
 
                     if ev_type == "payment.authorized":
                         if generation_matches:
@@ -956,24 +1054,14 @@ def process_ledger_outbox_once(
                                 (now, tid, inv_id),
                             ).fetchone()
                             if upd:
-                                if bound_apv_id is not None:
-                                    conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'consumed'
-                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
-                                        """,
-                                        (tid, bound_apv_id),
-                                    )
-                                else:
-                                    conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'consumed'
-                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                        """,
-                                        (tid, inv_id),
-                                    )
+                                conn.execute(
+                                    """
+                                    UPDATE core.approvals
+                                    SET status = 'consumed'
+                                    WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                    """,
+                                    (tid, bound_apv_id),
+                                )
                                 if pi_id:
                                     _emit_payment_sse(
                                         conn,
@@ -986,7 +1074,6 @@ def process_ledger_outbox_once(
                                     )
 
                     elif ev_type == "payment.failed":
-                        # I4: Only apply to the matching payment generation; never supersede a newer approval on a missed CAS!
                         if generation_matches:
                             upd1 = conn.execute(
                                 """
@@ -1006,26 +1093,15 @@ def process_ledger_outbox_once(
                                     """,
                                     (now, tid, inv_id),
                                 )
-                                if bound_apv_id is not None:
-                                    sup_rows = conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
-                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
-                                        RETURNING approval_id, purchase_order_id, method
-                                        """,
-                                        (now, tid, bound_apv_id),
-                                    ).fetchall()
-                                else:
-                                    sup_rows = conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
-                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                        RETURNING approval_id, purchase_order_id, method
-                                        """,
-                                        (now, tid, inv_id),
-                                    ).fetchall()
+                                sup_rows = conn.execute(
+                                    """
+                                    UPDATE core.approvals
+                                    SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_FAILED'
+                                    WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                    RETURNING approval_id, purchase_order_id, method
+                                    """,
+                                    (now, tid, bound_apv_id),
+                                ).fetchall()
                                 for apv in sup_rows:
                                     conn.execute(
                                         """
@@ -1068,7 +1144,6 @@ def process_ledger_outbox_once(
                                     )
 
                     elif ev_type == "payment.denied":
-                        # I4: Only apply to the matching payment generation and only when invoice CAS matches
                         if generation_matches:
                             reasons = data.get("gate_reasons") or []
                             reason_codes_gate = {
@@ -1089,26 +1164,15 @@ def process_ledger_outbox_once(
                                 (target_st, now, tid, inv_id),
                             ).fetchone()
                             if upd:
-                                if bound_apv_id is not None:
-                                    sup_rows = conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
-                                        WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
-                                        RETURNING approval_id, purchase_order_id, method
-                                        """,
-                                        (now, tid, bound_apv_id),
-                                    ).fetchall()
-                                else:
-                                    sup_rows = conn.execute(
-                                        """
-                                        UPDATE core.approvals
-                                        SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
-                                        WHERE tenant_id = %s AND invoice_id = %s AND status = 'active'
-                                        RETURNING approval_id, purchase_order_id, method
-                                        """,
-                                        (now, tid, inv_id),
-                                    ).fetchall()
+                                sup_rows = conn.execute(
+                                    """
+                                    UPDATE core.approvals
+                                    SET status = 'superseded', superseded_at = %s, superseded_reason = 'PAYMENT_DENIED'
+                                    WHERE tenant_id = %s AND approval_id = %s AND status = 'active'
+                                    RETURNING approval_id, purchase_order_id, method
+                                    """,
+                                    (now, tid, bound_apv_id),
+                                ).fetchall()
                                 for apv in sup_rows:
                                     conn.execute(
                                         """
@@ -1151,8 +1215,21 @@ def process_ledger_outbox_once(
                                     )
 
                     elif ev_type == "payment.expired":
-                        if data.get("reason") == "AUTHORIZATION_TIMEOUT" and generation_matches:
-                            # I4/I6: judge the approval attached to this expired intent; require valid job_id linkage
+                        # When active_apv exists, only apply if generation_matches; when active_apv is None
+                        # (e.g. approval was already superseded while intent was paying), still recover paying -> pending_approval
+                        # provided bound_apv_id belongs to this invoice.
+                        apv_belongs = generation_matches
+                        if not apv_belongs and active_apv is None:
+                            owned = conn.execute(
+                                """
+                                SELECT 1 FROM core.approvals
+                                WHERE tenant_id = %s AND invoice_id = %s AND approval_id = %s
+                                """,
+                                (tid, inv_id, bound_apv_id),
+                            ).fetchone()
+                            apv_belongs = owned is not None
+
+                        if data.get("reason") == "AUTHORIZATION_TIMEOUT" and apv_belongs:
                             latest_job = conn.execute(
                                 """
                                 SELECT job_id FROM core.jobs
@@ -1164,14 +1241,10 @@ def process_ledger_outbox_once(
                             ).fetchone()
                             apv_still_valid = (
                                 active_apv is not None
-                                and (bound_apv_id is None or active_apv["approval_id"] == bound_apv_id)
-                                and (
-                                    latest_job is None
-                                    or (
-                                        active_apv["job_id"] is not None
-                                        and active_apv["job_id"] == latest_job["job_id"]
-                                    )
-                                )
+                                and active_apv["approval_id"] == bound_apv_id
+                                and latest_job is not None
+                                and active_apv["job_id"] is not None
+                                and active_apv["job_id"] == latest_job["job_id"]
                             )
                             if apv_still_valid:
                                 conn.execute(
@@ -1201,7 +1274,7 @@ def process_ledger_outbox_once(
                                         """,
                                         (now, active_apv["approval_id"]),
                                     )
-                        if pi_id and generation_matches:
+                        if pi_id and apv_belongs:
                             _emit_payment_sse(
                                 conn,
                                 tenant_id=tid,
@@ -1211,6 +1284,12 @@ def process_ledger_outbox_once(
                                 pi_status="expired",
                                 now=now,
                             )
+                else:
+                    if not record_receipt(conn, source="ledger.outbox", event_id=ev["event_id"]):
+                        continue
+            else:
+                if not record_receipt(conn, source="ledger.outbox", event_id=ev["event_id"]):
+                    continue
             processed += 1
     return processed
 
@@ -1221,7 +1300,7 @@ def execute_scheduled_payments_once(
     *,
     clock: Clock | None = None,
 ) -> list[dict[str, Any]]:
-    """Find due scheduled invoices with active non-escrow approval and call Gate /intents + :execute."""
+    """Find due scheduled invoices with active non-escrow approval and call Gate /intents + :execute (B3)."""
     clk = clock or SystemClock()
     today: date = clk.today()
     due_rows = conn.execute(
@@ -1243,11 +1322,19 @@ def execute_scheduled_payments_once(
     results: list[dict[str, Any]] = []
     for row in due_rows:
         try:
-            intent = gate_client.create_intent(
+            raw_resp = gate_client.create_intent(
                 invoice_id=row["invoice_id"], approval_id=row["approval_id"]
             )
-            pi_id = intent.get("payment_intent_id")
-            if pi_id:
+            # B3: handle BOTH flat PaymentIntent (200/201) AND 422 Problem with nested `payment_intent`
+            pi_obj = (
+                raw_resp["payment_intent"]
+                if isinstance(raw_resp.get("payment_intent"), dict)
+                else raw_resp
+            )
+            pi_id = pi_obj.get("payment_intent_id")
+            # Record Gate's authoritative approval_id (never blindly attribute an existing intent to a newer approval)
+            gate_apv_id = pi_obj.get("approval_id") or row["approval_id"]
+            if pi_id and gate_apv_id:
                 with conn.transaction():
                     conn.execute(
                         """
@@ -1257,13 +1344,17 @@ def execute_scheduled_payments_once(
                         VALUES (%s, %s, %s, %s, %s)
                         ON CONFLICT (payment_intent_id) DO NOTHING
                         """,
-                        (pi_id, row["tenant_id"], row["invoice_id"], row["approval_id"], clk.now()),
+                        (pi_id, row["tenant_id"], row["invoice_id"], gate_apv_id, clk.now()),
                     )
-            if pi_id and intent.get("status") == "authorized":
+            if (
+                pi_id
+                and pi_obj.get("status") == "authorized"
+                and gate_apv_id == row["approval_id"]
+            ):
                 exec_res = gate_client.execute_intent(payment_intent_id=pi_id)
                 results.append(exec_res)
             else:
-                results.append(intent)
+                results.append(raw_resp)
         except UpstreamToolError as exc:
             logger.warning("Gate error executing scheduled invoice %s: %s", row["invoice_id"], exc.detail)
     return results
@@ -1276,7 +1367,7 @@ def run_worker_tick(
     gate_client: GateClientPort,
     clock: Clock | None = None,
 ) -> dict[str, int]:
-    """Run one complete tick of core-worker (poller, core.outbox, ledger.outbox, scheduled payments)."""
+    """Run one complete tick of core-worker (poller, core.outbox, ledger.outbox, scheduled payments, preview prune)."""
     clk = clock or SystemClock()
     ingested_count = 0
     core_events = 0
@@ -1293,8 +1384,16 @@ def run_worker_tick(
         core_events = process_core_outbox_once(conn, gate_client, clock=clk)
         # Second pass in same tick so chained events (job.completed -> approved -> scheduled) settle promptly
         core_events += process_core_outbox_once(conn, gate_client, clock=clk)
-        ledger_events = process_ledger_outbox_once(conn, clock=clk)
+        ledger_events = process_ledger_outbox_once(conn, gate_client=gate_client, clock=clk)
         scheduled_runs = len(execute_scheduled_payments_once(conn, gate_client, clock=clk))
+        # Nit 1: prune expired approval_previews
+        try:
+            with conn.transaction():
+                conn.execute(
+                    "DELETE FROM core.approval_previews WHERE expires_at < clock_timestamp()"
+                )
+        except psycopg.Error:
+            logger.warning("Failed to prune expired approval_previews", exc_info=True)
 
     return {
         "ingested": ingested_count,

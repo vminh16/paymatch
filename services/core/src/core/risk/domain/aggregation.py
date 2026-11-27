@@ -353,8 +353,8 @@ def is_tool_call_successful(
         return isinstance(output.get("out_of_range"), bool)
 
     if tool_id == "account_balance":
-        avail = output.get("available_vnd")
-        return isinstance(avail, int) and not isinstance(avail, bool)
+        bal = output.get("balance_vnd")
+        return isinstance(bal, int) and not isinstance(bal, bool)
 
     if tool_id == "spending_limits":
         return isinstance(output.get("platform_limits"), Mapping) and isinstance(

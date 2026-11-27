@@ -66,9 +66,21 @@ class RecordingGate:
     def create_intent(self, *, invoice_id: str, approval_id: str) -> dict[str, Any]:
         pi_id = new_id("pi")
         self.created.append((pi_id, invoice_id, approval_id))
-        rec = {"payment_intent_id": pi_id, "invoice_id": invoice_id, "status": "authorized"}
+        rec = {
+            "payment_intent_id": pi_id,
+            "invoice_id": invoice_id,
+            "approval_id": approval_id,
+            "status": "authorized",
+        }
         self.authorized_by_invoice.setdefault(invoice_id, []).append(rec)
         return rec
+
+    def get_intent(self, *, payment_intent_id: str) -> dict[str, Any] | None:
+        for recs in self.authorized_by_invoice.values():
+            for rec in recs:
+                if rec["payment_intent_id"] == payment_intent_id:
+                    return rec
+        return None
 
     def execute_intent(self, *, payment_intent_id: str) -> dict[str, Any]:
         self.executed.append(payment_intent_id)
@@ -412,6 +424,14 @@ def test_invariant_stale_approval_superseded_on_payment_failed_and_qt03_suspensi
                 """,
                 (apv_id, TENANT_A, inv_id, va, "c" * 64, fixed_clock.now()),
             )
+            pi_fail = new_id("pi")
+            conn.execute(
+                """
+                INSERT INTO core.payment_intent_links (payment_intent_id, tenant_id, invoice_id, approval_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (pi_fail, TENANT_A, inv_id, apv_id, fixed_clock.now()),
+            )
             conn.execute(
                 """
                 INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
@@ -421,7 +441,7 @@ def test_invariant_stale_approval_superseded_on_payment_failed_and_qt03_suspensi
                     new_id("evt"),
                     fixed_clock.now(),
                     TENANT_A,
-                    Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": inv_id, "failure_code": "INSUFFICIENT_FUNDS"}),
+                    Jsonb({"payment_intent_id": pi_fail, "invoice_id": inv_id, "failure_code": "INSUFFICIENT_FUNDS"}),
                 ),
             )
 
@@ -479,6 +499,10 @@ def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pe
             (TENANT_A,),
         ).fetchone()["vendor_account_id"]
 
+        apv1_id = new_id("apv")
+        apv2_id = new_id("apv")
+        pi1_id = new_id("pi")
+        pi2_id = new_id("pi")
         with conn.transaction():
             # Invoice 1: paying + still-active valid approval bound to completed job -> should return to scheduled
             conn.execute(
@@ -494,10 +518,34 @@ def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pe
                 )
                 VALUES (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
                 """,
-                (new_id("apv"), TENANT_A, r1.invoice_id, r1.job_id, va, "d" * 64, fixed_clock.now()),
+                (apv1_id, TENANT_A, r1.invoice_id, r1.job_id, va, "d" * 64, fixed_clock.now()),
             )
-            # Invoice 2: paying + NO active approval -> should return to pending_approval
+            conn.execute(
+                """
+                INSERT INTO core.payment_intent_links (payment_intent_id, tenant_id, invoice_id, approval_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (pi1_id, TENANT_A, r1.invoice_id, apv1_id, fixed_clock.now()),
+            )
+            # Invoice 2: paying + superseded approval (no active approval) -> should return to pending_approval
             conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r2.invoice_id,))
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at, superseded_at, superseded_reason
+                )
+                VALUES (%s, %s, %s, %s, 'superseded', 22400000, %s, 'bank_transfer', %s, 'single', %s, %s, 'NEW_JOB')
+                """,
+                (apv2_id, TENANT_A, r2.invoice_id, r2.job_id, va, "e" * 64, fixed_clock.now(), fixed_clock.now()),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.payment_intent_links (payment_intent_id, tenant_id, invoice_id, approval_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (pi2_id, TENANT_A, r2.invoice_id, apv2_id, fixed_clock.now()),
+            )
 
             conn.execute(
                 """
@@ -509,11 +557,11 @@ def test_i6_payment_expired_authorization_timeout_reuses_active_approval_else_pe
                     new_id("evt"),
                     fixed_clock.now(),
                     TENANT_A,
-                    Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": r1.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
+                    Jsonb({"payment_intent_id": pi1_id, "invoice_id": r1.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
                     new_id("evt"),
                     fixed_clock.now(),
                     TENANT_A,
-                    Jsonb({"payment_intent_id": new_id("pi"), "invoice_id": r2.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
+                    Jsonb({"payment_intent_id": pi2_id, "invoice_id": r2.invoice_id, "reason": "AUTHORIZATION_TIMEOUT"}),
                 ),
             )
 
@@ -808,3 +856,326 @@ def test_i8_poller_checkpoints_terminal_page_and_isolates_failures(
     # Second call for ok_mailbox received after='msg_term_01' (checkpointed on terminal page!)
     ok_calls = [after for mb, after in src.inbox_calls if mb == ok_mailbox]
     assert ok_calls == [None, "msg_term_01"]
+
+
+@pytest.mark.db
+def test_b2_cross_alert_worker_serializes_with_concurrent_approval_invoice_first(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B2: concurrent approval holds invoice FOR UPDATE while cross_alert worker runs; worker waits on invoice lock,
+    reads LIVE approved state, supersedes the newly committed approval, and transitions cleanly to pending_approval.
+    """
+    import threading
+
+    syrup_xml = (DEMO_DATA_DIR / "inbox/attachments/1C26TAC_00000088.xml").read_bytes()
+    with seeded_db.connect() as conn:
+        res = ingest_invoice(
+            conn,
+            IngestCommand(
+                tenant_id=TENANT_B,
+                raw_bytes=syrup_xml,
+                filename="b2_race.xml",
+                content_type="application/xml",
+                source="email",
+            ),
+            clock=fixed_clock,
+        )
+        inv_b = res.invoice_id
+        va_b = conn.execute(
+            "SELECT vendor_account_id FROM core.vendor_accounts WHERE tenant_id = %s LIMIT 1",
+            (TENANT_B,),
+        ).fetchone()["vendor_account_id"]
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'pending_approval', severity = 'green' WHERE invoice_id = %s",
+                (inv_b,),
+            )
+        publish_cross_alert(
+            conn,
+            indicators=[{"kind": "tax_id", "value_hash": hash_tax_id_indicator("0999090001")}],
+            reason_codes=["PERSONAL_ACCOUNT"],
+            published_by="stf_01",
+            clock=fixed_clock,
+        )
+
+    apv_id = new_id("apv")
+    lock_acquired = threading.Event()
+    worker_started = threading.Event()
+    worker_error: list[BaseException] = []
+
+    def _run_worker() -> None:
+        try:
+            lock_acquired.wait(timeout=5)
+            worker_started.set()
+            with worker_db.connect() as wconn:
+                process_core_outbox_once(wconn, RecordingGate(), clock=fixed_clock)
+        except BaseException as exc:
+            worker_error.append(exc)
+
+    t = threading.Thread(target=_run_worker)
+    t.start()
+
+    # Simulate merchant_api.approve_invoice holding FOR UPDATE on core.invoices, inserting approval, updating to approved
+    with seeded_db.connect() as mconn:
+        with mconn.transaction():
+            mconn.execute(
+                "SELECT * FROM core.invoices WHERE tenant_id = %s AND invoice_id = %s FOR UPDATE",
+                (TENANT_B, inv_b),
+            ).fetchone()
+            lock_acquired.set()
+            worker_started.wait(timeout=5)
+            # Give worker thread a moment to reach SELECT ... FOR UPDATE on core.invoices
+            import time as _time
+            _time.sleep(0.15)
+            mconn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at
+                )
+                VALUES (%s, %s, %s, %s, 'active', 8800000, %s, 'bank_transfer', %s, 'single', %s)
+                """,
+                (apv_id, TENANT_B, inv_b, res.job_id, va_b, "a" * 64, fixed_clock.now()),
+            )
+            mconn.execute(
+                "UPDATE core.invoices SET status = 'approved', version = version + 1 WHERE invoice_id = %s",
+                (inv_b,),
+            )
+    t.join(timeout=10)
+    assert worker_error == []
+
+    with seeded_db.connect() as conn:
+        inv_after = conn.execute(
+            "SELECT status, verification_required, reason_codes FROM core.invoices WHERE invoice_id = %s",
+            (inv_b,),
+        ).fetchone()
+        apv_after = conn.execute(
+            "SELECT status, superseded_reason FROM core.approvals WHERE approval_id = %s",
+            (apv_id,),
+        ).fetchone()
+    # Consistent final state: invoice reverted to pending_approval with verification_required=True AND approval superseded!
+    assert inv_after["status"] == "pending_approval"
+    assert inv_after["verification_required"] is True
+    assert "CROSS_ALERT_HIT" in inv_after["reason_codes"]
+    assert apv_after["status"] == "superseded"
+    assert apv_after["superseded_reason"] == "NEW_SYSTEM_FINDING"
+
+
+@pytest.mark.db
+def test_b3_unresolved_payment_event_defers_then_resolves_via_gate_and_handles_422_nested(
+    seeded_db: Database, worker_db: Database, fixed_clock: FixedClock
+) -> None:
+    """B3: unknown approval linkage defers without transitioning or writing receipt; resolves via GET /gate/intents/{id};
+    422 nested payment_intent stores Gate's authoritative approval_id.
+    """
+    _ensure_ledger_outbox(seeded_db)
+    xml_1 = (DEMO_DATA_DIR / "inbox/attachments/1C26TTN_00001425.xml").read_bytes()
+    with seeded_db.connect() as conn:
+        r1 = ingest_invoice(
+            conn,
+            IngestCommand(tenant_id=TENANT_A, raw_bytes=xml_1, filename="b3.xml", content_type="application/xml", source="email"),
+            clock=fixed_clock,
+        )
+        va = conn.execute(
+            "SELECT vendor_account_id FROM core.vendor_accounts WHERE tenant_id = %s LIMIT 1",
+            (TENANT_A,),
+        ).fetchone()["vendor_account_id"]
+        apv_id = new_id("apv")
+        pi_unresolved = new_id("pi")
+        evt_fail = new_id("evt")
+        with conn.transaction():
+            conn.execute("UPDATE core.invoices SET status = 'paying' WHERE invoice_id = %s", (r1.invoice_id,))
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at
+                )
+                VALUES (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                """,
+                (apv_id, TENANT_A, r1.invoice_id, r1.job_id, va, "f" * 64, fixed_clock.now()),
+            )
+            conn.execute(
+                """
+                INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                VALUES (%s, 'payment.failed', %s, %s, %s)
+                """,
+                (evt_fail, fixed_clock.now(), TENANT_A, Jsonb({"payment_intent_id": pi_unresolved, "invoice_id": r1.invoice_id, "failure_code": "TIMEOUT"})),
+            )
+
+    # Tick 1: Gate does NOT know pi_unresolved yet -> MUST defer (no status change, no receipt!)
+    gate_lookup = RecordingGate()
+    with worker_db.connect() as wconn:
+        n1 = process_ledger_outbox_once(wconn, gate_client=gate_lookup, clock=fixed_clock)
+        inv1 = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()
+        rcpt1 = wconn.execute("SELECT 1 FROM core.outbox_receipts WHERE source = 'ledger.outbox' AND event_id = %s", (evt_fail,)).fetchone()
+    assert n1 == 0
+    assert inv1["status"] == "paying"
+    assert rcpt1 is None
+
+    # Tick 2: Gate GET /intents/{id} now returns authoritative approval_id -> event processes cleanly and writes receipt!
+    gate_lookup.authorized_by_invoice[r1.invoice_id] = [
+        {"payment_intent_id": pi_unresolved, "invoice_id": r1.invoice_id, "approval_id": apv_id, "status": "failed"}
+    ]
+    with worker_db.connect() as wconn:
+        n2 = process_ledger_outbox_once(wconn, gate_client=gate_lookup, clock=fixed_clock)
+        inv2 = wconn.execute("SELECT status FROM core.invoices WHERE invoice_id = %s", (r1.invoice_id,)).fetchone()
+        apv2 = wconn.execute("SELECT status FROM core.approvals WHERE approval_id = %s", (apv_id,)).fetchone()
+        rcpt2 = wconn.execute("SELECT 1 FROM core.outbox_receipts WHERE source = 'ledger.outbox' AND event_id = %s", (evt_fail,)).fetchone()
+    assert n2 == 1
+    assert inv2["status"] == "pending_approval"
+    assert apv2["status"] == "superseded"
+    assert rcpt2 is not None
+
+    # Part B: 422 nested payment_intent stores Gate's authoritative approval_id and does NOT call execute_intent
+    apv_new = new_id("apv")
+    pi_422 = new_id("pi")
+    with seeded_db.connect() as conn:
+        with conn.transaction():
+            conn.execute(
+                "UPDATE core.invoices SET status = 'scheduled', scheduled_for = %s WHERE invoice_id = %s",
+                (fixed_clock.today(), r1.invoice_id),
+            )
+            conn.execute(
+                """
+                INSERT INTO core.approvals (
+                    approval_id, tenant_id, invoice_id, job_id, status, amount_vnd,
+                    payee_account_id, channel, intent_hash, method, created_at
+                )
+                VALUES (%s, %s, %s, %s, 'active', 26500000, %s, 'bank_transfer', %s, 'single', %s)
+                """,
+                (apv_new, TENANT_A, r1.invoice_id, r1.job_id, va, "9" * 64, fixed_clock.now()),
+            )
+
+    class Gate422(RecordingGate):
+        def create_intent(self, *, invoice_id: str, approval_id: str) -> dict[str, Any]:
+            return {
+                "code": "GATE_DENIED",
+                "payment_intent": {
+                    "payment_intent_id": pi_422,
+                    "invoice_id": invoice_id,
+                    "approval_id": apv_id,  # Gate's authoritative approval_id (different from requested!)
+                    "status": "denied",
+                },
+            }
+
+    g422 = Gate422()
+    with worker_db.connect() as wconn:
+        execute_scheduled_payments_once(wconn, g422, clock=fixed_clock)
+        link = wconn.execute(
+            "SELECT approval_id FROM core.payment_intent_links WHERE payment_intent_id = %s",
+            (pi_422,),
+        ).fetchone()
+    assert link is not None and link["approval_id"] == apv_id
+    assert g422.executed == []
+
+
+@pytest.mark.db
+def test_b4_worker_ledger_migration_both_orders_isolated(
+    pg_dsn: str, fixed_clock: FixedClock
+) -> None:
+    """B4: test BOTH migration orders:
+    1. ledger created BEFORE Core migrations -> 005/006 grant SELECT to worker -> worker reads ledger.outbox cleanly.
+    2. Core migrations FIRST, ledger created AFTER without manual GRANT -> worker isolates ledger permission error
+       via savepoint and continues core.outbox + scheduled payments without aborting!
+    """
+    from urllib.parse import urlparse, urlunparse
+    import psycopg
+    from psycopg.rows import dict_row
+    from core.persistence.db import dsn_for_role
+    from core.persistence.migrator import apply_migrations
+    from core.persistence.seeder import load_core_seed
+
+    demo_seed_dir = DEMO_DATA_DIR / "core_seed"
+    parsed = urlparse(pg_dsn)
+
+    for order in ("ledger_first", "core_first"):
+        dbname = f"test_b4_{order}"
+        with psycopg.connect(pg_dsn, autocommit=True) as admin:
+            admin.execute(f"DROP DATABASE IF EXISTS {dbname}")
+            admin.execute(f"CREATE DATABASE {dbname}")
+        db_dsn = urlunparse(parsed._replace(path=f"/{dbname}"))
+        try:
+            with psycopg.connect(db_dsn, row_factory=dict_row) as conn:
+                if order == "ledger_first":
+                    with conn.transaction():
+                        conn.execute("CREATE SCHEMA ledger")
+                        conn.execute(
+                            """
+                            CREATE TABLE ledger.outbox (
+                                seq BIGSERIAL,
+                                event_id TEXT PRIMARY KEY,
+                                type TEXT NOT NULL,
+                                schema_version INT NOT NULL DEFAULT 1,
+                                occurred_at TIMESTAMPTZ NOT NULL,
+                                tenant_id TEXT NULL,
+                                trace_id TEXT NULL,
+                                data JSONB NOT NULL,
+                                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                            )
+                            """
+                        )
+                    apply_migrations(conn)
+                else:
+                    apply_migrations(conn)
+                    # Gate migrates later without granting SELECT to worker!
+                    with conn.transaction():
+                        conn.execute("CREATE SCHEMA ledger")
+                        conn.execute(
+                            """
+                            CREATE TABLE ledger.outbox (
+                                seq BIGSERIAL,
+                                event_id TEXT PRIMARY KEY,
+                                type TEXT NOT NULL,
+                                schema_version INT NOT NULL DEFAULT 1,
+                                occurred_at TIMESTAMPTZ NOT NULL,
+                                tenant_id TEXT NULL,
+                                trace_id TEXT NULL,
+                                data JSONB NOT NULL,
+                                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                            )
+                            """
+                        )
+                load_core_seed(conn, seed_dir=demo_seed_dir, reset=True)
+                # Insert one core.outbox event + one ledger.outbox event
+                with conn.transaction():
+                    conn.execute(
+                        """
+                        INSERT INTO core.outbox (event_id, type, schema_version, occurred_at, tenant_id, data)
+                        VALUES (%s, 'indicator.flagged', 1, %s, NULL, %s)
+                        """,
+                        (
+                            new_id("evt"),
+                            fixed_clock.now(),
+                            Jsonb(
+                                {
+                                    "indicators": [{"kind": "tax_id", "value_hash": hash_tax_id_indicator("0999888777")}],
+                                    "reason_codes": ["OFFICIAL_FRAUD_LIST"],
+                                    "source": "finding",
+                                    "source_ref": "srf_b4",
+                                }
+                            ),
+                        ),
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO ledger.outbox (event_id, type, occurred_at, tenant_id, data)
+                        VALUES (%s, 'payment.noop', %s, NULL, '{}'::jsonb)
+                        """,
+                        (new_id("evt"), fixed_clock.now()),
+                    )
+
+            wdb = Database(dsn_for_role(db_dsn, "worker", "worker_dev"))
+            stats = run_worker_tick(wdb, source_port=None, gate_client=RecordingGate(), clock=fixed_clock)
+            assert stats["core_events"] == 1
+            if order == "ledger_first":
+                assert stats["ledger_events"] == 1
+            else:
+                # Worker skipped unreadable ledger.outbox via savepoint and did NOT fail or roll back core_events!
+                assert stats["ledger_events"] == 0
+                with wdb.connect() as wconn:
+                    inds = wconn.execute("SELECT COUNT(*) AS cnt FROM risk.indicators").fetchone()
+                assert inds["cnt"] == 1
+        finally:
+            with psycopg.connect(pg_dsn, autocommit=True) as admin:
+                admin.execute(f"DROP DATABASE IF EXISTS {dbname}")
