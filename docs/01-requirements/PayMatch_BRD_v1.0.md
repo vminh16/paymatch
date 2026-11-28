@@ -15,15 +15,15 @@
 
 ## 1. Tóm tắt
 
-**Vấn đề:** chủ chuỗi cửa hàng nhỏ phải tự duyệt khoảng 200 hóa đơn nhà cung cấp mỗi tháng. Tiền có thể mất theo năm cách: bị tính đắt ngầm, chuyển nhầm cho kẻ gian, mua của công ty rủi ro thuế, tiền điện nước bị trừ vô tội vạ, và mất thời gian đối soát thủ công.
+**Vấn đề:** chủ chuỗi cửa hàng nhỏ phải kiểm tra và duyệt nhiều hóa đơn nhà cung cấp trong khi dữ liệu mua hàng, giao nhận và thanh toán còn phân tán. Khảo sát của MoMo trên **203 doanh nghiệp nhỏ** cho thấy phần lớn vẫn quản lý đơn hàng, kho, kế toán và tài chính theo cách thủ công [M3]. Trong kịch bản của bản BRD này, đội giả định khối lượng khoảng **200 hóa đơn nhà cung cấp/tháng**. Từ bài toán đó, PayMatch tập trung vào năm nhóm vấn đề: bị tính giá cao hơn thỏa thuận, chuyển tiền cho kẻ gian, giao dịch với nhà cung cấp rủi ro thuế, thanh toán hóa đơn điện nước bất thường, và tốn thời gian đối soát thủ công. Cơ sở và ví dụ cho từng nhóm được trình bày tại mục 3.1.
 
 **Giải pháp:** PayMatch là một kế toán AI chạy trên MoMo Doanh Nghiệp. AI đọc hóa đơn, so với hợp đồng, soát người nhận tiền, rồi gom tất cả thành vài dòng cần chủ chuỗi quyết. Tiền chỉ được trả khi **mọi thứ khớp**. Lệnh trả do một khóa an toàn bằng code phát ra, không phải do AI.
 
-**Giá trị:**
+**Giá trị mang lại:**
 - Chủ chuỗi: ít mất tiền hơn, ít thời gian hơn.
 - MoMo: giữ dòng tiền của merchant trong hệ sinh thái, phát hiện kẻ gian trên toàn mạng lưới, có dữ liệu sạch để cho vay vốn nhập hàng.
 
-**Một câu:** *AI kiểm tra từng hóa đơn; tiền chỉ đi khi khớp; cái gì lạ thì giữ lại cho chủ quyết.*
+**Ý nghĩa:** *AI hỗ trợ kiểm tra từng hóa đơn; tiền chỉ được chi khi kết quả đối chiếu và các điều kiện thanh toán đều đáp ứng yêu cầu; khoản có dấu hiệu bất thường được giữ lại để con người xem xét và quyết định.*
 
 ---
 
@@ -42,36 +42,38 @@
 
 ## 3. Vấn đề cần giải quyết
 
-### 3.1. Năm nỗi đau
+### 3.1. Năm pain point
 
-**Nỗi đau 1: bị tính đắt ngầm.**
+**Pain point 1: bị tính đắt ngầm.**
 - **Chuyện gì xảy ra:** nhà cung cấp nhích đơn giá vài phần trăm, hoặc **đổi quy cách đóng gói** mà giữ gần như nguyên giá. Ví dụ: thùng cốc từ 1.000 cái xuống 800 cái.
 - **Vì sao khó phát hiện:** mỗi nhà cung cấp ghi tên hàng một kiểu; kế toán phải so tay với hợp đồng; nhìn tổng tiền thì tưởng còn rẻ hơn.
 - **Thiệt hại (minh họa):** 20 thùng cốc giá 1.120.000đ/thùng 800 cái, tức 1.400đ/cái, trong khi hợp đồng là 1.150đ/cái. Chuỗi trả thừa **4.000.000đ mỗi đợt**, khoảng **8 triệu/tháng** nếu nhập 2 đợt.
 
-**Nỗi đau 2: chuyển nhầm cho kẻ gian.**
+**Pain point 2: chuyển nhầm cho kẻ gian.**
 - **Chuyện gì xảy ra:** Zalo hoặc email của nhà cung cấp quen, thậm chí của chính chủ quán, bị chiếm. Kẻ gian nhắn: "Tài khoản công ty đang lỗi, chuyển gấp vào số này."
 - **Bằng chứng:** có vụ Zalo của lãnh đạo bị chiếm rồi gửi QR giả để nhân viên chuyển tiền [D6]; ngân hàng cảnh báo các dấu hiệu như đổi thông tin thanh toán đột ngột, chuyển từ tài khoản doanh nghiệp sang tài khoản cá nhân [D5]. Trên thế giới, 74% doanh nghiệp Mỹ gặp lừa đảo qua email doanh nghiệp (BEC) trong năm 2025 [D8].
 - **Thiệt hại:** cả một khoản thanh toán, thường hàng chục triệu, gần như không đòi lại được.
 
-**Nỗi đau 3: mua của công ty "ma" hoặc rủi ro thuế.**
+**Pain point 3: mua của công ty "ma" hoặc rủi ro thuế.**
 - **Chuyện gì xảy ra:** người bán mới chào giá rẻ bất thường, đòi cọc vào tài khoản cá nhân; hoặc nhà cung cấp nằm trong danh sách doanh nghiệp rủi ro về thuế và hóa đơn.
 - **Bằng chứng:** danh sách doanh nghiệp rủi ro cao về thuế và hóa đơn đã có hơn 6.042 đơn vị [D9]; hóa đơn từ những nơi này có thể bị loại khỏi chi phí được trừ, làm tăng thuế phải nộp [D10].
 - **Thiệt hại:** mất tiền cọc, **và** có thể bị loại chi phí khi quyết toán thuế.
 
-**Nỗi đau 4: tiền điện nước bị trừ vô tội vạ.**
-- **Chuyện gì xảy ra:** bật trả tự động thì hóa đơn nào cũng bị trừ. Đặt hạn mức cố định thì hoặc chặn nhầm tháng cao điểm, hoặc vẫn lọt tháng bất thường.
-- **Thiệt hại (minh họa):** quán 3 rò ống, tiền nước 4,2 triệu thay vì khoảng 700 nghìn; vừa mất 3,5 triệu, vừa không ai biết để đi sửa.
+**Pain point 4: hóa đơn điện nước tăng bất thường nhưng vẫn được thanh toán.**
+- **Chuyện gì xảy ra:** khi thanh toán tự động chỉ dựa vào hạn mức tiền, hóa đơn tăng bất thường vẫn có thể được trả nếu chưa vượt trần. Chủ chuỗi chỉ phát hiện sau khi tiền đã bị trừ và chưa biết chi nhánh nào cần kiểm tra.
+- **Vì sao khó phát hiện:** mức sử dụng hợp lý phụ thuộc vào từng quán, mùa vụ và lượng khách. Một hạn mức cố định không cho biết tiền điện nước tăng do kinh doanh đông hơn hay do sự cố. Cần đối chiếu với lịch sử 12 tháng và doanh thu của đúng chi nhánh để nhận diện khoản cần xác minh.
+- **Thiệt hại (minh họa):** tiền nước quán 3 tăng từ mức thường khoảng 700 nghìn lên 4,2 triệu, chênh **3,5 triệu đồng**, trong khi doanh thu không tăng tương ứng. Nếu nguyên nhân là rò ống, việc phát hiện muộn còn khiến nước tiếp tục thất thoát. Chênh lệch này là tín hiệu cần kiểm tra, chưa đủ để kết luận có rò rỉ hoặc hóa đơn bị tính sai.
 
-**Nỗi đau 5: mất thời gian và dễ sai.**
-- **Chuyện gì xảy ra:** mỗi lần nhập hàng kéo theo hàng loạt việc: kiểm đơn, đối soát giao nhận, lưu chứng từ, tổng hợp chi phí [D11]. Chủ chuỗi phải duyệt chi vào buổi tối cuối tuần.
-- **Thiệt hại:** mất vài giờ mỗi tuần; người làm mệt thì dễ bỏ sót đúng những lỗi ở nỗi đau 1–4.
+**Pain point 5: đối soát thủ công tốn thời gian, khiến việc duyệt chi dễ bỏ sót vấn đề.**
+- **Chuyện gì xảy ra:** mỗi lần nhập hàng kéo theo việc kiểm đơn, đối soát giao nhận, lưu chứng từ và tổng hợp chi phí [D11]. Kế toán phải mở nhiều nguồn để so từng hóa đơn với hợp đồng, đơn đặt hàng, phiếu nhận hàng và tài khoản nhà cung cấp, rồi chuẩn bị danh sách cho chủ chuỗi duyệt. Tình trạng doanh nghiệp nhỏ còn vận hành thủ công cũng được ghi nhận trong khảo sát của MoMo [M3].
+- **Vì sao khó xử lý:** khi hóa đơn đúng và hóa đơn có vấn đề cùng nằm trong một danh sách, chủ chuỗi vẫn phải đọc lại nhiều chứng từ để biết khoản nào cần chú ý và vì sao. Chỉ một cảnh báo chung chung chưa đủ để quyết định nếu thiếu dòng sai và bằng chứng đối chiếu.
+- **Hệ quả:** công việc kiểm tra bị lặp lại giữa kế toán và chủ chuỗi, có thể làm chậm thanh toán và tăng khả năng bỏ sót các vấn đề ở pain point 1–4. Thời gian xử lý thực tế và mức tiết kiệm của PayMatch cần đo bằng phỏng vấn, thử nghiệm theo mục 4 và mục 12.
 
 ### 3.2. Nguyên nhân gốc rễ
 
-1. **Thông tin nằm rải rác:** hóa đơn ở email, hợp đồng ở file, tài khoản nhà cung cấp ở Zalo, tiền ở MoMo và ngân hàng. Không có nơi nào **ghép chúng lại trước khi trả tiền**.
-2. **Kiểm tra dựa vào người:** người mệt, người vội, người tin tin nhắn quen.
-3. **Công cụ hiện có kiểm tra sau, không chặn trước:** phần mềm kế toán kiểm hóa đơn để kê khai thuế, tức là sau khi tiền đã đi (mục 3.3).
+1. **Thiếu đối chiếu giữa các nguồn trước khi chi:** hóa đơn nằm trong email, hợp đồng và đơn đặt hàng nằm trong các file riêng, còn phiếu nhận hàng và yêu cầu thanh toán được gửi qua nhiều kênh. Người kiểm tra phải tự ghép các thông tin này để xác định hàng đã nhận đủ chưa, giá có đúng không và người nhận tiền có hợp lệ không. Khi thiếu một nguồn hoặc dùng bản cũ, kết quả đối chiếu có thể sai.
+2. **Quy trình phụ thuộc nhiều vào thao tác và phán đoán của con người:** kế toán và chủ chuỗi phải lặp lại các bước kiểm tra cho nhiều hóa đơn. Áp lực thời gian, sự mệt mỏi hoặc tin tưởng người gửi quen có thể khiến họ bỏ qua chênh lệch nhỏ hay chấp nhận yêu cầu đổi tài khoản mà chưa xác minh qua số liên hệ đã lưu.
+3. **Kết quả kiểm tra chưa gắn chặt với điều kiện phát lệnh thanh toán:** trong quy trình đang xét, công cụ kế toán hỗ trợ kiểm tra chứng từ, còn công cụ thanh toán thực hiện lệnh chi theo thông tin được nhập hoặc hạn mức đã đặt. Nếu hai bước này chưa được liên kết, một cảnh báo trên chứng từ vẫn có thể bị bỏ qua khi chuyển tiền. PayMatch cần biến kết quả đối chiếu, tài khoản đã xác minh, quyền duyệt và hạn mức thành **điều kiện bắt buộc được kiểm tra ngay trước khi chi**.
 
 ### 3.3. Vì sao các giải pháp hiện có chưa đủ
 
@@ -82,10 +84,11 @@
 | Ngân hàng cảnh báo tài khoản đáng ngờ | Cảnh báo tài khoản đã bị báo cáo lừa đảo | Không biết tài khoản đó có phải của nhà cung cấp của bạn không; không so với hợp đồng |
 | Kế toán làm tay | Linh hoạt | Chậm, mệt, dễ sai, dễ bị lừa bởi tin nhắn quen |
 
-### 3.4. Vì sao là lúc này
-- **Dữ liệu đã có sẵn dạng máy đọc được:** hóa đơn điện tử XML.
-- **Có khung pháp lý cho AI thanh toán:** Thông tư 53/2026 có hiệu lực từ 15/11/2026, đặt ngưỡng rủi ro cao cho khách tổ chức khi AI tự thanh toán là trên 50 triệu/lần và trên 100 triệu/ngày [L1].
-- **AI đã đủ tốt để đọc và khớp hàng hóa** mà không cần huấn luyện riêng [P1], nhưng **vẫn có thể bị lừa** [P7, P8]. Đây đúng là lúc cần một sản phẩm biết dùng AI một cách an toàn.
+### 3.4. Vì sao dự án phù hợp tại thời điểm này?
+- **Dữ liệu đầu vào đã có thể xử lý tự động:** hóa đơn điện tử XML có cấu trúc để code trích xuất các trường và kiểm tra số liệu, tạo cơ sở đối chiếu với hợp đồng và chứng từ giao nhận. PayMatch ưu tiên nguồn này trong v1; chi tiết định dạng và mẫu thực tế được mô tả trong [tài liệu hóa đơn XML](../04-data/einvoice-xml.md).
+- **Khung quản lý rủi ro AI trong ngành ngân hàng đã cụ thể hơn:** Thông tư 53/2026/TT-NHNN có hiệu lực từ **15/11/2026**, quy định về an toàn, quản lý rủi ro và điều kiện triển khai hệ thống AI [L5]. Đây là cơ sở để PayMatch thiết kế quyền tự động hóa có giới hạn, cơ chế giám sát và khả năng can thiệp của con người. Khi triển khai thực tế, sản phẩm vẫn cần được đối chiếu đầy đủ với các điều kiện áp dụng.
+- **LLM có tiềm năng hỗ trợ khớp các mô tả hàng hóa khác nhau:** nghiên cứu về khớp thực thể cho thấy một số mô hình đạt kết quả tốt với ít hoặc không có ví dụ huấn luyện theo tác vụ, nhưng kết quả phụ thuộc mô hình, dữ liệu và cách đặt prompt [P1]. Điều này tạo cơ sở để thử nghiệm việc khớp tên hàng trên hóa đơn với hợp đồng; **độ chính xác trên dữ liệu PayMatch phải được đánh giá bằng bộ ca thử**.
+- **Nhu cầu kiểm soát AI đi cùng nhu cầu tự động hóa:** các nghiên cứu về prompt injection cho thấy nội dung bên ngoài có thể thao túng agent sử dụng công cụ [P7, P8]. Vì vậy, PayMatch thiết kế AI để điều tra và giải thích, đồng thời dùng **code kiểm tra điều kiện chi tiền** và giữ **quyền duyệt, giám sát của con người**. Cách phân công này phù hợp với một quy trình tài chính cần cả hiệu quả xử lý lẫn khả năng kiểm soát.
 
 ---
 
@@ -127,7 +130,7 @@
 - **Hôm nay:** xử lý khiếu nại **sau khi** merchant đã mất tiền.
 - **Với PayMatch:** thấy kẻ gian **trước khi** tiền đi, trên hàng nghìn cửa hàng cùng lúc. Một lần phát hiện bảo vệ được mọi cửa hàng khác.
 
-Đây là phần "Future Workspace" của đề tài: AI làm việc đọc và kiểm tra; con người chuyển sang làm việc quyết định và giám sát.
+Đây là cách PayMatch thể hiện định hướng **"Future Workspace"** của đề tài: các AI agent chuyên môn hỗ trợ điều tra hóa đơn, khớp thông tin hàng hóa với hợp đồng, phân tích dấu hiệu bất thường và tổng hợp bằng chứng thành tờ trình để hỗ trợ quyết định. **Con người thiết lập phạm vi ủy quyền, xác minh các khoản cần làm rõ, phê duyệt theo thẩm quyền và giám sát rủi ro**; **code thực hiện các phép tính, gộp mức rủi ro và kiểm tra điều kiện trước khi phát lệnh thanh toán**.
 
 ---
 
@@ -175,22 +178,22 @@
 ### TN1 — Đọc hóa đơn và so với hợp đồng
 - **AI làm:** đọc tên hàng ghi tự do, nhận ra đó là mặt hàng nào trong hợp đồng, tách quy cách (thùng bao nhiêu cái, chai bao nhiêu ml).
 - **Code làm:** quy về giá của một cái, so với hợp đồng, đối chiếu lại mọi con số trên file XML gốc.
-- **Giải quyết:** nỗi đau 1 (bị tính đắt ngầm), nỗi đau 5 (đối soát thủ công).
+- **Giải quyết:** pain point 1 (bị tính đắt ngầm), pain point 5 (đối soát thủ công).
 
 ### TN2 — Soát người nhận tiền và tin nhắn lạ
 - **AI làm:** đọc ghi chú, email, tin nhắn đi kèm; nhận ra chiêu hối thúc, đổi tài khoản, đòi cọc vào tài khoản cá nhân, câu lệnh giấu dành cho AI.
 - **Code làm:** chỉ chấp nhận tài khoản **đã xác minh từ trước** và khớp mã số thuế; tra danh sách doanh nghiệp rủi ro.
-- **Giải quyết:** nỗi đau 2 (chuyển nhầm cho kẻ gian), nỗi đau 3 (công ty rủi ro).
+- **Giải quyết:** pain point 2 (chuyển nhầm cho kẻ gian), pain point 3 (công ty rủi ro).
 
 ### TN3 — Canh hóa đơn điện nước
 - **Code làm:** tính khoảng bình thường của từng quán từ 12 tháng trước.
 - **AI làm:** viết một câu dễ hiểu khi có bất thường, ví dụ: "Tiền nước quán 3 tháng này gấp khoảng 6 lần bình thường, có thể bị rò ống."
-- **Giải quyết:** nỗi đau 4.
+- **Giải quyết:** pain point 4.
 
 ### TN4 — Trợ lý duyệt chi
 - **AI làm:** gom mọi hóa đơn thành ba màu; mỗi dòng vàng/đỏ có một câu lý do và **chỉ thẳng vào dòng sai trên hóa đơn gốc**.
 - **Chủ chuỗi làm:** bấm "Duyệt" hoặc "Từ chối".
-- **Giải quyết:** nỗi đau 5; giữ con người là người quyết định cuối cùng.
+- **Giải quyết:** pain point 5; giữ con người là người quyết định cuối cùng.
 
 ### TN5 — Khóa an toàn và cách trả tiền an toàn (không phải AI)
 - Lệnh trả chỉ phát khi khớp hợp đồng, đúng tài khoản đã xác minh, trong ngân sách và hạn mức.
@@ -208,7 +211,7 @@
 
 ## 9. Yêu cầu nghiệp vụ
 
-| Mã | Yêu cầu | Ưu tiên | Nỗi đau |
+| Mã | Yêu cầu | Ưu tiên | Pain point |
 |---|---|---|---|
 | BR-01 | Hệ thống phải tự nhận hóa đơn từ email nhận hóa đơn riêng của chuỗi và từ file XML tải lên | Bắt buộc | 5 |
 | BR-02 | Hệ thống phải nhận ra mặt hàng trên hóa đơn tương ứng với mặt hàng nào trong hợp đồng, kể cả khi tên ghi khác nhau | Bắt buộc | 1 |
@@ -353,6 +356,7 @@
 - L2. Thông tư 53/2026, thỏa thuận ký điện tử — https://luatvietnam.vn/legal-updates/circular-no-53-2026-tt-nhnn-ai-automated-payments-for-individual-customers-must-not-exceed-vnd-100-million-per-day-892-113479-article.html
 - L3. Thông tư 25/2025/TT-NHNN (tài khoản đúng tên tổ chức, hộ kinh doanh)
 - L4. Nghị định 254/2026/NĐ-CP (hóa đơn điện tử từ 01/7/2026)
+- L5. Cổng Thông tin điện tử Chính phủ, Thông tư 53/2026/TT-NHNN (kèm văn bản gốc; ban hành 30/09/2026, hiệu lực 15/11/2026) — https://chinhphu.vn/?docid=219813&pageid=27160
 
 **Đối thủ**
 - C1. MISA AMIS, cảnh báo nhà cung cấp rủi ro — https://helpact.misa.vn/?p=32001
